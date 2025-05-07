@@ -7,7 +7,7 @@ m    - number of experiments.
 fusion - boolean deiciding whether we build the fusion or standard problem.
 corr - boolean deciding whether we build the independent or correlated data.   
 """
-function build_data(seed, m, n, fusion, corr; scaling_C=false)
+function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false)
     @show scaling_C
     # set up
     Random.seed!(seed)
@@ -37,14 +37,17 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false)
         ub = rand(1.0:u, m)
     end
         
+    if zero_one
+        A, C, N, fill(1.0, m), C_hat
+    else
     return A, C, N, ub, C_hat
 end
 
 """
 Build LMO for the problems. Used in Boscia and SCIP. 
 """
-function build_lmo(o, m, N, ub)
-    MOI.set(o, MOI.Silent(), false)
+function build_lmo(o, m, N, ub; silent=false)
+    MOI.set(o, MOI.Silent(), silent)
     MOI.empty!(o)
     x = MOI.add_variables(o, m)
     for i in 1:m
@@ -193,10 +196,11 @@ function build_d_criterion(A, fusion; μ =0.0, C=nothing, build_safe=false, long
     return f_d, grad_d!
 end
 
-function build_general_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
+function build_general_log_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
     m, n = size(A) 
-    a = 1
+    a=1
     domain_oracle = build_domain_oracle(A, n)
+    @assert p > 0
 
     if fusion && C === nothing
         @error("For the fusion problem, please provide a matrix C.")
@@ -205,19 +209,20 @@ function build_general_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
     function f_gti(x)
         X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
         X= Symmetric(X)
-        if p == 0
-            return -log(det(X))
-        end
-        return -1/p * log(LinearAlgebra.tr(Symmetric(X^p))) # 1/n *
+        U = cholesky(X)
+        X_inv = U \ I
+        return log(LinearAlgebra.tr(Symmetric(X_inv^(p)))) # 1/n *
     end
 
     function grad_gti!(storage, x)
         X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
         X=Symmetric(X)
-        a = p == 0 ? -1 : -1/(LinearAlgebra.tr(Symmetric(X^p)))
-        X =Symmetric(X^(p-1))
+        U = cholesky(X)
+        X_inv = U \ I
+        a = -p/(LinearAlgebra.tr(Symmetric(X_inv^(p))))
+        X =Symmetric(X_inv^(p+1))
         for i in 1:m
-            storage[i] = a* A[i,:]' * X * A[i,:]
+            storage[i] = a * A[i,:]' * X * A[i,:]
         end
         return storage
     end
@@ -228,10 +233,9 @@ function build_general_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
         end
         X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
         X= Symmetric(X)
-        if p == 0
-            return -log(det(1/n*X))
-        end
-        return -1/p * log(LinearAlgebra.tr(Symmetric(X^p))) # 1/n *
+        U = cholesky(X)
+        X_inv = U \ I
+        return log(LinearAlgebra.tr(Symmetric(X_inv^(p)))) # 1/n *
     end
 
     function grad_gti_safe!(storage, x)
@@ -240,10 +244,75 @@ function build_general_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
         end
         X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
         X=Symmetric(X)
-        a = p == 0 ? -1 : -1/(LinearAlgebra.tr(Symmetric(X^p)))
-        X =Symmetric(X^(p-1))
+        U = cholesky(X)
+        X_inv = U \ I
+        a = -p/(LinearAlgebra.tr(Symmetric(X_inv^(p))))
+        X =Symmetric(X_inv^(p+1))
         for i in 1:m
-            storage[i] = a* A[i,:]' * X * A[i,:]
+            storage[i] = a * A[i,:]' * X * A[i,:]
+        end
+        return storage
+    end
+
+    if build_safe
+        return f_gti_safe, grad_gti_safe!
+    end
+
+    return f_gti, grad_gti!
+end
+
+function build_general_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
+    m, n = size(A) 
+    a=1
+    domain_oracle = build_domain_oracle(A, n)
+    @assert p > 0
+
+    if fusion && C === nothing
+        @error("For the fusion problem, please provide a matrix C.")
+    end
+
+    function f_gti(x)
+        X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
+        X= Symmetric(X)
+        U = cholesky(X)
+        X_inv = U \ I
+        return LinearAlgebra.tr(Symmetric(X_inv^(p))) # 1/n *
+    end
+
+    function grad_gti!(storage, x)
+        X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
+        X =Symmetric(X)
+        U = cholesky(X)
+        X_inv = U \ I
+        X =Symmetric(X_inv^(p+1))
+        for i in 1:m
+            storage[i] = (-p) * A[i,:]' * X * A[i,:]
+        end
+        return storage
+    end
+
+    function f_gti_safe(x)
+        if !domain_oracle(x)
+            return Inf
+        end
+        X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
+        X= Symmetric(X)
+        U = cholesky(X)
+        X_inv = U \ I
+        return LinearAlgebra.tr(Symmetric(X_inv^(p))) # 1/n *
+    end
+
+    function grad_gti_safe!(storage, x)
+        if !domain_oracle(x)
+            return fill(Inf, length(x))        
+        end
+        X = fusion ? C + transpose(A)*diagm(x)*A : transpose(A)*diagm(x)*A + Matrix(μ *I, n, n)
+        X =Symmetric(X)
+        U = cholesky(X)
+        X_inv = U \ I
+        X =Symmetric(X_inv^(p+1))
+        for i in 1:m
+            storage[i] =(-p) * A[i,:]' * X * A[i,:]
         end
         return storage
     end
@@ -423,6 +492,20 @@ function add_to_min(x, u)
     return x
 end
 
+function add_to_min2(x,u)
+    perm = sortperm(x)
+    
+    for i in perm
+        if x[i] < u[i]
+            x[i] += 1
+            break
+        else
+            continue
+        end
+    end
+    return x
+end
+
 function remove_from_max(x)
     perm = sortperm(x, rev = true)
     j = findlast(x->x != 0, x[perm])
@@ -444,6 +527,9 @@ Find n linearly independent rows of A to build the starting point.
 function linearly_independent_rows(A, m ,n)
     S = []
     for i in 1:m
+        if iszero(ub[i])
+            continue
+        end
         S_i= vcat(S, i)
         if rank(A[S_i,:])==length(S_i)
             S=S_i
@@ -490,6 +576,55 @@ function build_start_point2(A, m, n, N, ub)
 
     return x, active_set, S
 end
+
+"""
+Build domain feasible for any node.
+"""
+function build_domain_point_function(domain_oracle, A, N, int_vars, initial_lb, initial_ub)
+    return function domain_point(local_bounds)
+        lb = copy(initial_lb)
+        ub = copy(initial_ub)
+        for idx in int_vars
+            if haskey(local_bounds.lower_bounds, idx)
+                lb[idx] = max(initial_lb[idx], local_bounds.lower_bounds[idx])
+            end
+            if haskey(local_bounds.upper_bounds, idx)
+                ub[idx] = min(initial_ub[idx], local_bounds.upper_bounds[idx])
+            end
+        end
+        # Node itself infeasible
+        if sum(lb) > N 
+            println("Node itself infeasible")
+            return nothing
+        end
+        # No intersection between node and domain
+        if !domain_oracle(ub)
+            println("No intersection node and domain")
+            return nothing
+        end
+        x = lb
+        m, n = size(A)
+        S = linearly_independent_rows(A, m, n, ub=.!(iszero.(ub)))
+
+        while sum(x) <= N
+            if sum(x) == N 
+                if domain_oracle(x)
+                    return x 
+                else 
+                    println("No intersection node and domain")
+                    return nothing 
+                end 
+            end
+            if !iszero(ub[S]-x[S])
+                y = add_to_min2(x[S], ub[S])
+                x[S] = y
+            else
+                x = add_to_min2(x, ub)
+            end
+        end
+    end
+end
+
 
 """
 Create first incumbent for Boscia and custom BB in a greedy fashion.
@@ -565,3 +700,5 @@ function isfeasible(seed, m, n, criterion, x, corr; N=0)
         return true
    end
 end
+
+  
