@@ -1,14 +1,19 @@
 # Optimal design with SCIP
 function solve_opt_scip(seed, m, n, time_limit, criterion, corr; p=0, write=true, verbose=true, long_run=false, specific_seed = false)
-    if criterion in ["A","D"]
+    if criterion in ["A","D","GTI"]
+        #A, C, N, ub, _ =build_data(seed, m, n, false, corr)
+        #f, grad! = build_a_criterion(A, false)
        error("SCIP OA only works with the Fusion Problems")
     elseif criterion == "AF"
         A, C, N, ub, _ = build_data(seed, m, n, true, corr)
         f, grad! = build_a_criterion(A, true, C=C)
-        #f, grad! = build_general_trace(A, -1, true, C=C) # Log(Tr(X^{-1}))
+        #f, grad! = build_general_trace(A, -1, true, C=C)
     elseif criterion == "DF"
         A, C, N, ub, _ = build_data(seed, m, n, true, corr)
         f, grad! = build_d_criterion(A, true, C=C)
+    elseif criterion == "GTIF"
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        f, grad! = build_general_trace(A, p, true, C=C)
     else
         error("Invalid criterion!")
     end
@@ -32,19 +37,24 @@ function solve_opt_scip(seed, m, n, time_limit, criterion, corr; p=0, write=true
     type = corr ? "correlated" : "independent"
 
     if write 
-        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N,time=time_scip, solution=solution_scip, dual=dual_objective, termination=termination_scip, calls=ncalls_scip)
-        if long_run
-            file_name = "/home/htc/dhendryc/research_projects/MasterThesis/optDesign/csv/SCIP/long_run/scip_" * criterion * "_" * string(m) * "_" * type * "_optimality" * ".csv"
-        elseif specific_seed
-            file_name = file_name = "/home/htc/dhendryc/research_projects/MasterThesis/optDesign/csv/SCIP/scip_" * criterion * "_" * string(m) * "_" * string(n) * "_" * type * "_optimality_" * string(seed) * ".csv"
+        subfolder = if criterion in ["GTIF"]
+            "GTI"
+        elseif long_run 
+            "long_runs"
         else
-            file_name = "/home/htc/dhendryc/research_projects/MasterThesis/optDesign/csv/SCIP/scip_" * criterion * "_" * string(m) * "_" * type * "_optimality_" * ".csv"
+            ""
         end
-        if !isfile(file_name)
-            CSV.write(file_name, df, append=true, writeheader=true)
-        else 
-            CSV.write(file_name, df, append=true)
+        if criterion in ["GTIF"]
+            criterion = criterion * "_" * string(Int64(p*100))
         end
+        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N,time=time_scip, solution=solution_scip, dual=dual_objective, termination=termination_scip, calls=ncalls_scip)
+        file_name = joinpath(@__DIR__, "../csv/SCIP/" * subfolder * "scip_" * criterion * "_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv")
+        CSV.write(file_name, df, append=false)
+        #if !isfile(file_name)
+        #    CSV.write(file_name, df, append=true, writeheader=true)
+        #else 
+        #    CSV.write(file_name, df, append=true)
+        #end
     end
     return vars_scip
 end
@@ -67,3 +77,8 @@ function build_scip_optimizer(m, N, ub, limit, f, grad!, verbose)
     
     return lmo, epigraph_ch, x, lmo_check
 end
+
+
+
+  
+
