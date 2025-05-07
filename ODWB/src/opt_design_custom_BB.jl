@@ -15,10 +15,11 @@ mutable struct CustomBBNode <: Bonobo.AbstractNode
     iteration_count::Int64
 end
 
-mutable struct ConstrainedBoxMIProblem{F,G,L}
+mutable struct ConstrainedBoxMIProblem{F,G,L,D}
     f::F
     grad::G
     linesearch::L
+    domain_oralce::D
     nvars::Int64
     integer_vars::Vector{Int64}
     N::Float64
@@ -28,8 +29,8 @@ mutable struct ConstrainedBoxMIProblem{F,G,L}
     Stage::Boscia.Solve_Stage
 end
 
-ConstrainedBoxMIProblem(f, g, linesearch, n, int_vars, N, time_limit) =
-    ConstrainedBoxMIProblem(f, g, linesearch, n, int_vars, N, time_limit, 1e-2, 1e-6, Boscia.SOLVING)
+ConstrainedBoxMIProblem(f, g, linesearch, domain_oracle, n, int_vars, N, time_limit) =
+    ConstrainedBoxMIProblem(f, g, linesearch, domain_oracle, n, int_vars, N, time_limit, 1e-2, 1e-6, Boscia.SOLVING)
 
     """
 Returns the solution vector of the relaxed node problem.
@@ -47,6 +48,8 @@ function Bonobo.get_branching_nodes_info(tree::Bonobo.BnBTree{<:CustomBBNode}, n
     N = tree.root.N
     @assert node.lower_bounds[vidx] < node.upper_bounds[vidx] "Branching lb: $(node.lower_bounds[vidx]) ub: $(node.upper_bounds[vidx]) x[vidx]=$(x[vidx])"
     frac_val = x[vidx]
+
+    #@show frac_val, w[vidx], node.upper_bounds[vidx], node.lower_bounds[vidx]
 
     # Left child keeps the lower bounds and gets a new upper bound at vidx.
     left_bounds = copy(node.upper_bounds)
@@ -103,6 +106,8 @@ function Bonobo.evaluate_node!(tree, node)
     end
     x = N*w
 
+    #@assert check_feasibilty(w, node, tree)
+
     gradient = similar(w)
     tree.root.grad(gradient, w)
     linesearch_workspace = FrankWolfe.build_linesearch_workspace(FrankWolfe.Adaptive(), w, gradient)
@@ -157,13 +162,14 @@ function Bonobo.evaluate_node!(tree, node)
     node.solution = x
     obj_value = tree.root.f(x)
 
-
     if isapprox(sum(isapprox.(x, round.(x); atol=1e-6, rtol=5e-2)), tree.root.nvars)  && check_feasibilty(round.(x),node.lower_bounds*N, node.upper_bounds*N, N)
-        println("Integer solution found.")
+        #println("Integer solution found.")
         node.solution = round.(x)
         primal = tree.root.f(node.solution)
         return obj_value, primal
     end
+
+    rounding_heuristics(tree, node, x)
 
     return obj_value, NaN
 end
@@ -197,6 +203,52 @@ function alternating_projection(x, node, N)
 
     return x
 end
+
+"""
+Simply rounding heuristic.
+"""
+function rounding_heuristics(tree, node, x)
+    y = copy(x)
+    y = round.(y)
+    if count(!iszero, y) == 0
+        return 
+    end
+    N = tree.root.N
+
+    non_zero_int = findall(!iszero, y)
+    if sum(node.upper_bounds) < N || sum(node.lower_bounds) > N
+        @debug "No heuristics improvement possible, bounds already reached, N=$(N), maximal possible sum $(sum(node.upper_bounds)), minimal possible sum $(sum(node.lower_bounds))"
+        return
+    end
+
+    if sum(y) < N
+        while sum(y) < N
+            y = add_to_min2(y, node.upper_bounds)
+        end
+    elseif sum(y) > N
+        while sum(y) > N
+            if iszero.(y) + isone.(y) == ones(tree.root.nvars) 
+                return
+            end
+            y = remove_from_max(y)
+        end
+    end
+
+    if !check_feasibilty(y, node, N=N) || !domain_oracle(y)
+        return 
+    end
+
+    fy = tree.root.f(y)
+    sol = Bonobo.DefaultSolution(fy, y, node)
+    push!(tree.solutions, sol)
+
+    push!(tree.solutions, sol)
+    if tree.incumbent_solution === nothing ||fy < tree.incumbent_solution.objective
+        tree.incumbent_solution = sol
+        tree.incumbent = fy
+    end
+end
+
 
 """
 Check feasibility of a given point.
@@ -262,7 +314,15 @@ function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = 
         C_hat = nothing
     end
     build_safe = criterion in ["A","D","GTI"]
-    f, grad!, linesearch = build_matrix_means_objective(A, p, C_hat=C_hat, build_safe = build_safe)
+    @show build_safe
+    if criterion == "A" && ((m==60 && n==15 && seed == 4 && corr) || (m==100 && n==30 && seed==1 && corr) || (m==50 && n==12 && seed == 5 && !corr))
+        μ = 1e-4
+        @show μ
+    else
+        μ = 0.0
+    end
+    f, grad!, linesearch = build_matrix_means_objective(A, p, μ=μ, C_hat=C_hat, build_safe = build_safe)
+    domain_oracle = build_domain_oracle(A, n)
 
     # create problem and tree
     if criterion in ["A","D", "GTI"]
@@ -278,7 +338,7 @@ function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = 
         N_hat = N + 2n
         lb_hat = vcat(zeros(m), ones(2n)) 
     end
-    root = ConstrainedBoxMIProblem(f, grad!, linesearch, m_hat, collect(1:m), N_hat, time_limit)
+    root = ConstrainedBoxMIProblem(f, grad!, linesearch, domain_oracle, m_hat, collect(1:m), N_hat, time_limit)
     nodeExample = CustomBBNode(
         Bonobo.BnBNodeInfo(1, 0.0, 0.0),
         lb_hat,
@@ -313,6 +373,7 @@ function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = 
     callback = build_callback(tree, time_ref, verbose, print_iter)
 
     # dummy solution - In case the process stops because of the time limit and no solution as been found yet.
+    #x0, _ = optDesign.solve_opt(seed, m, n, 300, criterion, corr, write=false, verbose =false)
     dummy_solution = Bonobo.DefaultSolution(Inf, fill(-1.0, length(x0)), nodeExample)
     if isapprox(sum(isapprox.(x0, round.(x0))), tree.root.nvars)
         # Minus f(x0) because the tree internally treats this as a min problem
@@ -350,11 +411,14 @@ function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = 
 
     # Calculate objective with respect to the criteria used in Boscia
     if criterion in ["A","AF"]
-        f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = criterion=="A")
+        f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = false, μ=criterion == "A" ? 1e-4 : 0.0, long_run=long_run)
+    elseif criterion in ["GTI","GTIF"]
+        f_check, _ = build_general_trace(A, -p, criterion == "GTIF", C=C)
     else
-        f_check, _ = build_d_criterion(A, criterion == "DF", C=C, build_safe = criterion=="D")
+        f_check, _ = build_d_criterion(A, criterion == "DF", C=C, build_safe = false, μ=criterion == "D" ? 1e-4 : 0.0, long_run=long_run)
     end
     solution_scaled = f_check(sol_x[1:m])
+    #solution_scaled = criterion == "A" ? exp(solution) : solution - n*log(n)
     @show solution_scaled
 
     # Check the solving stage
@@ -370,25 +434,28 @@ function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = 
     @show dual_gap
 
     if write 
+        subfolder = if criterion in ["GTI", "GTIF"]
+            "GTI"
+        elseif long_run
+            "long_runs"
+        else
+            ""
+        end
         if criterion in ["GTI","GTIF"]
-            criterion = criterion * "_" * string(Int64(p*100))
+            criterion = criterion * "_" * string(Int64((-1) * p *100))
         end
         # write data into file
         time_per_nodes = time/tree.num_nodes
         type = corr ? "correlated" : "independent"
         df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N, time=time, time_per_nodes=time_per_nodes, solution=solution, solution_scaled=solution_scaled, dual_gap=dual_gap, number_nodes=tree.num_nodes, termination=status)
-        if long_run
-            file_name = "/home/htc/dhendryc/research_projects/MasterThesis/optDesign/csv/CustomBB/long_runs/custombb_" * criterion * "_" * string(m) * "_" * type * "_optimality.csv"
-        elseif specific_seed
-            file_name = "/home/htc/dhendryc/research_projects/MasterThesis/optDesign/csv/CustomBB/custombb_" * criterion * "_" * string(m) * "_" * string(n) * "_" * type * "_" * string(seed) * "_optimality.csv"
-        else
-            file_name = "/home/htc/dhendryc/research_projects/MasterThesis/optDesign/csv/CustomBB/custombb_" * criterion * "_" * string(m) * "_" * type * "_optimality.csv"
-        end
-        if !isfile(file_name)
-            CSV.write(file_name, df, append=true, writeheader=true)
-        else 
-            CSV.write(file_name, df, append=true)
-        end
+        file_name = joinpath(@__DIR__, "../csv/Co-BnB/" * subfolder * "/co-bnb_" * criterion * "_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv")
+
+        CSV.write(file_name, df, append=false)
+        #if !isfile(file_name)
+        #    CSV.write(file_name, df, append=true, writeheader=true)
+        #else 
+        #    CSV.write(file_name, df, append=true)
+        #end
     end
     return sol_x
 end
