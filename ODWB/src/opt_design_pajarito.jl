@@ -1,20 +1,22 @@
-#### Solving opt design problem with Pajarito
+# Solving opt design problem with Pajarito
 
 # Pajarito model for the D-optimal problems
 function build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=true)
     if criterion == "DF" 
-        A, C, N, ub = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
     else
-        A, _, N, ub = build_data(seed, m, n, false, corr)
+        A, _, N, ub, _ = build_data(seed, m, n, false, corr)
         @assert N ≥ n
     end
     @show m, n, N, sum(ub) 
     @assert (m > n) && (sum(ub) >= N)
 
     # setup solvers
-    # MIP solver
+    # MIP solver (try SCIP as well?)
     oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
         MOI.Silent() => !verbose,
+       # "mip_feasibility_tolerance" => 1e-8,
+       # "mip_rel_gap" => 1e-6,
     )
     # SDP solver
     conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
@@ -68,6 +70,7 @@ end
 # Pajarito model for the A-optimal problems
 # As suggested here: https://github.com/jump-dev/Pajarito.jl/issues/444
 function build_A_pajarito_model(seed, m , n, criterion, time_limit, corr, verbose = true)
+    #error("Pajarito and A-opt: Needs to be fixed!!")
     if criterion == "AF"
         A, C, N, ub = build_data(seed, m, n, true, corr)
     else
@@ -77,9 +80,11 @@ function build_A_pajarito_model(seed, m , n, criterion, time_limit, corr, verbos
     @assert (m > n) && (sum(ub) >= N)
 
     # setup solvers
-    # MIP solver
+    # MIP solver (try SCIP as well?)
     oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
         MOI.Silent() => !verbose,
+       # "mip_feasibility_tolerance" => 1e-8,
+       # "mip_rel_gap" => 1e-6,
     )
     # SDP solver
     conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
@@ -130,6 +135,17 @@ function build_A_pajarito_model(seed, m , n, criterion, time_limit, corr, verbos
         add_homog_spectral(MatNegSqrtConj() , n, vcat(1.0 * t, X_vec), model)
     end
 
+#=elseif criterion == "A"
+    # https://discourse.julialang.org/t/how-to-optimize-trace-of-matrix-inverse-with-jump-or-convex/94167/4
+    cone = EpiPerSepSpectralCone{Float64}(Hypatia.Cones.NegSqrtSSF(), Hypatia.Cones.MatrixCSqr{Float64, Float64}, n, true)
+    @constraint(model, vcat(1.0, t, [ sum(A[k, i] * x[k] * A[k,j] for k in 1:m) * (i == j ? 1 : sqrt(2)) for i in 1:n for j in 1:i]...) in cone)
+    @objective(model, Min, 4 * t)
+elseif criterion == "AF"
+    cone = EpiPerSepSpectralCone{Float64}(Hypatia.Cones.NegSqrtSSF(), Hypatia.Cones.MatrixCSqr{Float64, Float64}, n, true)
+    @constraint(model, vcat(1.0, t, [ (C[i,j] + sum(A[k, i] * x[k] * A[k,j] for k in 1:m)) * (i == j ? 1 : sqrt(2)) for i in 1:n for j in 1:i]...) in cone)
+    @objective(model, Min, 4 * t)
+end=#
+
     return model, x
 end
 
@@ -155,44 +171,46 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
     y = value.(x)
     t = solve_time(model)
     paja_opt = JuMP.unsafe_backend(model)
-    numberIter = paja_opt.num_iters
-    numberCuts = paja_opt.num_cuts
+    numberIter = paja_opt.num_cuts
+    numberCuts = paja_opt.num_iters
 
     # Check feasibility
     if criterion == "A" || criterion == "D"
-        A, _, N, ub = build_data(seed, m, n, false, corr)
+        A, C, N, ub = build_data(seed, m, n, false, corr)
     elseif criterion == "AF"|| criterion == "DF"
         A, C, N, ub = build_data(seed, m, n, true, corr)
     end
-    if criterion == "A"
-        f, grad! = build_a_criterion(A, false, μ=1e-4)
-    elseif criterion == "AF"
-        f, grad! = build_a_criterion(A, true, C=C)
-    elseif criterion =="D" 
-        f, grad! = build_d_criterion(A, false, μ=1e-4)
-    elseif criterion == "DF"
-        f, grad! = build_d_criterion(A, true, C=C)
+    if criterion in ["A","AF"]
+        f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = false, μ=criterion == "A" ? 1e-4 : 0.0)
+    elseif criterion in ["GTI","GTIF"]
+        f_check, _ = build_general_trace(A, p, criterion == "GTIF", C=C)
     else
-        error("Invalid criterion!")
+        f_check, _ = build_d_criterion(A, criterion == "DF", C=C, build_safe = false, μ=criterion == "D" ? 1e-4 : 0.0)
     end
     feasible = isfeasible(seed, m, n,criterion, y, corr)
     @show feasible
 
     # o = JuMP.moi_backend(model)
     type = corr ? "correlated" : "independent"
+    scaled_solution = if feasible 
+        f_check(y)
+    else
+        Inf 
+    end
+    @show status
     @show y
     @show solution
-    @show f(y)
-    @show feasible
+    @show scaled_solution
 
     if write 
-        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N, solution=solution, termination=status, numberIterations=numberIter, numberCuts=numberCuts)
-        file_name = joinpath(@__DIR__, "../csv/Pajarito/pajarito_" * criterion * "_" * string(m) * "_" * type * "_optimality.csv")
-        if !isfile(file_name)
-            CSV.write(file_name, df, append=true, writeheader=true)
-        else 
-            CSV.write(file_name, df, append=true)
-        end
+        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N, solution=solution, scaled_solution=scaled_solution, termination=status, numberIterations=numberIter, numberCuts=numberCuts)
+        file_name = joinpath(@__DIR__, "../csv/Pajarito/pajarito_" * criterion *"_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
+        CSV.write(file_name, df, append=false)
+        #if !isfile(file_name)
+        #    CSV.write(file_name, df, append=true, writeheader=true)
+        #else 
+        #    CSV.write(file_name, df, append=true)
+        #end
     end
     @assert feasible
     return y
