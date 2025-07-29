@@ -39,6 +39,37 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false)
     return A, C, N, ub, C_hat
 end
 
+function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5)
+    rng = StableRNG(seed)
+    if corr 
+        B = rand(rng, m,n)
+        B = B'*B
+        @assert isposdef(B)
+        D = MvNormal(randn(rng, n),B)
+        
+        A = round.(rand(rng, D, m)')
+        @assert rank(A) == n 
+    else 
+        A = rand(rng, -M:M, m,n)
+        @assert rank(A) == n # check that A has the desired rank!
+    end 
+    C_hat = rand(rng, -M:M, 2n, n)
+    C = scaling_C ? 1/2n*transpose(C_hat)*C_hat : transpose(C_hat)*C_hat
+
+    @assert rank(C) == n
+    
+    if fusion
+        N = rand(rng, floor(m/20):floor(m/3))
+        ub = rand(rng, 1.0:m/10, m)
+    else
+        N = floor(1.5*n)
+        u = floor(N/3)
+        ub = rand(rng, 1.0:u, m)
+    end
+        
+    return A, C, N, ub, C_hat
+end
+
 """
 Build LMO for the problems. Used in Boscia and SCIP. 
 """
@@ -214,8 +245,17 @@ function build_e_criterion(A; μ=0.0)
 
     function grad_mu!(storage, x)
         X = inf_matrix(x)
-        # TODO
-        return
+        λ, V = eigen(X)
+        frac = - 1/(sum(exp.(-λ ./ μ)))
+        # VERSION 1: want I have figured out by hand
+        #sum_exp = sum(exp(-λ[j]/ μ) * norm(V[:,j])^2 for j in 1:n)
+        #for i in 1:length(x)
+        #    storage[i] = frac * norm(A[i,:])^2 * sum_exp
+        #end
+
+        # VERSION 2: ChatGPT solution
+        storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) 
+        return storage
     end
 
     return f, f_mu, grad_mu!
