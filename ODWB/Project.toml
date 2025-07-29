@@ -24,3 +24,10 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SCIP = "82193955-e24f-5292-bf16-6f2c5261a85f"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
+
+[targets]
+test = ["Test", "FiniteDifferences"]
