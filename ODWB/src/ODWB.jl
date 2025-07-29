@@ -23,6 +23,7 @@ using DataFrames
 using CSV
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
+using StableRNGs
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances
