@@ -69,13 +69,15 @@ end
 
 @testset "Derivative E-opt" begin
     for dim in [20,50,80]
-        n = Int(floor(dim/4))
-        @show dim, n
-        gradient = rand(dim)
-        A, _, _, _, _ = ODWB.build_data(seed,dim, n, false, false)
-        #f, grad! = ODWB.build_d_criterion(A, false, build_safe=true)
+        for μ in [1e-2, 1e-1, 1.0]
+            n = Int(floor(dim/4))
+            @show dim, n
+            gradient = rand(dim)
+            A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
+            f_orig, f_mu, grad! = ODWB.build_e_criterion(A, μ=μ)
 
-        #@test check_gradients(grad!, f, gradient)
+            @test check_gradients(grad!, f_mu, gradient)
+        end
     end
 end 
 
