@@ -74,7 +74,8 @@ end
             @show dim, n
             gradient = rand(dim)
             A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
-            f_orig, f_mu, grad! = ODWB.build_e_criterion(A, μ=μ)
+            f_orig, generate_smoothing_function = ODWB.build_e_criterion(A)
+            f_mu, grad! = generate_smoothing_function(μ)
 
             @test check_gradients(grad!, f_mu, gradient)
         end
