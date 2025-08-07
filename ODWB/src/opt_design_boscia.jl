@@ -41,10 +41,43 @@
 # m - number of possible experiments
 # A = [v_1^T,.., v_m^T], so the rows of A correspond to the different experiments
 
-function solve_opt(seed, m, n, time_limit, criterion, corr; full_callback=true, p=0, write = true, verbose = true, use_scip=false, do_strong_branching=false, use_shadow_set=false, lazy_tolerance=2.0, use_heuristics=false, use_tightening=false, long_runs=false, options_run=false, fw_verbose=false, specific_seed=false)
+function solve_opt(
+    seed, 
+    m, 
+    n, 
+    time_limit, 
+    criterion, 
+    corr; 
+    full_callback=true, 
+    p=0, 
+    write = true, 
+    verbose = true, 
+    use_scip=false, 
+    do_strong_branching=false, 
+    use_shadow_set=false, 
+    lazy_tolerance=2.0, 
+    use_heuristics=false, 
+    use_tightening=false, 
+    long_runs=false, 
+    options_run=false, 
+    fw_verbose=false, 
+    specific_seed=false,
+    smoothing_start=1.0,
+    smoothing_min=1e-3,
+    smoothing_min_valid=false,
+    smoothing_decay=0.9,
+    integer_data=false,
+    M=5,
+)
     
     if criterion == "AF" || criterion == "DF"
         A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
+    elseif criterion in ["E", "EF"]
+        if integer_data
+            A, C, N, ub, _ = build_integer_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, M=M)
+        else
+            A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs)
+        end
     else
         A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs)
     end
@@ -104,6 +137,10 @@ function solve_opt(seed, m, n, time_limit, criterion, corr; full_callback=true, 
         f, grad! = build_d_criterion(A, false, μ=1e-4, build_safe=true, long_run=long_runs)
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
+    elseif criterion == "E"
+        f, generate_smoothing_function = build_e_criterion(A)
+    elseif criterion == "EF"
+        f, generate_smoothing_function = build_e_criterion(A)
     else
         error("Invalid criterion!")
     end
@@ -121,6 +158,16 @@ function solve_opt(seed, m, n, time_limit, criterion, corr; full_callback=true, 
 
         # Actual Run
         x, _, result = Boscia.solve(f, grad!, lmo; verbose=verbose, time_limit=time_limit, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, custom_heuristics=[heu], fw_verbose=fw_verbose, start_solution=z)
+    elseif criterion in ["E", "EF"]
+        line_search = FrankWolfe.Adaptive()
+        x, _, result = Boscia.solve(f, nothing, lmo; 
+            mode = Boscia.SMOOTHING_MODE,
+            settings_bnb = Boscia.settings_bnb(verbose=true, print_iter=100, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
+            settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose),
+            settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
+            
+            custom_heuristics=[heu], start_solution=z)
     else
         _, active_set, S = build_start_point2(A, m, n, N, ub)
         z = greedy_incumbent(A, m, n, N, ub)
