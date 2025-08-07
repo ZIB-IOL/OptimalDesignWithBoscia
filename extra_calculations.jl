@@ -76,6 +76,7 @@ for M in 5:1:15
     for _ in 1:10
         A = rand(collect(-M:M),m, n)
         distance = min_distance(A, N)
+        @show distance
         if distance < 1/LinearAlgebra.tr(A' * A) * (1/(2*M)) * minimum(eigvals(A' * A))
             @show distance, 1/LinearAlgebra.tr(A' * A) * (1/(2*M)) * minimum(eigvals(A' * A))
             global count += 1
