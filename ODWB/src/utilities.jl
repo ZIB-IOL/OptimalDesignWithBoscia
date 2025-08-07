@@ -226,7 +226,7 @@ end
 """
 Build the E-criterion and its smoothed version.
 """
-function build_e_criterion(A; μ=0.0)
+function build_e_criterion(A)
     m, n = size(A)
     function inf_matrix(x)
         return Symmetric(A' * diagm(x) * A)
@@ -237,29 +237,32 @@ function build_e_criterion(A; μ=0.0)
         return (-1) * minimum(eigvals(X))    
     end
 
-    function f_mu(x)
-        X = inf_matrix(x)
-        λ = eigvals(X)
-        return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n)
+    function generate_smoothing_function(μ)
+
+        function f_mu(x)
+            X = inf_matrix(x)
+            λ = eigvals(X)
+            return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n)
+        end
+
+        function grad_mu!(storage, x)
+            X = inf_matrix(x)
+            λ, V = eigen(X)
+            frac = - 1/(sum(exp.(-λ ./ μ)))
+            # VERSION 1: want I have figured out by hand
+            #sum_exp = sum(exp(-λ[j]/ μ) * norm(V[:,j])^2 for j in 1:n)
+            #for i in 1:length(x)
+            #    storage[i] = frac * norm(A[i,:])^2 * sum_exp
+            #end
+
+            # VERSION 2: ChatGPT solution
+            storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) 
+            return storage
+        end
+        return f_mu, grad_mu!
     end
 
-    function grad_mu!(storage, x)
-        X = inf_matrix(x)
-        λ, V = eigen(X)
-        frac = - 1/(sum(exp.(-λ ./ μ)))
-        # VERSION 1: want I have figured out by hand
-        #sum_exp = sum(exp(-λ[j]/ μ) * norm(V[:,j])^2 for j in 1:n)
-        #for i in 1:length(x)
-        #    storage[i] = frac * norm(A[i,:])^2 * sum_exp
-        #end
-
-        # VERSION 2: ChatGPT solution
-        storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) 
-        return storage
-    end
-
-    return f, f_mu, grad_mu!
-
+    return f, generate_smoothing_function
 end
 
 function build_general_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
