@@ -118,9 +118,17 @@ function solve_opt(
         end
 
         if use_heuristics
-            heu = Boscia.Heuristic(Boscia.rounding_hyperplane_heuristic, 0.8, :hyperplane_rounding)
+            hyperplane_aware_rounding_prob = 0.8
+            follow_gradient_prob=0.7
+            follow_gradient_steps=n
+            rounding_lmo_01_prob= criterion in ["E","EF"] ? 0.8 : 0.0
+            probability_rounding_prob= criterion in ["E","EF"] ? 0.8 : 0.0
         else
-            heu = Boscia.Heuristic()
+            hyperplane_aware_rounding_prob = 0.0
+            follow_gradient_prob=0.0
+            follow_gradient_steps=n
+            rounding_lmo_01_prob=0.0
+            probability_rounding_prob=0.0
         end
     end
     result = 0.0
@@ -154,32 +162,63 @@ function solve_opt(
         z = greedy_incumbent_fusion(A,m,n,N,ub)
 
         # Precompile
-        x, _, result = Boscia.solve(f, grad!, lmo; verbose=false, time_limit=10, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, custom_heuristics=[heu], start_solution=z)
-
+        x, _, result = Boscia.solve(f, grad!, lmo; 
+        settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, start_solution=z),
+        settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+        )
         # Actual Run
-        x, _, result = Boscia.solve(f, grad!, lmo; verbose=verbose, time_limit=time_limit, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, custom_heuristics=[heu], fw_verbose=fw_verbose, start_solution=z)
+        x, _, result = Boscia.solve(f, grad!, lmo; 
+        settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=time_limit, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, start_solution=z),
+        settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+        )
     elseif criterion in ["E", "EF"]
         line_search = FrankWolfe.Adaptive()
+        # Precompile run
         x, _, result = Boscia.solve(f, nothing, lmo; 
             mode = Boscia.SMOOTHING_MODE,
-            settings_bnb = Boscia.settings_bnb(verbose=true, print_iter=100, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
+            settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
-            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose),
-            settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
-            
-            custom_heuristics=[heu], start_solution=z)
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+            settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
+            settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+        )
+        # Actual run
+        x, _, result = Boscia.solve(f, nothing, lmo; 
+            mode = Boscia.SMOOTHING_MODE,
+            settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=time_limit, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
+            settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+            settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
+            settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+        )
     else
         _, active_set, S = build_start_point2(A, m, n, N, ub)
         z = greedy_incumbent(A, m, n, N, ub)
 
         # Precompile
-        x, _, result = Boscia.solve(f, grad!, lmo; verbose=false, time_limit=10, active_set=active_set, domain_oracle=domain_oracle, start_solution=z, dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, custom_heuristics=[heu]) 
+        x, _, result = Boscia.solve(f, grad!, lmo; 
+        settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, start_solution=z, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set),
+        settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+        settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set),
+        )
         
         _, active_set, S = build_start_point2(A, m, n, N, ub)
         z = greedy_incumbent(A, m, n, N, ub)
 
         # Actual run
-        x, _, result = Boscia.solve(f, grad!, lmo; verbose=verbose, time_limit=time_limit, active_set=active_set, domain_oracle=domain_oracle, start_solution=z,  dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, custom_heuristics=[heu], fw_verbose=fw_verbose) 
+        x, _, result = Boscia.solve(f, grad!, lmo; 
+        settings_bnb = Boscia.settings_bnb(verbose=verbose, time_limit=time_limit, start_solution=z, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set),
+        settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+        settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set),
+        ) 
     end
 
     total_time_in_sec=result[:total_time_in_sec]
