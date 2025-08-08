@@ -149,8 +149,16 @@ end=#
     return model, x
 end
 
+function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=true, integer_data=false)
+    if criterion == "E"
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr)
+    else
+        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr)
+    end
+end
 
-function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true, verbose=true)
+
+function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, integer_data=false)
     if criterion == "DF" || criterion == "D"
         model, x = build_D_pajarito_model(seed, m, n, criterion, 10, corr, false)
         optimize!(model)
@@ -159,6 +167,10 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         model, x= build_A_pajarito_model(seed, m, n, criterion, 10, corr, false)
         optimize!(model)
         model, x = build_A_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
+    elseif criterion == "E" || criterion == "EF"
+        model, x = build_E_pajarito_model(seed, m, n, criterion, 10, corr, false, integer_data)
+        optimize!(model)
+        model, x = build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose, integer_data)
     end
 
     # solve 
@@ -179,11 +191,17 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         A, C, N, ub = build_data(seed, m, n, false, corr)
     elseif criterion == "AF"|| criterion == "DF"
         A, C, N, ub = build_data(seed, m, n, true, corr)
+    elseif criterion == "E" || criterion == "EF"
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr)
+    else
+        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr)
     end
     if criterion in ["A","AF"]
         f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = false, μ=criterion == "A" ? 1e-4 : 0.0)
     elseif criterion in ["GTI","GTIF"]
         f_check, _ = build_general_trace(A, p, criterion == "GTIF", C=C)
+    elseif criterion == "E" || criterion == "EF"
+        f_check, _ = build_e_criterion(A)
     else
         f_check, _ = build_d_criterion(A, criterion == "DF", C=C, build_safe = false, μ=criterion == "D" ? 1e-4 : 0.0)
     end
@@ -204,7 +222,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
 
     if write 
         df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N, solution=solution, scaled_solution=scaled_solution, termination=status, numberIterations=numberIter, numberCuts=numberCuts)
-        file_name = joinpath(@__DIR__, "../csv/Pajarito/pajarito_" * criterion *"_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
+        file_name = joinpath(@__DIR__, "../csv/Pajarito/pajarito_" * criterion * "_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
         CSV.write(file_name, df, append=false)
         #if !isfile(file_name)
         #    CSV.write(file_name, df, append=true, writeheader=true)
