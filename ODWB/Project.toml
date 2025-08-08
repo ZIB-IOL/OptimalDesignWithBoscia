@@ -10,6 +10,8 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
+FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 FrankWolfe = "f55ce6ea-fdc5-4628-88c5-0087fe54bd30"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 Hypatia = "b99e6be6-89ff-11e8-14f8-45c827f4f8f2"
@@ -29,6 +31,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 Boscia = "0.1.39"
 StableRNGs = "1.0.3"
+DoubleFloats = "1.4.3"
 
 [extras]
 FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
@@ -36,3 +39,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "FiniteDifferences"]
+

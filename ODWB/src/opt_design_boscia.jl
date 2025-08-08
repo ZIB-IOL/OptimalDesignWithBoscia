@@ -40,7 +40,6 @@
 # n - number of parameters
 # m - number of possible experiments
 # A = [v_1^T,.., v_m^T], so the rows of A correspond to the different experiments
-
 function solve_opt(
     seed, 
     m, 
@@ -61,6 +60,12 @@ function solve_opt(
     long_runs=false, 
     options_run=false, 
     fw_verbose=false, 
+    ls_secant=false, 
+    sharpness=false, 
+    log_trace=false, 
+    zero_one=false,
+    use_BCG=false,
+    print_iter=1,
     specific_seed=false,
     smoothing_start=1.0,
     smoothing_min=1e-3,
@@ -69,8 +74,9 @@ function solve_opt(
     integer_data=false,
     M=5,
 )
+    type = corr ? "correlated" : "independent"
     
-    if criterion == "AF" || criterion == "DF"
+    if criterion in ["AF","DF","GTIF"]
         A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
     elseif criterion in ["E", "EF"]
         if integer_data
@@ -79,7 +85,7 @@ function solve_opt(
             A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs)
         end
     else
-        A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs)
+        A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
     end
 
     # parameter tunning
@@ -101,9 +107,11 @@ function solve_opt(
         end
     end
 
+    ls_secant = log_trace ? true : ls_secant
+
     if use_scip
         o = SCIP.Optimizer()
-        lmo, x = build_lmo(o, m, N, ub)
+        lmo, x = build_lmo(o, m, N, ub, silent=true)
         branching_strategy = Bonobo.MOST_INFEASIBLE()
         heu = Boscia.Heuristic()
     else
@@ -131,48 +139,73 @@ function solve_opt(
             probability_rounding_prob=0.0
         end
     end
+
     result = 0.0
     domain_oracle = build_domain_oracle(A, n)
+    domain_point = build_domain_point_function(domain_oracle, A, N, collect(1:m), fill(0.0, m), ub)
 
     println("build function")
     if criterion == "A"
-        f, grad! = build_a_criterion(A, false, μ=1e-4, build_safe=true, long_run=long_runs)
-        #f, grad! = build_general_trace(A, -1, false, build_safe=true)  # Log(Tr(X^{-1}))
+        f, grad! = build_a_criterion(A, false, μ=long_runs ? 1e-3 : 1e-4, build_safe=false, long_run=long_runs)
+        #f, grad! = build_general_trace(A, -1, false, build_safe=!ls_secant)
     elseif criterion == "AF"
         f, grad! = build_a_criterion(A, true, C=C, long_run=long_runs)
-        #f, grad! = build_general_trace(A, -1, true, C=C) # Log(Tr(X^{-1}))
+        #f, grad! = build_general_trace(A, -1, true, C=C)
     elseif criterion =="D" 
-        f, grad! = build_d_criterion(A, false, μ=1e-4, build_safe=true, long_run=long_runs)
+        f, grad! = build_d_criterion(A, false, μ=1e-4, build_safe=false, long_run=long_runs)
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
     elseif criterion == "E"
         f, generate_smoothing_function = build_e_criterion(A)
     elseif criterion == "EF"
         f, generate_smoothing_function = build_e_criterion(A)
+    elseif criterion == "GTI"
+        f, grad! = log_trace ? build_general_log_trace(A, p, false) : build_general_trace(A, p, false)
+    elseif criterion == "GTIF"
+        f, grad! = log_trace ? build_general_log_trace(A, p, true, C=C) : build_general_trace(A, p, true, C=C)
     else
         error("Invalid criterion!")
     end
 
+    line_search = if ls_secant
+        if criterion in ["A", "D", "GTI"]
+            FrankWolfe.Secant(domain_oracle=domain_oracle)
+        else
+            FrankWolfe.Secant()
+        end
+    else
+        if criterion in ["A", "D", "GTI"]
+            FrankWolfe.MonotonicGenericStepsize(FrankWolfe.Adaptive(), domain_oracle)
+        else
+            FrankWolfe.Adaptive()
+        end
+    end
 
-    if criterion in ["AF","DF"]
+    fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()
+
+
+    if criterion in ["AF","DF","GTIF"]
         direction = collect(1.0:m)
+        println("find first extreme point")
         x0 = compute_extreme_point(lmo, direction)
+        line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
+        fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()
         active_set= FrankWolfe.ActiveSet([(1.0, x0)])   
-        # set same incumbent as for Co-BnB
+        @show f(x0) 
         z = greedy_incumbent_fusion(A,m,n,N,ub)
 
         # Precompile
         x, _, result = Boscia.solve(f, grad!, lmo; 
         settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, start_solution=z),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
-        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
         settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
         )
         # Actual Run
         x, _, result = Boscia.solve(f, grad!, lmo; 
         settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=time_limit, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, start_solution=z),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
-        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
         settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
         )
     elseif criterion in ["E", "EF"]
@@ -182,7 +215,7 @@ function solve_opt(
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
-            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
             settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
             settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
         )
@@ -191,21 +224,23 @@ function solve_opt(
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=time_limit, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
-            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
             settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
             settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
         )
     else
         _, active_set, S = build_start_point2(A, m, n, N, ub)
+        line_search = ls_secant ? FrankWolfe.Secant(domain_oracle=domain_oracle) : FrankWolfe.MonotonicGenericStepsize(FrankWolfe.Adaptive(), domain_oracle)
+        fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()
         z = greedy_incumbent(A, m, n, N, ub)
 
         # Precompile
         x, _, result = Boscia.solve(f, grad!, lmo; 
         settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, start_solution=z, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
-        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
         settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
-        settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set),
+        settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set, find_domain_point=domain_point),
         )
         
         _, active_set, S = build_start_point2(A, m, n, N, ub)
@@ -215,9 +250,9 @@ function solve_opt(
         x, _, result = Boscia.solve(f, grad!, lmo; 
         settings_bnb = Boscia.settings_bnb(verbose=verbose, time_limit=time_limit, start_solution=z, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
-        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance),
+        settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
         settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
-        settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set),
+        settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set, find_domain_point=domain_point),
         ) 
     end
 
@@ -237,6 +272,14 @@ function solve_opt(
         list_local_tightening = result[:local_tightenings]
         list_global_tightening = result[:global_tightenings]
     end
+
+    if log_trace
+        f_check, _ = criterion in ["AF", "GTIF"] ? build_general_trace(A, p, true, C=C) : build_general_trace(A, p, false)
+    else
+        f_check = f
+    end
+    scaled_solution = x !== nothing ? f_check(x) : Inf
+    @show scaled_solution
 
     if write
         folder = if long_runs
@@ -261,9 +304,23 @@ function solve_opt(
             ""
         end
 
-        df_full_cb = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N, time=time_list, lowerBound=lb_list, upperBound =ub_list, termination=status, LMOcalls =list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening)
-        file_name_full_cb = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_"* criterion * "_optimality_" * type *"_" * string(m) * "-" * string(n) * "_" * string(seed) * ".csv")
-        CSV.write(file_name_full_cb, df_full_cb, append=false)
+        if criterion in ["GTI","GTIF"]
+            criterion = criterion * "_" * string(Int64(p*100))
+        end
+
+        if full_callback
+            lb_list = result[:list_lb]
+            ub_list = result[:list_ub]
+            time_list = result[:list_time]
+            list_lmo_calls = result[:list_lmo_calls_acc]
+            list_active_set_size_cb = result[:list_active_set_size] 
+            list_discarded_set_size_cb = result[:list_discarded_set_size]
+            list_local_tightening = result[:local_tightenings]
+            list_global_tightening = result[:global_tightenings]
+            df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
+            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
+            CSV.write(file_name, df, append=false)
+        end
 
         # CSV file for the results of all instances.
         scaled_solution = result[:primal_objective]*m
