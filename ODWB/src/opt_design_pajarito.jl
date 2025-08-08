@@ -150,11 +150,73 @@ end=#
 end
 
 function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=true, integer_data=false)
-    if criterion == "E"
+    if criterion == "EF"
         A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr)
     else
         A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr)
     end
+
+    # setup solvers
+    # MIP solver (try SCIP as well?)
+    oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
+        MOI.Silent() => !verbose,
+       # "mip_feasibility_tolerance" => 1e-8,
+       # "mip_rel_gap" => 1e-6,
+    )
+    # SDP solver
+    conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
+        MOI.Silent() => !verbose,
+    )
+    opt = optimizer_with_attributes(Pajarito.Optimizer,
+        "time_limit" => time_limit, 
+        "iteration_limit" => 100000,
+        "oa_solver" => oa_solver, 
+        "conic_solver" => conic_solver,
+        MOI.Silent() => !verbose,
+    )
+
+    model = Model(opt)
+    # add variables
+    JuMP.@variable(model, x[1:m])
+    JuMP.set_integer.(x)
+    JuMP.@variable(model, t)
+    # we want to do s experiments
+    JuMP.@constraint(model, sum(x) == N)
+    @objective(model, Max, t)
+
+    # Constraints on the total times each experiment can be run
+    ub_u = copy(ub)
+    unique!(ub_u)
+    for u in ub_u
+        ind = findall(x->x==u, ub)
+        mid = u / 2
+        JuMP.@constraint(model, vcat(mid, x[ind] .- mid) in MOI.NormInfinityCone(length(ind) + 1))
+    end
+
+    # PSD constraint: A' * diag(x) * A + t*I ⪰ 0
+    # This is equivalent to: A' * diag(x) * A - (-t)*I ⪰ 0
+    # We want to maximize t, so we minimize -t (the largest eigenvalue)
+    if criterion == "E"
+        # Information matrix: A' * diag(x) * A + t*I
+        info_matrix = [
+            JuMP.@expression(model, 
+                (i == j ? t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
+            ) for i in 1:n, j in 1:n
+        ]
+        # Add PSD constraint
+        JuMP.@constraint(model, info_matrix in MOI.PositiveSemidefiniteConeTriangle(n))
+    elseif criterion == "EF"
+        # For fusion case, use C matrix as well
+        info_matrix = [
+            JuMP.@expression(model, 
+                C[i, j] + (i == j ? t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
+            ) for i in 1:n, j in 1:n
+        ]
+        # Add PSD constraint  
+        JuMP.@constraint(model, info_matrix in MOI.PositiveSemidefiniteConeTriangle(n))
+    end
+
+    return model, x
 end
 
 
