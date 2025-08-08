@@ -215,7 +215,7 @@ function solve_opt(
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
-            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant),
             settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
             settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
         )
@@ -224,7 +224,7 @@ function solve_opt(
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=time_limit, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
-            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
+            settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant),
             settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
             settings_heuristics = Boscia.settings_heuristics(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
         )
