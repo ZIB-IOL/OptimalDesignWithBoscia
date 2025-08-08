@@ -38,8 +38,9 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false)
     end
         
     if zero_one
-        A, C, N, fill(1.0, m), C_hat
-    else
+        return A, C, N, fill(1.0, m), C_hat
+    end
+
     return A, C, N, ub, C_hat
 end
 
@@ -524,10 +525,10 @@ end
 """
 Find n linearly independent rows of A to build the starting point.
 """
-function linearly_independent_rows(A, m ,n)
+function linearly_independent_rows(A, m ,n, ub=nothing)
     S = []
     for i in 1:m
-        if iszero(ub[i])
+        if ub !== nothing && iszero(ub[i])
             continue
         end
         S_i= vcat(S, i)
@@ -700,5 +701,3 @@ function isfeasible(seed, m, n, criterion, x, corr; N=0)
         return true
    end
 end
-
-  

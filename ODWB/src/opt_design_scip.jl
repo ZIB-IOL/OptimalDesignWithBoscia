@@ -77,8 +77,3 @@ function build_scip_optimizer(m, N, ub, limit, f, grad!, verbose)
     
     return lmo, epigraph_ch, x, lmo_check
 end
-
-
-
-  
-

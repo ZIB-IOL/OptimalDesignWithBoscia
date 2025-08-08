@@ -40,7 +40,6 @@
 # n - number of parameters
 # m - number of possible experiments
 # A = [v_1^T,.., v_m^T], so the rows of A correspond to the different experiments
-
 function solve_opt(
     seed, 
     m, 
@@ -80,17 +79,20 @@ function solve_opt(
     # parameter tunning
     if !options_run
         use_heuristics = true
-        ls_secant = true
-        use_tightening = true
-        use_shadow_set = true
-        #use_BCG=true
+        if !(criterion in ["D","DF"])
+            use_shadow_set = true
+        elseif !(criterion in ["A","AF"])
+            lazy_tolerance = 1.5
+        end
     end
 
     if long_runs
         use_heuristics = true
-        ls_secant = true
-        use_tightening = true
-        use_shadow_set = true
+        if criterion in ["A","AF"]
+            use_shadow_set = true
+        elseif criterion in ["D","DF"]
+            lazy_tolerance = 1.5
+        end
     end
 
     ls_secant = log_trace ? true : ls_secant
@@ -156,17 +158,13 @@ function solve_opt(
 
         x, _, result = Boscia.solve(f, grad!, lmo; verbose=verbose, time_limit=time_limit, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, custom_heuristics=[heu], fw_verbose=fw_verbose, start_solution=z,line_search=line_search, variant=fw_variant, print_iter=print_iter)
     else
-        # Precompile
         _, active_set, S = build_start_point2(A, m, n, N, ub)
         line_search = ls_secant ? FrankWolfe.Secant(domain_oracle=domain_oracle) : FrankWolfe.MonotonicGenericStepsize(FrankWolfe.Adaptive(), domain_oracle)
         fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()
         z = greedy_incumbent(A, m, n, N, ub)
         x, _, result = Boscia.solve(f, grad!, lmo; verbose=false, time_limit=10, variant=fw_variant, active_set=active_set, domain_oracle=domain_oracle, find_domain_point=domain_point, start_solution=z, dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, custom_heuristics=[heu], line_search=line_search, print_iter=1, fw_verbose=false) #line_search=StepSizeRule, 
         
-        # real run
-        # Find a good start point
         _, active_set, S = build_start_point2(A, m, n, N, ub)
-        # initial upper bound
         z = greedy_incumbent(A, m, n, N, ub)
         line_search = ls_secant ? FrankWolfe.Secant(domain_oracle=domain_oracle) : FrankWolfe.MonotonicGenericStepsize(FrankWolfe.Adaptive(), domain_oracle)
         fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()

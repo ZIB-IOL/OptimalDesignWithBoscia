@@ -163,7 +163,7 @@ function Bonobo.evaluate_node!(tree, node)
     obj_value = tree.root.f(x)
 
     if isapprox(sum(isapprox.(x, round.(x); atol=1e-6, rtol=5e-2)), tree.root.nvars)  && check_feasibilty(round.(x),node.lower_bounds*N, node.upper_bounds*N, N)
-        #println("Integer solution found.")
+        println("Integer solution found.")
         node.solution = round.(x)
         primal = tree.root.f(node.solution)
         return obj_value, primal
