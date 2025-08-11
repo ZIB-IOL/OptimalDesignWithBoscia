@@ -2,7 +2,7 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-seed = 1
+seed = 2
 m = 50
 n = Int(floor(sqrt(m)))
 corr = false
@@ -12,10 +12,10 @@ integer_data = false
 A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr) : ODWB.build_data(seed, m, n, false, corr)
 f, _ = ODWB.build_e_criterion(A)
 
-x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data)
+x, result = ODWB.solve_opt(seed, m, n, 60, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data)
 
 println("Pajarito")
-y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data)
+y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x)
 
 @show f(x), f(y)
 

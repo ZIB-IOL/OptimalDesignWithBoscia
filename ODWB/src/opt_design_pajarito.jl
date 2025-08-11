@@ -64,7 +64,7 @@ function build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
     end
     JuMP.@objective(model, Max, t)
 
-    return model, x
+    return model, x, t
 end
 
 # Pajarito model for the A-optimal problems
@@ -146,7 +146,7 @@ elseif criterion == "AF"
     @objective(model, Min, 4 * t)
 end=#
 
-    return model, x
+    return model, x, t
 end
 
 function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=true, integer_data=false)
@@ -160,8 +160,8 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
     # MIP solver (try SCIP as well?)
     oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
         MOI.Silent() => !verbose,
-       # "mip_feasibility_tolerance" => 1e-8,
-       # "mip_rel_gap" => 1e-6,
+        "mip_feasibility_tolerance" => 1e-8,
+        "mip_rel_gap" => 1e-6,
     )
     # SDP solver
     conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
@@ -216,23 +216,192 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
         JuMP.@constraint(model, info_matrix in JuMP.PSDCone())
     end
 
-    return model, x
+    return model, x, t
+end
+
+function is_point_feasible(model, solution_dict)
+    # Check all constraints by manually evaluating them
+    feasible = true
+    violations = []
+    
+    for constraint_ref in all_constraints(model, include_variable_in_set_constraints=true)
+        constraint_obj = constraint_object(constraint_ref)
+        func = constraint_obj.func
+        set = constraint_obj.set
+        
+        # Manually evaluate the constraint function
+        func_value = evaluate_constraint_function(func, solution_dict)
+        
+        # Check if the constraint is satisfied
+        if !is_constraint_satisfied(func_value, set)
+            feasible = false
+            push!(violations, (constraint_ref, func_value, set))
+            println("Constraint violated: ", constraint_ref)
+            println("  Function value: ", func_value)
+            println("  Set: ", set)
+        end
+    end
+    
+    return feasible, violations
+end
+
+# Helper function to manually evaluate constraint functions
+function evaluate_constraint_function(func, solution_dict)
+    if func isa JuMP.VariableRef
+        # Single variable
+        return solution_dict[func]
+    elseif func isa JuMP.AffExpr
+        # Affine expression: constant + sum(coeff * var)
+        result = func.constant
+        for (var, coeff) in func.terms
+            result += coeff * solution_dict[var]
+        end
+        return result
+    elseif func isa JuMP.QuadExpr
+        # Quadratic expression: aff_part + sum(coeff * var1 * var2)
+        result = evaluate_constraint_function(func.aff, solution_dict)
+        for (var_pair, coeff) in func.terms
+            var1, var2 = var_pair.a, var_pair.b
+            result += coeff * solution_dict[var1] * solution_dict[var2]
+        end
+        return result
+    elseif func isa Vector
+        # Vector of expressions (for vector constraints)
+        return [evaluate_constraint_function(f, solution_dict) for f in func]
+    else
+        error("Unsupported constraint function type: $(typeof(func))")
+    end
+end
+
+# Helper function to check if a value satisfies a constraint set
+function is_constraint_satisfied(value, set)
+    # Handle different MOI set types
+    if set isa MOI.EqualTo
+        return isapprox(value, set.value, atol=1e-6)
+    elseif set isa MOI.LessThan
+        return value <= set.upper + 1e-6  # Small tolerance for numerical errors
+    elseif set isa MOI.GreaterThan
+        return value >= set.lower - 1e-6
+    elseif set isa MOI.Interval
+        return (value >= set.lower - 1e-6) && (value <= set.upper + 1e-6)
+    elseif set isa MOI.ZeroOne
+        return isapprox(value, 0.0, atol=1e-6) || isapprox(value, 1.0, atol=1e-6)
+    elseif set isa MOI.Integer
+        return isapprox(value, round(value), atol=1e-6)
+    elseif set isa MOI.Zeros
+        # For vector constraints - all elements should be zero
+        return all(isapprox(v, 0.0, atol=1e-6) for v in value)
+    elseif set isa MOI.Nonnegatives
+        # All elements should be non-negative
+        return all(v >= -1e-6 for v in value)
+    elseif set isa MOI.Nonpositives
+        # All elements should be non-positive
+        return all(v <= 1e-6 for v in value)
+    elseif set isa MOI.SecondOrderCone
+        # ||x[2:end]|| <= x[1]
+        if length(value) < 2
+            return value[1] >= -1e-6
+        else
+            norm_tail = sqrt(sum(value[i]^2 for i in 2:length(value)))
+            return norm_tail <= value[1] + 1e-6
+        end
+    elseif set isa MOI.PositiveSemidefiniteConeTriangle
+        # Check if the matrix represented by the triangular vector is PSD
+        return check_psd_constraint(value)
+    else
+        @warn "Unknown constraint set type: $(typeof(set)). Assuming satisfied."
+        return true
+    end
+end
+
+# Helper function to check PSD constraint for E-optimal design
+function check_psd_constraint(matrix_values)
+    # Convert the triangular vector back to a symmetric matrix
+    # The triangular vector represents the upper triangle of the matrix in column-major order
+    n = Int((-1 + sqrt(1 + 8*length(matrix_values))) / 2)  # Solve for matrix dimension
+    
+    # Reconstruct the symmetric matrix from triangular representation
+    matrix = zeros(n, n)
+    idx = 1
+    for j in 1:n
+        for i in 1:j
+            matrix[i, j] = matrix_values[idx]
+            if i != j
+                matrix[j, i] = matrix_values[idx]  # Symmetric
+            end
+            idx += 1
+        end
+    end
+    
+    # Check if the matrix is positive semidefinite by computing eigenvalues
+    try
+        eigenvals_matrix = eigvals(Symmetric(matrix))
+        min_eigenval = minimum(eigenvals_matrix)
+        
+        # Matrix is PSD if all eigenvalues are non-negative (with small tolerance)
+        is_psd = min_eigenval >= -1e-8
+        
+        if !is_psd
+            println("  PSD violation: minimum eigenvalue = $min_eigenval")
+        end
+        
+        return is_psd
+    catch e
+        @warn "Error computing eigenvalues for PSD check: $e"
+        return false
+    end
+end
+
+# Specialized function to check the E-optimal constraint directly
+function check_e_optimal_constraint(x_values, t_value, A)
+    # The constraint is: A' * diag(x) * A + t*I ⪰ 0
+    # This is equivalent to: minimum eigenvalue of (A' * diag(x) * A) ≥ -t
+    
+    m, n = size(A)
+    
+    # Compute information matrix: A' * diag(x) * A
+    info_matrix = A' * diagm(x_values) * A
+    
+    # Compute eigenvalues
+    try
+        eigenvals_info = eigvals(Symmetric(info_matrix))
+        min_eigenval = minimum(eigenvals_info)
+        
+        # Check if min_eigenval ≥ -t (with tolerance)
+        constraint_satisfied = min_eigenval >= -t_value - 1e-8
+        
+        if !constraint_satisfied
+            println("  E-optimal constraint violation:")
+            println("    Minimum eigenvalue of A'*diag(x)*A: $min_eigenval")
+            println("    -t value: $(-t_value)")
+            println("    Required: min_eigenval ≥ -t")
+        else
+            println("  E-optimal constraint satisfied:")
+            println("    Minimum eigenvalue: $min_eigenval")
+            println("    -t value: $(-t_value)")
+        end
+        
+        return constraint_satisfied
+    catch e
+        @warn "Error computing eigenvalues for E-optimal check: $e"
+        return false
+    end
 end
 
 
-function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, integer_data=false)
+function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, integer_data=false, boscia_solution=nothing)
     if criterion == "DF" || criterion == "D"
-        model, x = build_D_pajarito_model(seed, m, n, criterion, 10, corr, false)
+        model, x, epi = build_D_pajarito_model(seed, m, n, criterion, 10, corr, false)
         optimize!(model)
-        model, x = build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
+        model, x, epi = build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
     elseif criterion == "AF" || criterion == "A"
-        model, x= build_A_pajarito_model(seed, m, n, criterion, 10, corr, false)
+        model, x, epi = build_A_pajarito_model(seed, m, n, criterion, 10, corr, false)
         optimize!(model)
-        model, x = build_A_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
+        model, x, epi = build_A_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
     elseif criterion == "E" || criterion == "EF"
-        model, x = build_E_pajarito_model(seed, m, n, criterion, 10, corr, false, integer_data)
+        model, x, epi = build_E_pajarito_model(seed, m, n, criterion, 10, corr, false, integer_data)
         optimize!(model)
-        model, x = build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose, integer_data)
+        model, x, epi = build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose, integer_data)
     end
 
     # solve 
@@ -269,6 +438,24 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
     end
     feasible = isfeasible(seed, m, n,criterion, y, corr, ub=ub)
     @show feasible
+
+    if boscia_solution !== nothing
+        solution_dict = Dict(x[i] => boscia_solution[i] for i in eachindex(boscia_solution))
+        merge!(solution_dict, Dict(epi => (-1) * f_check(boscia_solution)))
+        
+        println("=== Feasibility Check for Boscia Solution ===")
+        feasible, violations = is_point_feasible(model, solution_dict)
+        @show feasible
+        @show violations
+        
+        # Additional specialized check for E-optimal constraint
+        if criterion == "E" || criterion == "EF"
+            println("\n=== Specialized E-optimal Constraint Check ===")
+            t_value = f_check(boscia_solution)
+            e_optimal_satisfied = check_e_optimal_constraint(boscia_solution, t_value, A)
+            println("E-optimal constraint satisfied: $e_optimal_satisfied")
+        end
+    end
 
     # o = JuMP.moi_backend(model)
     type = corr ? "correlated" : "independent"
