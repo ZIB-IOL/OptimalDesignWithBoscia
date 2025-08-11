@@ -43,6 +43,8 @@ for k in ratio_para
                 ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr)
             elseif mode == "Custom"
                 ODWB.solve_opt_custom(seed, m, n, time_limit, criterion, corr)
+            elseif mode == "SOCP"
+                ODWB.solve_opt_socp(seed, m, n, time_limit, criterion, corr)
             else 
                 error("Invalid mode!")
             end
