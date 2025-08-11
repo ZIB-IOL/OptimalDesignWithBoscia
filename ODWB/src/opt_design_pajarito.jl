@@ -200,20 +200,20 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
         # Information matrix: A' * diag(x) * A + t*I
         info_matrix = [
             JuMP.@expression(model, 
-                (i == j ? t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
+                (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
             ) for i in 1:n, j in 1:n
         ]
         # Add PSD constraint
-        JuMP.@constraint(model, info_matrix in MOI.PositiveSemidefiniteConeTriangle(n))
+        JuMP.@constraint(model, info_matrix in JuMP.PSDCone())
     elseif criterion == "EF"
         # For fusion case, use C matrix as well
         info_matrix = [
             JuMP.@expression(model, 
-                C[i, j] + (i == j ? t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
+                C[i, j] + (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
             ) for i in 1:n, j in 1:n
         ]
         # Add PSD constraint  
-        JuMP.@constraint(model, info_matrix in MOI.PositiveSemidefiniteConeTriangle(n))
+        JuMP.@constraint(model, info_matrix in JuMP.PSDCone())
     end
 
     return model, x
@@ -250,9 +250,9 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
 
     # Check feasibility
     if criterion == "A" || criterion == "D"
-        A, C, N, ub = build_data(seed, m, n, false, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, false, corr)
     elseif criterion == "AF"|| criterion == "DF"
-        A, C, N, ub = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
     elseif criterion == "E" || criterion == "EF"
         A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr)
     else
@@ -267,7 +267,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
     else
         f_check, _ = build_d_criterion(A, criterion == "DF", C=C, build_safe = false, μ=criterion == "D" ? 1e-4 : 0.0)
     end
-    feasible = isfeasible(seed, m, n,criterion, y, corr)
+    feasible = isfeasible(seed, m, n,criterion, y, corr, ub=ub)
     @show feasible
 
     # o = JuMP.moi_backend(model)
