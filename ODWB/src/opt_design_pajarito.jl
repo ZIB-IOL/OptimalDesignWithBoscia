@@ -172,6 +172,8 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
         "iteration_limit" => 100000,
         "oa_solver" => oa_solver, 
         "conic_solver" => conic_solver,
+        "tol_rel_gap" => 5e-2,
+        "tol_abs_gap" => 1e-6,
         MOI.Silent() => !verbose,
     )
 
