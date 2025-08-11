@@ -755,7 +755,7 @@ end
 """
 Check if a point is linear feasible with respect to the original model
 """
-function isfeasible(seed, m, n, criterion, x, corr; N=0)
+function isfeasible(seed, m, n, criterion, x, corr; N=0, ub=nothing)
     if criterion in ["A","D","GTI"]
         A, _, N, ub, _ = build_data(seed, m, n, false, corr)
     elseif criterion in ["AF","DF","GTIF"]
@@ -766,7 +766,7 @@ function isfeasible(seed, m, n, criterion, x, corr; N=0)
         return false
    elseif sum(x.>=0-1e-4) != m
         return false
-   elseif sum(ub - x.>= 0-1e-4) != m
+   elseif ub !== nothing && sum(ub - x.>= 0-1e-4) != m
         return false
    elseif criterion in ["D", "A", "GTI"] && m - sum(iszero.(x)) < n 
         return false
