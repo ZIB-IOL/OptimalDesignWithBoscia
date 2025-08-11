@@ -19,31 +19,40 @@ elseif type == "CORR"
 else 
     error("Type not found")
 end
-ratio_para = [4,10]
+integer_data = parse(Bool, ENV["INTEGER_DATA"])
+seed = parse(Int, ENV["SEED"])
+ratio_para = criterion in ["E", "EF"] ? [1] : [4,10]
 time_limit = 3600 # one hour time limit
+seeds = seed == 0 ? collect(1:5) : [seed]
 
 @show criterion, mode, corr
 
-if !(criterion in ["A", "D", "DF", "AF"])
+if !(criterion in ["A", "D", "DF", "AF", "E", "EF"])
     error("Invalid criterion!")
 end
 for k in ratio_para
-    n = Int(floor(m/k))
-    for seed in 1:5
+    n = k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
+    for seed in seeds
         @show m, n, seed
         try
             if mode == "Boscia"
-                ODWB.solve_opt(seed, m, n, time_limit, criterion,corr)
+                ODWB.solve_opt(seed, m, n, time_limit, criterion,corr, integer_data)
             elseif mode == "SCIP"
-                if criterion in ["A", "D"]
-                   error("SCIP OA does not work with the optimal problems!")
+                if criterion in ["A", "D", "E", "EF"]
+                   error("SCIP OA does not work with the $(criterion)-optimal problems!")
                 end
                 ODWB.solve_opt_scip(seed, m, n, time_limit, criterion, corr)
             elseif mode == "Pajarito"
-                ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr)
+                ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data)
             elseif mode == "Custom"
+                if criterion in ["E", "EF"]
+                    error("Co-BnB does not work with the $(criterion)-optimal problems!")
+                 end
                 ODWB.solve_opt_custom(seed, m, n, time_limit, criterion, corr)
             elseif mode == "SOCP"
+                if criterion in ["E", "EF"]
+                    error("SOCP does not work with the $(criterion)-optimal problems!")
+                 end
                 ODWB.solve_opt_socp(seed, m, n, time_limit, criterion, corr)
             else 
                 error("Invalid mode!")
