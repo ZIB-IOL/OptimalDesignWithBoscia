@@ -26,7 +26,7 @@ for criterion in criteria
                 for seed in seeds
                     for int_data in integer_data
                         # 
-                        run(`sbatch -A optimi -J Co-Fusion experiment.sbatch $criterion $solver $data $m $int_data $seed`) # CB
+                        run(`sbatch -A optimi -J E-Opt experiment.sbatch $criterion $solver $data $m $int_data $seed`) # CB
                     end
                 end
             end
