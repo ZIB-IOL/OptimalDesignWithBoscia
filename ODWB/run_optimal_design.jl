@@ -36,14 +36,14 @@ for k in ratio_para
         @show m, n, seed
         try
             if mode == "Boscia"
-                ODWB.solve_opt(seed, m, n, time_limit, criterion,corr, integer_data)
+                ODWB.solve_opt(seed, m, n, time_limit, criterion, corr, integer_data=integer_data)
             elseif mode == "SCIP"
                 if criterion in ["A", "D", "E", "EF"]
                    error("SCIP OA does not work with the $(criterion)-optimal problems!")
                 end
                 ODWB.solve_opt_scip(seed, m, n, time_limit, criterion, corr)
             elseif mode == "Pajarito"
-                ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data)
+                ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data)
             elseif mode == "Custom"
                 if criterion in ["E", "EF"]
                     error("Co-BnB does not work with the $(criterion)-optimal problems!")
