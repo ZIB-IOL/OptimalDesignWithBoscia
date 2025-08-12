@@ -11,7 +11,7 @@
 
 # E-Opimal Design
 num_experiments = [50,80,100,120,150]
-criteria = ["E", "EF"]
+criteria = ["E"] # "EF"
 data_types = ["IND"]
 integer_data = [0, 1]
 solvers = ["Boscia", "Pajarito"]
