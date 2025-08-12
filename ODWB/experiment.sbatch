@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=4  # No. of cpus to allocate per task
 #SBATCH --time=0-12:00:00 # Specify a Time limit in the format days-hrs:min:sec. Use sinfo to see node time limits
-#SBATCH --chdir=/home/htc/dhendryc/research_projects/OptimalDesignWithBoscia/ODWB # Navigate to the working directory where your script lies
+#SBATCH --chdir=/scratch/htc/dhendryc/research_projects/OptimalDesignWithBoscia/ODWB # Navigate to the working directory where your script lies
 #SBATCH --partition=big  # Specify the desired partition, e.g. gpu, cpu or big (GPU is reserved for ML stuff)
 ## We want to run on htc-cmp[501-532], exlude all others
 #SBATCH --exclude=htc-cmp[004-008,011-022,024-025,101-121,123-148]
