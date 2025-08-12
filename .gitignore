@@ -24,4 +24,5 @@ docs/site/
 Manifest.toml
 
 # ignore slurm files
-*.out
+slurm-*
+cb_*
