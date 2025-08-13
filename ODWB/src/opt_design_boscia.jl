@@ -310,6 +310,8 @@ function solve_opt(
             criterion = criterion * "_" * string(Int64(p*100))
         end
 
+        integer_data = criterion in ["E","EF"] ? (integer_data ? "_int_" : "_cont_") : ""
+
         if full_callback
             lb_list = result[:list_lb]
             ub_list = result[:list_ub]
@@ -320,14 +322,14 @@ function solve_opt(
             list_local_tightening = result[:local_tightenings]
             list_global_tightening = result[:global_tightenings]
             df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
-            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
+            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv")
             CSV.write(file_name, df, append=false)
         end
 
         # CSV file for the results of all instances.
         scaled_solution = result[:primal_objective]*m
         df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N, time=total_time_in_sec, solution=result[:primal_objective], scaled_solution=scaled_solution, dual_gap = result[:dual_gap],  rel_dual_gap=result[:rel_dual_gap], ncalls=result[:lmo_calls], num_nodes=result[:number_nodes],termination=status)
-        file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_" * string(m) * "_" * type *"_optimality.csv")
+        file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=true, writeheader=true, delim=";")
         else 
