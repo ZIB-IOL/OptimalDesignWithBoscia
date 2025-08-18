@@ -3,7 +3,7 @@ using Boscia
 using FrankWolfe
 
 seed = 4
-m = 30
+m = 20
 n = Int(floor(sqrt(m)))
 corr = false
 
