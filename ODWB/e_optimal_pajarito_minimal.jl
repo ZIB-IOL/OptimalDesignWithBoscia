@@ -193,7 +193,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     solution_x, solution_t, status, solve_time_sec = solve_e_optimal_pajarito_minimal(
         1,      # seed
         50,     # m (number of experiments)
-        Int(floor(sqrt(m))),      # n (number of parameters)  
+        Int(floor(sqrt(50))),      # n (number of parameters)  
         300,    # time_limit
         "E",    # criterion
         false,  # corr (uncorrelated data)
