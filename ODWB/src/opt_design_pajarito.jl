@@ -159,13 +159,13 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
     # setup solvers
     # MIP solver (try SCIP as well?)
     oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
-        MOI.Silent() => !verbose,
+        MOI.Silent() => true, #!verbose,
         "mip_feasibility_tolerance" => 1e-8,
         "mip_rel_gap" => 1e-6,
     )
     # SDP solver
     conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
-        MOI.Silent() => !verbose,
+        MOI.Silent() => true, #!verbose,
     )
     opt = optimizer_with_attributes(Pajarito.Optimizer,
         "time_limit" => time_limit, 
@@ -187,13 +187,15 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
     @objective(model, Max, t)
 
     # Constraints on the total times each experiment can be run
-    ub_u = copy(ub)
+    #=ub_u = copy(ub)
     unique!(ub_u)
     for u in ub_u
         ind = findall(x->x==u, ub)
         mid = u / 2
         JuMP.@constraint(model, vcat(mid, x[ind] .- mid) in MOI.NormInfinityCone(length(ind) + 1))
-    end
+    end =#
+    JuMP.@constraint(model, x in MOI.Nonnegatives(m))
+    JuMP.@constraint(model, x <= ub)
 
     # PSD constraint: A' * diag(x) * A + t*I ⪰ 0
     # This is equivalent to: A' * diag(x) * A - (-t)*I ⪰ 0
