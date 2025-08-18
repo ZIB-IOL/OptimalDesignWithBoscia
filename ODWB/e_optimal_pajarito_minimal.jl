@@ -192,8 +192,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("Running minimal E-optimal design example...")
     solution_x, solution_t, status, solve_time_sec = solve_e_optimal_pajarito_minimal(
         1,      # seed
-        50,     # m (number of experiments)
-        Int(floor(sqrt(50))),      # n (number of parameters)  
+        30,     # m (number of experiments)
+        Int(floor(sqrt(30))),      # n (number of parameters)  
         300,    # time_limit
         "E",    # criterion
         false,  # corr (uncorrelated data)
