@@ -7,6 +7,7 @@ version = "0.1.0"
 Bonobo = "f7b14807-3d4d-461a-888a-05dd4bca8bc3"
 Boscia = "36b166db-dac5-4d05-b36a-e6c4cef071c9"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -30,8 +31,9 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 Boscia = "0.1.39"
-StableRNGs = "1.0.3"
+Clarabel = "0.11.0"
 DoubleFloats = "1.4.3"
+StableRNGs = "1.0.3"
 
 [extras]
 FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
@@ -39,4 +41,3 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "FiniteDifferences"]
-
