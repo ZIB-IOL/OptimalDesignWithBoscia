@@ -2,22 +2,25 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-seed = 4
+seed = 4 # 4
 m = 20
 n = Int(floor(sqrt(m)))
 corr = false
 
 integer_data = false
+zero_one = true
 
-A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr) : ODWB.build_data(seed, m, n, false, corr)
+A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr, zero_one=zero_one) : ODWB.build_data(seed, m, n, false, corr, zero_one=zero_one)
 f, _ = ODWB.build_e_criterion(A)
+@show A
 
-x, result = ODWB.solve_opt(seed, m, n, 60, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data)
+
+x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one)
 
 println("Pajarito")
-y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x)
+y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x, zero_one=zero_one)
 
-@show f(x), f(y)
+@show f(x), f(y), abs(f(x) - f(y))/min(abs(f(x)), abs(f(y)))
 
 #=
 A, _, N, ub, _ = ODWB.build_integer_data(seed, m, n, false, corr)
