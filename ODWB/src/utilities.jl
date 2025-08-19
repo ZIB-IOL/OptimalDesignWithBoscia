@@ -44,7 +44,7 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false)
     return A, C, N, ub, C_hat
 end
 
-function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5)
+function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero_one=false)
     rng = StableRNG(seed)
     if corr 
         B = rand(rng, m,n)
@@ -70,6 +70,10 @@ function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5)
         N = floor(1.5*n)
         u = floor(N/3)
         ub = rand(rng, 1.0:u, m)
+    end
+
+    if zero_one
+        return A, C, N, fill(1.0, m), C_hat
     end
         
     return A, C, N, ub, C_hat
