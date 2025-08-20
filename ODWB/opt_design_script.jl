@@ -14,7 +14,7 @@ num_experiments = [50,80,100,120,150]
 criteria = ["E"] # "EF"
 data_types = ["IND"]
 integer_data = [0, 1]
-solvers = ["Boscia", "Pajarito"]
+solvers = ["Boscia"] #, "Pajarito"
 seeds = [0] #[1,2,3,4,5]
 
 
