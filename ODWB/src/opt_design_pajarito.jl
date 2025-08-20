@@ -1,11 +1,11 @@
 # Solving opt design problem with Pajarito
 
 # Pajarito model for the D-optimal problems
-function build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=true)
+function build_D_pajarito_model(seed, m, n, criterion, time_limit, corr; verbose=true, zero_one=false)
     if criterion == "DF" 
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one)
     else
-        A, _, N, ub, _ = build_data(seed, m, n, false, corr)
+        A, _, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one)
         @assert N ≥ n
     end
     @show m, n, N, sum(ub) 
@@ -69,12 +69,12 @@ end
 
 # Pajarito model for the A-optimal problems
 # As suggested here: https://github.com/jump-dev/Pajarito.jl/issues/444
-function build_A_pajarito_model(seed, m , n, criterion, time_limit, corr, verbose = true)
+function build_A_pajarito_model(seed, m , n, criterion, time_limit, corr; verbose = true, zero_one=false)
     #error("Pajarito and A-opt: Needs to be fixed!!")
     if criterion == "AF"
-        A, C, N, ub = build_data(seed, m, n, true, corr)
+        A, C, N, ub = build_data(seed, m, n, true, corr, zero_one=zero_one)
     else
-        A, _, N, ub = build_data(seed, m, n, false, corr)
+        A, _, N, ub = build_data(seed, m, n, false, corr, zero_one=zero_one)
         @assert N ≥ n
     end
     @assert (m > n) && (sum(ub) >= N)
@@ -149,23 +149,31 @@ end=#
     return model, x, t
 end
 
-function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=true, integer_data=false)
+function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr; verbose=true, integer_data=false, zero_one=false)
     if criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, zero_one=zero_one) : build_data(seed, m, n, true, corr, zero_one=zero_one)
     else
-        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr)
+        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, zero_one=zero_one) : build_data(seed, m, n, false, corr, zero_one=zero_one)
     end
 
     # setup solvers
     # MIP solver (try SCIP as well?)
     oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
-        MOI.Silent() => !verbose,
+        MOI.Silent() => true, #!verbose,
         "mip_feasibility_tolerance" => 1e-8,
         "mip_rel_gap" => 1e-6,
     )
+
+    #=oa_solver = optimizer_with_attributes(SCIP.Optimizer,
+        MOI.Silent() => true,
+        #"mip_feasibility_tolerance" => 1e-6,
+        #"mip_rel_gap" => 5e-2,
+        "limits/absgap" => 1e-6,
+        "limits/gap" => 5e-2,
+    )=#
     # SDP solver
     conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
-        MOI.Silent() => !verbose,
+        MOI.Silent() => true, #!verbose,
     )
     opt = optimizer_with_attributes(Pajarito.Optimizer,
         "time_limit" => time_limit, 
@@ -187,13 +195,15 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose
     @objective(model, Max, t)
 
     # Constraints on the total times each experiment can be run
-    ub_u = copy(ub)
+    #=ub_u = copy(ub)
     unique!(ub_u)
     for u in ub_u
         ind = findall(x->x==u, ub)
         mid = u / 2
         JuMP.@constraint(model, vcat(mid, x[ind] .- mid) in MOI.NormInfinityCone(length(ind) + 1))
-    end
+    end =#
+    JuMP.@constraint(model, x in MOI.Nonnegatives(m))
+    JuMP.@constraint(model, x <= ub)
 
     # PSD constraint: A' * diag(x) * A + t*I ⪰ 0
     # This is equivalent to: A' * diag(x) * A - (-t)*I ⪰ 0
@@ -391,19 +401,19 @@ function check_e_optimal_constraint(x_values, t_value, A)
 end
 
 
-function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, integer_data=false, boscia_solution=nothing)
+function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, integer_data=false, boscia_solution=nothing, zero_one=false)
     if criterion == "DF" || criterion == "D"
-        model, x, epi = build_D_pajarito_model(seed, m, n, criterion, 10, corr, false)
+        model, x, epi = build_D_pajarito_model(seed, m, n, criterion, 10, corr, verbose=false, zero_one=zero_one)
         optimize!(model)
-        model, x, epi = build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
+        model, x, epi = build_D_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=verbose, zero_one=zero_one)
     elseif criterion == "AF" || criterion == "A"
-        model, x, epi = build_A_pajarito_model(seed, m, n, criterion, 10, corr, false)
+        model, x, epi = build_A_pajarito_model(seed, m, n, criterion, 10, corr, verbose=false, zero_one=zero_one)
         optimize!(model)
-        model, x, epi = build_A_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose)
+        model, x, epi = build_A_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=verbose, zero_one=zero_one)
     elseif criterion == "E" || criterion == "EF"
-        model, x, epi = build_E_pajarito_model(seed, m, n, criterion, 10, corr, false, integer_data)
+        model, x, epi = build_E_pajarito_model(seed, m, n, criterion, 10, corr, verbose=false, integer_data=integer_data, zero_one=zero_one)
         optimize!(model)
-        model, x, epi = build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose, integer_data)
+        model, x, epi = build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=verbose, integer_data=integer_data, zero_one=zero_one)
     end
 
     # solve 
@@ -421,13 +431,13 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
 
     # Check feasibility
     if criterion == "A" || criterion == "D"
-        A, C, N, ub, _ = build_data(seed, m, n, false, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one)
     elseif criterion == "AF"|| criterion == "DF"
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one)
     elseif criterion == "E" || criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr, zero_one=zero_one)
     else
-        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr)
+        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr, zero_one=zero_one)
     end
     if criterion in ["A","AF"]
         f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = false, μ=criterion == "A" ? 1e-4 : 0.0)

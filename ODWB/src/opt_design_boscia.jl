@@ -326,9 +326,11 @@ function solve_opt(
             CSV.write(file_name, df, append=false)
         end
 
+        idx = findfirst(x -> x == result[:primal_objective], ub_list)
+        optimal_time = result[:list_time][idx]
         # CSV file for the results of all instances.
         scaled_solution = result[:primal_objective]*m
-        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N, time=total_time_in_sec, solution=result[:primal_objective], scaled_solution=scaled_solution, dual_gap = result[:dual_gap],  rel_dual_gap=result[:rel_dual_gap], ncalls=result[:lmo_calls], num_nodes=result[:number_nodes],termination=status)
+        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N, time=total_time_in_sec, solution=result[:primal_objective], scaled_solution=scaled_solution, dual_gap = result[:dual_gap],  rel_dual_gap=result[:rel_dual_gap], ncalls=result[:lmo_calls], num_nodes=result[:number_nodes],termination=status, termination=status, optimal_time=optimal_time, optimal_iteration=idx)
         file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=true, writeheader=true, delim=";")
