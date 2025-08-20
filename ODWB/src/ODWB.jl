@@ -6,7 +6,7 @@ using Random
 using SCIP
 using JuMP
 using Hypatia
-using Clarabel
+#using Clarabel
 import Hypatia.Cones: vec_length, vec_copyto!, svec_length, svec_side
 import Hypatia.Cones: smat_to_svec!, svec_to_smat!
 const Cones = Hypatia.Cones
