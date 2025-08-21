@@ -2,8 +2,8 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-seed = 4 # 4
-m = 20
+seed = 1 # 4
+m = 50
 n = Int(floor(sqrt(m)))
 corr = false
 
