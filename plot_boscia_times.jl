@@ -120,7 +120,13 @@ function plot_boscia_times()
     tight_layout()
     
     # Save the plot
-    output_file = "boscia_times_by_dimension.png"
+    plots_dir = "plots"
+    if !isdir(plots_dir)
+        mkdir(plots_dir)
+    end
+    
+    filename = "boscia_times_by_dimension.png"
+    output_file = joinpath(plots_dir, filename)
     savefig(output_file, dpi=300, bbox_inches="tight")
     println("Plot saved as: $output_file")
     
