@@ -102,9 +102,6 @@ function process_solver_directory(solver_dir, csv_base_path)
         println("  $group_name: $(length(files)) files")
     end
     
-    # Standard header (adjust if needed for different solvers)
-    standard_header = "seed;numberOfExperiments;numberOfParameters;N;time;solution;scaled_solution;dual_gap;rel_dual_gap;ncalls;num_nodes;termination;optimal_time;optimal_iteration"
-    
     # Process each group
     successful_merges = 0
     
@@ -117,6 +114,7 @@ function process_solver_directory(solver_dir, csv_base_path)
         merged_data = String[]
         total_rows = 0
         processed_files = 0
+        detected_header = nothing
         
         for file in sort(files)  # Sort for consistent ordering
             println("  Processing: $file")
@@ -133,12 +131,20 @@ function process_solver_directory(solver_dir, csv_base_path)
                     continue
                 end
                 
-                # Skip header if present, collect data
+                # Detect header from first file and skip headers from all files
                 data_lines = String[]
                 for (i, line) in enumerate(lines)
                     clean_line = strip(line)
-                    # Skip headers and empty lines
-                    if !startswith(clean_line, "seed;") && !isempty(clean_line)
+                    
+                    # Detect header from first non-empty line that starts with "seed"
+                    if detected_header === nothing && (startswith(clean_line, "seed;") || startswith(clean_line, "seed,"))
+                        detected_header = clean_line
+                        println("    Detected header format: $detected_header")
+                        continue  # Skip this header line
+                    end
+                    
+                    # Skip any header lines and empty lines
+                    if !startswith(clean_line, "seed;") && !startswith(clean_line, "seed,") && !isempty(clean_line)
                         push!(data_lines, clean_line)
                     end
                 end
@@ -155,11 +161,11 @@ function process_solver_directory(solver_dir, csv_base_path)
         end
         
         # Write merged file
-        if !isempty(merged_data)
+        if !isempty(merged_data) && detected_header !== nothing
             try
                 open(output_path, "w") do f
-                    # Write header
-                    println(f, standard_header)
+                    # Write detected header
+                    println(f, detected_header)
                     
                     # Write data
                     for line in merged_data
@@ -173,7 +179,9 @@ function process_solver_directory(solver_dir, csv_base_path)
                 
                 # Validate the merged file
                 try
-                    df = CSV.read(output_path, DataFrame, delim=';')
+                    # Use appropriate delimiter based on detected header
+                    delimiter = contains(detected_header, ";") ? ';' : ','
+                    df = CSV.read(output_path, DataFrame, delim=delimiter)
                     println("    Validated: $(nrow(df)) rows × $(ncol(df)) columns")
                     
                     # Show some basic statistics
@@ -199,8 +207,10 @@ function process_solver_directory(solver_dir, csv_base_path)
             catch e
                 println("  ✗ Error writing $output_file: $e")
             end
-        else
+        elseif isempty(merged_data)
             println("  ✗ No data found for $solver_dir - $problem_type")
+        else
+            println("  ✗ No header detected for $solver_dir - $problem_type")
         end
     end
     
