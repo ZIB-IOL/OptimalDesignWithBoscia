@@ -1,2 +1,2 @@
-seed,numberOfExperiments,numberOfParameters,time,N,solution,scaled_solution,termination,numberIterations,numberCuts
-2,100,10,3603.9640209674835,9.0,-Inf,Inf,TIME_LIMIT,108,1
+seed,numberOfExperiments,numberOfParameters,time,N,solution,scaled_solution,termination,numberIterations,numberCuts,feasible
+2,100,10,109.36986303329468,32.0,-1.8266165333342692e-9,Inf,OPTIMAL,114,2,false
