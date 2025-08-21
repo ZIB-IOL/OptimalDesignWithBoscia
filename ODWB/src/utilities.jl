@@ -251,7 +251,7 @@ function build_e_criterion(A)
         function f_mu(x)
             X = inf_matrix(x)
             λ = eigvals(X)
-            return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n)
+            return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n) # logsumexp(X)
         end
 
         function grad_mu!(storage, x)
@@ -265,7 +265,7 @@ function build_e_criterion(A)
             #end
 
             # VERSION 2: ChatGPT solution
-            storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) 
+            storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) # xexpy(x, y)
             return storage
         end
         return f_mu, grad_mu!
