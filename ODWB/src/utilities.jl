@@ -251,13 +251,17 @@ function build_e_criterion(A)
         function f_mu(x)
             X = inf_matrix(x)
             λ = eigvals(X)
-            return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n) # logsumexp(X)
+            #return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n) # logsumexp(X)
+            return μ * LogExpFunctions.logsumexp(-λ ./ μ) - μ * log(n)
         end
 
         function grad_mu!(storage, x)
             X = inf_matrix(x)
             λ, V = eigen(X)
-            frac = - 1/(sum(exp.(-λ ./ μ)))
+            #frac = - 1/(sum(exp.(-λ ./ μ)))
+            frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
+            #@show λ
+            #@show frac
             # VERSION 1: want I have figured out by hand
             #sum_exp = sum(exp(-λ[j]/ μ) * norm(V[:,j])^2 for j in 1:n)
             #for i in 1:length(x)
@@ -265,7 +269,9 @@ function build_e_criterion(A)
             #end
 
             # VERSION 2: ChatGPT solution
-            storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) # xexpy(x, y)
+           # @show sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n)
+            #storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) # xexpy(x, y)
+            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,j]).^2 , -λ[j]/ μ)  for j in 1:n)
             return storage
         end
         return f_mu, grad_mu!

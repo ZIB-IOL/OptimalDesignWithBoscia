@@ -3,11 +3,11 @@ using Boscia
 using FrankWolfe
 
 seed = 1 # 4
-m = 50
+m = 100
 n = Int(floor(sqrt(m)))
 corr = false
 
-integer_data = false
+integer_data = true
 zero_one = true
 
 A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr, zero_one=zero_one) : ODWB.build_data(seed, m, n, false, corr, zero_one=zero_one)
@@ -15,7 +15,7 @@ f, _ = ODWB.build_e_criterion(A)
 @show A
 
 
-x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one)
+x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one, fw_verbose=false, ls_secant=true, smoothing_start=5.0, smoothing_min=1e-1,)
 
 println("Pajarito")
 y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x, zero_one=zero_one)

@@ -213,7 +213,7 @@ function solve_opt(
         # Precompile run
         x, _, result = Boscia.solve(f, nothing, lmo; 
             mode = Boscia.SMOOTHING_MODE,
-            settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
+            settings_bnb = Boscia.settings_bnb(verbose=true, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy,print_iter=1),
             settings_tolerance = Boscia.settings_tolerances(rel_dual_gap=5e-2),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
             settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant),

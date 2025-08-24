@@ -23,6 +23,7 @@ using Test
 using DataFrames
 using CSV
 using DoubleFloats
+using LogExpFunctions
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 using StableRNGs
