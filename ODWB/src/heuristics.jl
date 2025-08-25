@@ -194,4 +194,41 @@ A = randn(m, d)
 B = e_optimal_design_pipage_deterministic(A, N)
 println("Chosen indices: ", B)
 
+"""
+Follow subgradient heuristic for E-optimal design.
+"""
+function build_follow_subgradient_heuristic(A, k)
+    m, n = size(A)
+    function sub_g(storage, x)
+        X = A' * Diagonal(x) * A
+        λ, V = eigen(X)
+        return V[:, 1]
+    end
+    return function follow_gradient_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+        nabla = similar(x)
+        x_new = copy(x)
+        sols = []
+        sol_hashes = Set{UInt}()
+        for i in 1:k
+            time = float(Dates.value(Dates.now() - tree.root.problem.tlmo.time_ref))
+            if tree.root.options[:time_limit] < Inf &&
+            time / 1000.0 ≥ tree.root.options[:time_limit] - 10
+                break
+            end
+
+            sub_g(nabla, x_new)
+            x_new = Boscia.compute_extreme_point(tlmo, nabla)
+            sol_hash = hash(x_new)
+            if in(sol_hash, sol_hashes)
+                break
+            end
+            push!(sols, x_new)
+            push!(sol_hashes, sol_hash)
+        end
+        return sols, false
+    end
+end
+
+
+
 
