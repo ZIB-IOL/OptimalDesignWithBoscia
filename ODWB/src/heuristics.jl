@@ -258,7 +258,7 @@ end
 Greedy Fedorov heuristic for E-optimal design without repetition.
 From https://jourdainlamperski.com/wp-content/uploads/2024/01/rand_round_max_min_eig.pdf 
 """
-function build_greedy_fedorov_heuristic(A, N, max_iter)
+function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
     m, n = size(A)
     inf_matrix(x) = A' * Diagonal(x) * A
     return function greedy_fedorov_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
@@ -281,7 +281,7 @@ function build_greedy_fedorov_heuristic(A, N, max_iter)
                     z_new = copy(z)
                     z_new[j] = 1.0
                     z_new[z_idx[i]] = 0.0
-                    if sum(z_new) == N &&  minimum(eigvals(inf_matrix(z_new))) > minimum(eigvals(inf_matrix(z)))
+                    if sum(z_new) == N &&  minimum(eigvals(inf_matrix(z_new))) > minimum(eigvals(inf_matrix(z))) + tolerance
                         best_idx = j
                         break
                     end
