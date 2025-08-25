@@ -449,7 +449,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
     feasible = isfeasible(seed, m, n,criterion, y, corr, ub=ub)
     @show feasible
 
-    if boscia_solution !== nothing
+    if boscia_solution !== nothing && !any(isnan.(y))
         solution_dict = Dict(x[i] => boscia_solution[i] for i in eachindex(boscia_solution))
         merge!(solution_dict, Dict(epi => (-1) * f_check(boscia_solution)))
         
