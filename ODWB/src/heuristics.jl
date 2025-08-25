@@ -254,5 +254,49 @@ function build_simple_randomized_rounding_heuristic(A, N, max_iter; rng=Random.d
     end
 end
 
+"""
+Greedy Fedorov heuristic for E-optimal design without repetition.
+From https://jourdainlamperski.com/wp-content/uploads/2024/01/rand_round_max_min_eig.pdf 
+"""
+function build_greedy_fedorov_heuristic(A, N, max_iter)
+    m, n = size(A)
+    inf_matrix(x) = A' * Diagonal(x) * A
+    return function greedy_fedorov_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+        z = copy(tree.incumbent_solution.solution)
+        sols = []
+        improved = false
+        while !improved && k <= max_iter
+            z_idx = findall(z .> 0.0)
+            leverage = fill(0.0, N)
+            X = inf_matrix(z)
+            X_inv = inv(X)
+            for (i, idx) in enumerate(z_idx)
+                leverage[i] = A[idx, :]' * X_inv * A[idx, :]
+            end
 
+            perm = sortperm(leverage)
+            for i in perm
+                best_idx = 0
+                for j in setdiff(1:m, z_idx)
+                    z_new = copy(z)
+                    z_new[j] = 1.0
+                    z_new[z_idx[i]] = 0.0
+                    if sum(z_new) == N &&  minimum(eigvals(inf_matrix(z_new))) > minimum(eigvals(inf_matrix(z)))
+                        best_idx = j
+                        break
+                    end
+                end
+                if best_idx != 0
+                    z[z_idx[i]] = 0.0
+                    z[best_idx] = 1.0
+                    improved = true
+                    push!(sols, z)
+                    break
+                end
+            end
+            k += 1
+        end
+        return sols, false
+    end
+end
 
