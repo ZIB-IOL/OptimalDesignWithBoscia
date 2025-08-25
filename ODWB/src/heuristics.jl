@@ -229,6 +229,30 @@ function build_follow_subgradient_heuristic(A, k)
     end
 end
 
+"""
+Simple randomized rounding heuristic for E-optimal design without repetition.
+From https://jourdainlamperski.com/wp-content/uploads/2024/01/rand_round_max_min_eig.pdf 
+"""
+function build_simple_randomized_rounding_heuristic(A, N, max_iter; rng=Random.default_rng())
+    m, n = size(A)
+    return function simple_randomized_rounding_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+        x_new = copy(x)
+        sols = []
+        no_feasible_solution_found = true
+        k = 1
+        while k <= max_iter && no_feasible_solution_found
+            for (i, x_i) in zip(collect(1:m), x)
+                x_rounded = rand(rng) < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
+            end
+            if sum(x_new) == N 
+                push!(sols, x_new)
+                no_feasible_solution_found = false
+            end
+            k += 1
+        end
+        return sols, false
+    end
+end
 
 
 
