@@ -483,7 +483,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         integer_data = criterion in ["E","EF"] ? (integer_data ? "_int_" : "_cont_") : ""
 
         df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N, solution=solution, scaled_solution=scaled_solution, termination=status, numberIterations=numberIter, numberCuts=numberCuts, feasible=feasible)
-        file_name = joinpath(@__DIR__, "../csv/Pajarito/pajarito_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
+        file_name = joinpath(@__DIR__, "../csv/Pajarito/pajarito_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         CSV.write(file_name, df, append=false)
         #if !isfile(file_name)
         #    CSV.write(file_name, df, append=true, writeheader=true)

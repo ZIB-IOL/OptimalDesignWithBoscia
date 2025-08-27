@@ -389,7 +389,7 @@ function solve_opt(
             list_local_tightening = result[:local_tightenings]
             list_global_tightening = result[:global_tightenings]
             df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
-            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv")
+            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
             CSV.write(file_name, df, append=false)
         end
 
@@ -413,7 +413,7 @@ function solve_opt(
             optimal_time=optimal_time, 
             optimal_iteration=idx, 
             solution_source=String(result[:solution_source]))
-        file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
+        file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=false, writeheader=true, delim=";")
         else 
