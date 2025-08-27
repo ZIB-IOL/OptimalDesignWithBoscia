@@ -131,12 +131,23 @@ function solve_opt(
         end
 
         custom_heu = []
-        if use_heuristics
+        
+        if use_follow_subgradient_heu || use_pipage_heu || use_sr_rounding_heu || use_fedorov_heu
+            hyperplane_aware_rounding_prob = 0.0
+            follow_gradient_prob=0.0
+            follow_gradient_steps=n
+            rounding_lmo_01_prob=0.0
+            probability_rounding_prob=0.0
+            rounding_prob =0.0
+        else
             hyperplane_aware_rounding_prob = 0.8
             follow_gradient_prob=0.7
             follow_gradient_steps=n
             rounding_lmo_01_prob= criterion in ["E","EF"] ? 0.8 : 0.0
             probability_rounding_prob= criterion in ["E","EF"] ? 0.8 : 0.0
+            rounding_prob =1.0
+        end
+        if use_heuristics
             if criterion in ["E","EF"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
                 push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 1.0, :follow_subgradient))
@@ -150,49 +161,23 @@ function solve_opt(
             fedorov_heuristic = build_greedy_fedorov_heuristic(A, N, 10)
             push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 1.0, :fedorov))
         elseif use_follow_subgradient_heu
-            hyperplane_aware_rounding_prob = 0.0
-            follow_gradient_prob=0.0
-            follow_gradient_steps=n
-            rounding_lmo_01_prob=0.0
-            probability_rounding_prob=0.0
             if criterion in ["E","EF"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
                 push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 1.0, :follow_subgradient))
             end
         elseif use_pipage_heu
-            hyperplane_aware_rounding_prob = 0.0
-            follow_gradient_prob=0.0
-            follow_gradient_steps=n
-            rounding_lmo_01_prob=0.0
-            probability_rounding_prob=0.0
             if N > 1.5 * n
                 pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N)
                 push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 1.0, :pipage_rounding))
             end
         elseif use_sr_rounding_heu
-            hyperplane_aware_rounding_prob = 0.0
-            follow_gradient_prob=0.0
-            follow_gradient_steps=n
-            rounding_lmo_01_prob=0.0
-            probability_rounding_prob=0.0
             if criterion in ["E","EF"]
                 sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
                 push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
             end
         elseif use_fedorov_heu
-            hyperplane_aware_rounding_prob = 0.0
-            follow_gradient_prob=0.0
-            follow_gradient_steps=n
-            rounding_lmo_01_prob=0.0
-            probability_rounding_prob=0.0
             fedorov_heuristic = build_greedy_fedorov_heuristic(A, N, 10)
             push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 1.0, :fedorov))
-        else
-            hyperplane_aware_rounding_prob = 0.8
-            follow_gradient_prob=0.7
-            follow_gradient_steps=n
-            rounding_lmo_01_prob= criterion in ["E","EF"] ? 0.8 : 0.0
-            probability_rounding_prob= criterion in ["E","EF"] ? 0.8 : 0.0
         end
     end
 
@@ -255,14 +240,14 @@ function solve_opt(
         settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, start_solution=z),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
         settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
-        settings_heuristics = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, custom_heuristics=custom_heu),
+        settings_heuristic = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, rounding_prob=rounding_prob, custom_heuristics=custom_heu),
         )
         # Actual Run
         x, _, result = Boscia.solve(f, grad!, lmo; 
         settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=time_limit, active_set=active_set, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set, start_solution=z),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening, lazy_tolerance=lazy_tolerance),
         settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
-        settings_heuristics = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, custom_heuristics=custom_heu),
+        settings_heuristic = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, rounding_prob=rounding_prob, custom_heuristics=custom_heu),
         )
     elseif criterion in ["E", "EF"]
         line_search = FrankWolfe.Adaptive()
@@ -270,21 +255,22 @@ function solve_opt(
         x, _, result = Boscia.solve(f, nothing, lmo; 
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
-            settings_tolerance = Boscia.settings_tolerances(rel_dual_gap=5e-2),
+            settings_tolerances = Boscia.settings_tolerances(rel_dual_gap=5e-2),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
             settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant),
             settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
-            settings_heuristics = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, custom_heuristics=custom_heu),
+            settings_heuristic = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, rounding_prob=rounding_prob, custom_heuristics=custom_heu),
         )
         # Actual run
+        @show rounding_prob
         x, _, result = Boscia.solve(f, nothing, lmo; 
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=verbose, time_limit=time_limit, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
-            settings_tolerance = Boscia.settings_tolerances(rel_dual_gap=5e-2),
+            settings_tolerances = Boscia.settings_tolerances(rel_dual_gap=5e-2),
             settings_smoothing = Boscia.settings_smoothing(mode=Boscia.SMOOTHING_MODE, generate_smoothing_objective = generate_smoothing_function, smoothing_start=smoothing_start, smoothing_min=smoothing_min, smoothing_min_valid=smoothing_min_valid, smoothing_decay=smoothing_decay),
             settings_frank_wolfe = Boscia.settings_frank_wolfe(mode=Boscia.SMOOTHING_MODE, max_fw_iter=1000, line_search=line_search, fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant),
             settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
-            settings_heuristics = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob),
+            settings_heuristic = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, rounding_prob=rounding_prob, custom_heuristics=custom_heu),
         )
     else
         _, active_set, S = build_start_point2(A, m, n, N, ub)
@@ -297,7 +283,7 @@ function solve_opt(
         settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, start_solution=z, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
         settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
-        settings_heuristics = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, custom_heuristics=custom_heu),
+        settings_heuristic = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, rounding_prob=rounding_prob, custom_heuristics=custom_heu),
         settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set, find_domain_point=domain_point),
         )
         
@@ -309,7 +295,7 @@ function solve_opt(
         settings_bnb = Boscia.settings_bnb(verbose=verbose, time_limit=time_limit, start_solution=z, branching_strategy=branching_strategy, use_shadow_set=use_shadow_set),
         settings_tightening = Boscia.settings_tightening(dual_tightening=use_tightening, global_dual_tightening=use_tightening),
         settings_frank_wolfe = Boscia.settings_frank_wolfe(fw_verbose=fw_verbose, lazy_tolerance=lazy_tolerance, variant=fw_variant, line_search=line_search),
-        settings_heuristics = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, custom_heuristics=custom_heu),
+        settings_heuristic = Boscia.settings_heuristic(hyperplane_aware_rounding_prob=hyperplane_aware_rounding_prob, follow_gradient_prob=follow_gradient_prob, follow_gradient_steps=follow_gradient_steps, rounding_lmo_01_prob=rounding_lmo_01_prob, probability_rounding_prob=probability_rounding_prob, rounding_prob=rounding_prob, custom_heuristics=custom_heu),
         settings_domain = Boscia.settings_domain(domain_oracle=domain_oracle, active_set=active_set, find_domain_point=domain_point),
         ) 
     end
@@ -372,6 +358,8 @@ function solve_opt(
         else
             ""
         end
+
+        @show folder
 
         if criterion in ["GTI","GTIF"]
             criterion = criterion * "_" * string(Int64(p*100))
