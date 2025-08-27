@@ -2,20 +2,21 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-seed = 1 # 4
-m = 150
+seed = 5 # 4
+m = 50
 n = Int(floor(sqrt(m)))
 corr = false
+N = Int(floor(1.5 * n * log(n)))
 
-integer_data = true
+integer_data = false
 zero_one = true
 
-A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr, zero_one=zero_one) : ODWB.build_data(seed, m, n, false, corr, zero_one=zero_one)
+A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : ODWB.build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
 f, _ = ODWB.build_e_criterion(A)
-@show A
+@show A, N
 
 
-x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one, fw_verbose=false, ls_secant=true, smoothing_start=5.0, smoothing_min=1e-1,)
+x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one, fw_verbose=false, ls_secant=true, smoothing_start=5.0, smoothing_min=1e-1, N=N, use_heuristics=true)
 
 println("Pajarito")
 y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x, zero_one=zero_one)
