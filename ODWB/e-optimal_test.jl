@@ -16,10 +16,10 @@ f, _ = ODWB.build_e_criterion(A)
 @show A, N
 
 
-x, result = ODWB.solve_opt(seed, m, n, 300, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one, fw_verbose=false, ls_secant=true, smoothing_start=5.0, smoothing_min=1e-1, N=N, use_heuristics=true)
+x, result = ODWB.solve_opt(seed, m, n, 60, "E", corr, full_callback=false, write=false, verbose=true, integer_data=integer_data, zero_one=zero_one, fw_verbose=false, ls_secant=true, smoothing_start=5.0, smoothing_min=1e-1, N=N, use_heuristics=true)
 
 println("Pajarito")
-y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x, zero_one=zero_one)
+y = ODWB.solve_opt_pajarito(seed, m, n, 300, "E", corr, write=false, verbose=true, integer_data=integer_data, boscia_solution=x, zero_one=zero_one, N=N)
 
 if !any(isnan.(y))
     @show f(x), f(y), abs(f(x) - f(y))/min(abs(f(x)), abs(f(y)))
