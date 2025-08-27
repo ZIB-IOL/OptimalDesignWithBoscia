@@ -338,10 +338,21 @@ function solve_opt(
     end
     scaled_solution = x !== nothing ? f_check(x) : Inf
     @show scaled_solution
+    @show result[:solution_source]
 
     if write
         folder = if long_runs
             "long_runs"
+        elseif use_heuristics
+            "heuristics"
+        elseif use_follow_subgradient_heu
+            "follow_subgradient"
+        elseif use_pipage_heu
+            "pipage_rounding"
+        elseif use_sr_rounding_heu
+            "sr_rounding"
+        elseif use_fedorov_heu
+            "fedorov"
         elseif options_run
             if use_scip
                 "MIP_SCIP"
@@ -386,7 +397,22 @@ function solve_opt(
         optimal_time = result[:list_time][idx]
         # CSV file for the results of all instances.
         scaled_solution = result[:primal_objective]*m
-        df = DataFrame(seed=seed, numberOfExperiments=m, numberOfParameters=n, N=N, time=total_time_in_sec, solution=result[:primal_objective], scaled_solution=scaled_solution, dual_gap = result[:dual_gap],  rel_dual_gap=result[:rel_dual_gap], ncalls=result[:lmo_calls], num_nodes=result[:number_nodes],termination=status, optimal_time=optimal_time, optimal_iteration=idx)
+        df = DataFrame(
+            seed=seed, 
+            numberOfExperiments=m, 
+            numberOfParameters=n, 
+            N=N, 
+            time=total_time_in_sec, 
+            solution=result[:primal_objective], 
+            scaled_solution=scaled_solution, 
+            dual_gap = result[:dual_gap],  
+            rel_dual_gap=result[:rel_dual_gap], 
+            ncalls=result[:lmo_calls], 
+            num_nodes=result[:number_nodes],
+            termination=status, 
+            optimal_time=optimal_time, 
+            optimal_iteration=idx, 
+            solution_source=String(result[:solution_source]))
         file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=false, writeheader=true, delim=";")
