@@ -37,7 +37,7 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
     m, n = size(A)
     
     # Validate inputs
-    @assert target_size >= length(initial_idx_set) "Target size must be >= initial set size"
+    @assert target_size >= length(initial_idx_set) "Target size must be >= initial set size: $(target_size) < $(length(initial_idx_set))"
     @assert target_size >= n "Target size must be >= number of parameters for full rank"
     @assert all(1 ≤ idx ≤ m for idx in initial_idx_set) "All indices must be in valid range"
     
@@ -139,13 +139,13 @@ end
 """
 Heuristic based on the approach in https://arxiv.org/abs/2401.14317
 """
-function build_pipage_rounding_heuristic(A, N; threshold=0.75, epsilon=1)
+function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
     m, n = size(A)
     inf_matrix(x) = A' * Diagonal(x) * A
     return function pipage_rounding_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
         idx_set = findall(x .> threshold)
-        cut_off = Int(floor(min(n * log(n)/epsilon^2, N)))
+        cut_off = Int(floor(min(max(n * log(n)/epsilon^2, length(idx_set)), N)))
         S = find_large_leverage_set(A, idx_set, cut_off)
         sols = []
         # save original bounds
