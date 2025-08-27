@@ -35,9 +35,9 @@ end
 for k in ratio_para
     n = k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
     N = if N_construct == "one"
-        1.5 * n
+        Int(floor(1.5 * n))
     elseif N_construct == "log"
-        1.5 * n * log(n)
+        Int(floor(1.5 * n * log(n)))
     elseif N_construct == "nothing"
         -Inf
     else
