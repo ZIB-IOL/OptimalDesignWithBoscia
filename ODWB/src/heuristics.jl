@@ -303,6 +303,8 @@ function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
                 leverage[i] = A[idx, :]' * X_inv * A[idx, :]
             end
 
+            f = tree.root.options[:mode] == Boscia.SMOOTHING_MODE ? tree.root.options[:original_objective] : tree.root.problem.f
+
             perm = sortperm(leverage)
             for i in perm
                 best_idx = 0
@@ -310,7 +312,7 @@ function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
                     z_new = copy(z)
                     z_new[j] = 1.0
                     z_new[z_idx[i]] = 0.0
-                    if sum(z_new) == N &&  minimum(eigvals(inf_matrix(z_new))) > minimum(eigvals(inf_matrix(z))) + tolerance
+                    if sum(z_new) == N &&  f(z_new) > f(z) + tolerance
                         best_idx = j
                         break
                     end
