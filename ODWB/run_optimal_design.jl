@@ -36,7 +36,7 @@ seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
 ratio_para = criterion in ["E", "EF"] ? [1] : [4,10]
-time_limit = 60 #3600 # one hour time limit
+time_limit = 3600 # one hour time limit
 seeds = seed == 0 ? collect(1:5) : [seed]
 
 @show criterion, mode, corr
