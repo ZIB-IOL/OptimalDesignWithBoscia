@@ -5,6 +5,18 @@ using Test
 using DataFrames
 using CSV
 
+#=
+# For debugging
+ENV["MODE"] = "Boscia"
+ENV["CRITERION"] = "E"
+ENV["TYPE"] = "IND"
+ENV["INTEGER_DATA"] = "false"
+ENV["SEED"] = "1"
+ENV["OPTION"] = "use_all_heuristics"
+ENV["N"] = "log"
+ENV["DIMENSION"] = "50"
+=#
+
 """
 DON'T FORGET TO ADD e AGAIN ONCE YOU ARE DONE DEBUGGING!!
 """
@@ -24,7 +36,7 @@ seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
 ratio_para = criterion in ["E", "EF"] ? [1] : [4,10]
-time_limit = 3600 # one hour time limit
+time_limit = 60 #3600 # one hour time limit
 seeds = seed == 0 ? collect(1:5) : [seed]
 
 @show criterion, mode, corr
@@ -60,7 +72,8 @@ for k in ratio_para
                     use_follow_subgradient_heu=option == "follow_subgradient", 
                     use_pipage_heu=option == "pipage_rounding", 
                     use_sr_rounding_heu=option == "sr_rounding", 
-                    use_fedorov_heu=option == "fedorov")
+                    use_fedorov_heu=option == "fedorov", 
+                    options_run=option != "baseline")
             elseif mode == "SCIP"
                 if criterion in ["A", "D", "E", "EF"]
                    error("SCIP OA does not work with the $(criterion)-optimal problems!")
@@ -81,7 +94,7 @@ for k in ratio_para
             else 
                 error("Invalid mode!")
             end
-        catch e
+        catch 
             println(e)
             error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
             open(error_file,"a") do io

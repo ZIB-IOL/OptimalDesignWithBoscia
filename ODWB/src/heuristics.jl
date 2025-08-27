@@ -37,7 +37,7 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
     m, n = size(A)
     
     # Validate inputs
-    @assert target_size >= length(initial_idx_set) "Target size must be >= initial set size"
+    @assert target_size >= length(initial_idx_set) "Target size must be >= initial set size: $(target_size) < $(length(initial_idx_set))"
     @assert target_size >= n "Target size must be >= number of parameters for full rank"
     @assert all(1 ≤ idx ≤ m for idx in initial_idx_set) "All indices must be in valid range"
     
@@ -139,15 +139,19 @@ end
 """
 Heuristic based on the approach in https://arxiv.org/abs/2401.14317
 """
-function build_pipage_rounding_heuristic(A, N; threshold=0.75, epsilon=1)
+function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
     m, n = size(A)
     inf_matrix(x) = A' * Diagonal(x) * A
     return function pipage_rounding_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
         idx_set = findall(x .> threshold)
-        cut_off = min(n * log(n)/epsilon^2, N)
+        cut_off = Int(floor(min(max(n * log(n)/epsilon^2, length(idx_set)), N)))
         S = find_large_leverage_set(A, idx_set, cut_off)
         sols = []
+        # save original bounds
+        node = tree.nodes[tree.root.current_node_id[]]
+        original_bounds = copy(node.local_bounds)
+        # build local bounds
         local_bounds = Boscia.IntegerBounds()
         for i in S
             push!(local_bounds, (i, 1.0), :lessthan)
@@ -168,7 +172,7 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.75, epsilon=1)
                 end
             end
         end
-            build_LMO(
+        Boscia.build_LMO(
             tlmo,
             tree.root.problem.integer_variable_bounds,
             local_bounds,
@@ -176,11 +180,11 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.75, epsilon=1)
         )
 
         # check for feasibility and boundedness
-        status = check_feasibility(tlmo)
-        if status == MOI.INFEASIBLE || status == MOI.DUAL_INFEASIBLE
+        status = Boscia.check_feasibility(tlmo)
+        if status == Boscia.INFEASIBLE || status == Boscia.UNBOUNDED
             @debug "LMO state in the probability rounding heuristic: $(status)"
             # reset LMO to node state
-            build_LMO(
+            Boscia.build_LMO(
                 tlmo,
                 tree.root.problem.integer_variable_bounds,
                 original_bounds,
@@ -190,10 +194,10 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.75, epsilon=1)
             return [x], true
         end
 
-        v = compute_extreme_point(tlmo, rand(length(x)))
+        v = Boscia.compute_extreme_point(tlmo, rand(length(x)))
         active_set = FrankWolfe.ActiveSet([(1.0, v)])
 
-        x_pipage, _, _, _ = solve_frank_wolfe(
+        x_pipage, _, _, _ = Boscia.solve_frank_wolfe(
             tree.root.options[:variant],
             tree.root.problem.f,
             tree.root.problem.g,
@@ -213,7 +217,7 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.75, epsilon=1)
         end
 
         # reset LMO to node state
-        build_LMO(
+        Boscia.build_LMO(
             tlmo,
             tree.root.problem.integer_variable_bounds,
             original_bounds,
