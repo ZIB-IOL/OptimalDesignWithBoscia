@@ -30,6 +30,8 @@ echo "Type: $3"
 echo "Dimension: $4"
 echo "Integer Data: $5"
 echo "Seed: $6"
+echo "Option: $7"
+echo "N: $8"
 
 echo 'Running script'
 bash
@@ -40,7 +42,9 @@ export TYPE=$3
 export DIMENSION=$4 
 export INTEGER_DATA=$5
 export SEED=$6
-julia --project run_optimal_design.jl &> cb_$1_$2_$4_$3_$5_$6_$SLURM_JOB_ID.txt
+export OPTION=$7
+export N=$8
+julia --project run_optimal_design.jl &> cb_$1_$2_$4_$3_$5_$6_$7_$8_$SLURM_JOB_ID.txt
 
 # Finish the script
 exit 0
