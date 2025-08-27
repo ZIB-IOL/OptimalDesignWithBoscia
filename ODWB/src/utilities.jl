@@ -7,7 +7,7 @@ m    - number of experiments.
 fusion - boolean deiciding whether we build the fusion or standard problem.
 corr - boolean deciding whether we build the independent or correlated data.   
 """
-function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false)
+function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false, N=-Inf)
     @show scaling_C
     # set up
     Random.seed!(seed)
@@ -29,10 +29,10 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false)
     @assert rank(C) == n
     
     if fusion
-        N = rand(floor(m/20):floor(m/3))
+        N = N == -Inf ? rand(floor(m/20):floor(m/3)) : N
         ub = rand(1.0:m/10, m)
     else
-        N = floor(1.5*n)
+        N = N == -Inf ? floor(1.5*n) : N
         u = floor(N/3)
         ub = rand(1.0:u, m)
     end
@@ -44,7 +44,7 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false)
     return A, C, N, ub, C_hat
 end
 
-function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero_one=false)
+function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero_one=false, N=-Inf)
     rng = StableRNG(seed)
     if corr 
         B = rand(rng, m,n)
@@ -64,10 +64,10 @@ function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero
     @assert rank(C) == n
     
     if fusion
-        N = rand(rng, floor(m/20):floor(m/3))
+        N = N == -Inf ? rand(rng, floor(m/20):floor(m/3)) : N
         ub = rand(rng, 1.0:m/10, m)
     else
-        N = floor(1.5*n)
+        N = N == -Inf ? floor(1.5*n) : N
         u = floor(N/3)
         ub = rand(rng, 1.0:u, m)
     end

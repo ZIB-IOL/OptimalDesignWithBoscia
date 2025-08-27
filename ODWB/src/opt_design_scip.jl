@@ -1,18 +1,18 @@
 # Optimal design with SCIP
-function solve_opt_scip(seed, m, n, time_limit, criterion, corr; p=0, write=true, verbose=true, long_run=false, specific_seed = false)
+function solve_opt_scip(seed, m, n, time_limit, criterion, corr; p=0, write=true, verbose=true, long_run=false, specific_seed = false, N=-Inf)
     if criterion in ["A","D","GTI"]
         #A, C, N, ub, _ =build_data(seed, m, n, false, corr)
         #f, grad! = build_a_criterion(A, false)
        error("SCIP OA only works with the Fusion Problems")
     elseif criterion == "AF"
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, N=N)
         f, grad! = build_a_criterion(A, true, C=C)
         #f, grad! = build_general_trace(A, -1, true, C=C)
     elseif criterion == "DF"
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, N=N)
         f, grad! = build_d_criterion(A, true, C=C)
     elseif criterion == "GTIF"
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, N=N)
         f, grad! = build_general_trace(A, p, true, C=C)
     else
         error("Invalid criterion!")

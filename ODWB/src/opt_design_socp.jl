@@ -5,16 +5,16 @@ Build SOCP of A-Opt.
 
 Following this model (https://picos-api.gitlab.io/picos/optdes.html#exact-a-optimal-design-misocp) instead of the one in the paper.
 """
-function build_A_socp_model(seed, m, n, criterion, time_limit, corr, verbose; lb=nothing, ub=nothing, zero_one=false)
+function build_A_socp_model(seed, m, n, criterion, time_limit, corr, verbose; lb=nothing, ub=nothing, zero_one=false, N=-Inf)
     fusion = false
     p = 0
     if criterion == "AF" 
-        A_hat, C, N, ubounds, C_hat = build_data(seed, m, n, true, corr, zero_one=zero_one)
+        A_hat, C, N, ubounds, C_hat = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
         fusion = true
         p, _ = size(C_hat)
         A = vcat(C_hat, A_hat)
     else
-        A, _, N, ubounds, _ = build_data(seed, m, n, false, corr, zero_one=zero_one)
+        A, _, N, ubounds, _ = build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
         @assert N ≥ n
     end
     @show m, n, N, sum(ubounds) 
@@ -77,16 +77,16 @@ end
 """
 Build the SOCP of the D-criterion
 """
-function build_D_socp_model(seed, m, n, criterion, time_limit, corr, verbose; lb=nothing, ub=nothing, zero_one=false)
+function build_D_socp_model(seed, m, n, criterion, time_limit, corr, verbose; lb=nothing, ub=nothing, zero_one=false, N=-Inf)
     fusion = false
     p = 0
     if criterion == "DF" 
-        A_hat, C, N, ubounds, C_hat = build_data(seed, m, n, true, corr, zero_one=zero_one)
+        A_hat, C, N, ubounds, C_hat = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
         fusion = true
         p, _ = size(C_hat)
         A = vcat(C_hat, A_hat)
     else
-        A, _, N, ubounds, _ = build_data(seed, m, n, false, corr, zero_one, zero_one)
+        A, _, N, ubounds, _ = build_data(seed, m, n, false, corr, zero_one, zero_one, N=N)
         @assert N ≥ n
     end
     @show m, n, N, sum(ubounds) 
@@ -168,13 +168,13 @@ function build_D_socp_model(seed, m, n, criterion, time_limit, corr, verbose; lb
     return model, x[(p+1):(p+m)]
 end
 
-function solve_opt_socp(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, zero_one=false)
+function solve_opt_socp(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, zero_one=false, N=-Inf)
     if criterion == "DF" || criterion == "D"
-        model, x = build_D_socp_model(seed, m, n, criterion, 10, corr, false)
+        model, x = build_D_socp_model(seed, m, n, criterion, 10, corr, false, N=N)
         optimize!(model)
         model, x = build_D_socp_model(seed, m, n, criterion, time_limit, corr, verbose, zero_one=zero_one)
     elseif criterion == "AF" || criterion == "A"
-        model, x= build_A_socp_model(seed, m, n, criterion, 10, corr, false)
+        model, x= build_A_socp_model(seed, m, n, criterion, 10, corr, false, N=N)
         optimize!(model)
         model, x = build_A_socp_model(seed, m, n, criterion, time_limit, corr, verbose, zero_one=zero_one)
     end
@@ -193,9 +193,9 @@ function solve_opt_socp(seed, m, n, time_limit, criterion, corr; write=true, ver
 
     # Check feasibility
     if criterion == "A" || criterion == "D"
-        A, C, N, ub, _ = build_data(seed, m, n, false, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, false, corr, N=N)
     elseif criterion == "AF"|| criterion == "DF"
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, N=N)
     end
     if criterion in ["A","AF"]
         f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = false, μ=criterion == "A" ? 1e-4 : 0.0)

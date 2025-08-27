@@ -300,9 +300,9 @@ end
 """
 Set up the problem and solve it with the custom BB algorithm.
 """
-function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = true, verbose= true, long_run=false, print_iter=100, specific_seed=false)
+function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = true, verbose= true, long_run=false, print_iter=100, specific_seed=false, N=-Inf)
     # build data
-    A, C, N, ub, C_hat = build_data(seed, m, n, criterion in ["AF","DF", "GTIF"], corr, scaling_C=long_run)
+    A, C, N, ub, C_hat = build_data(seed, m, n, criterion in ["AF","DF", "GTIF"], corr, scaling_C=long_run, N=N)
     # build function
     if criterion == "A" || criterion == "AF"
         p = -1

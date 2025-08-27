@@ -149,11 +149,11 @@ end=#
     return model, x, t
 end
 
-function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr; verbose=true, integer_data=false, zero_one=false)
+function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr; verbose=true, integer_data=false, zero_one=false, N=-Inf)
     if criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, zero_one=zero_one) : build_data(seed, m, n, true, corr, zero_one=zero_one)
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     else
-        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, zero_one=zero_one) : build_data(seed, m, n, false, corr, zero_one=zero_one)
+        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
 
     # setup solvers

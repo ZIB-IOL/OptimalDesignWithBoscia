@@ -14,14 +14,15 @@ function solve_opt_frank_wolfe(
     long_runs=false,
     log_trace=false,
     p=1,
-    zero_one=false
+    zero_one=false,
+    N=-Inf,
 )
     type = corr ? "correlated" : "independent"
     
     if criterion in ["AF","DF","GTIF"]
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF", N=N)
     else
-        A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
+        A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one, N=N)
     end
 
     solution = 0.0
