@@ -5,14 +5,17 @@ using Test
 using DataFrames
 using CSV
 
+#=
+# For debugging
 ENV["MODE"] = "Boscia"
 ENV["CRITERION"] = "E"
 ENV["TYPE"] = "IND"
 ENV["INTEGER_DATA"] = "false"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "pipage_rounding"
+ENV["OPTION"] = "use_all_heuristics"
 ENV["N"] = "log"
 ENV["DIMENSION"] = "50"
+=#
 
 """
 DON'T FORGET TO ADD e AGAIN ONCE YOU ARE DONE DEBUGGING!!
