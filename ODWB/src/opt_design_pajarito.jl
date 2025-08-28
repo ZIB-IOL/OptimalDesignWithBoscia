@@ -433,7 +433,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
     elseif criterion == "AF"|| criterion == "DF"
         A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "E" || criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, N=N) : build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n,criterion == "EF", corr, N=N) : build_data(seed, m, n, criterion == "EF", corr, zero_one=zero_one, N=N)
     else
         A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
