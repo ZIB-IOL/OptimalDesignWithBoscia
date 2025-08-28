@@ -28,9 +28,10 @@ function identify_file_type(filename, solver_dir)
     problem_type = "unknown"
     
     # Determine problem type from filename patterns
-    if contains(base_name, "_cont_") || contains(base_name, "_continuous_")
+    # New pattern: boscia_E_optimality_independent_cont__ and boscia_E_optimality_independent_int__
+    if contains(base_name, "_cont__") || contains(base_name, "_cont_") || contains(base_name, "_continuous_")
         problem_type = "continuous"
-    elseif contains(base_name, "_int_") || contains(base_name, "_integer_")
+    elseif contains(base_name, "_int__") || contains(base_name, "_int_") || contains(base_name, "_integer_")
         problem_type = "integer"
     else
         # Try to infer from other patterns
@@ -45,7 +46,7 @@ function identify_file_type(filename, solver_dir)
 end
 
 function process_solver_directory(solver_dir, csv_base_path)
-    """Process all CSV files in a specific solver directory."""
+    """Process all CSV files in a specific solver directory, including subdirectories."""
     
     solver_path = joinpath(csv_base_path, solver_dir)
     
@@ -59,21 +60,40 @@ function process_solver_directory(solver_dir, csv_base_path)
     println("Directory: $solver_path")
     println("="^60)
     
-    # Find all CSV files (excluding previously merged ones)
-    all_files = readdir(solver_path)
-    csv_files = filter(f -> endswith(f, ".csv") && !contains(f, "_merged"), all_files)
+    # Find all CSV files recursively (excluding previously merged ones)
+    csv_files = String[]
+    csv_paths = String[]
+    
+    function collect_csv_files(dir, relative_prefix = "")
+        items = readdir(dir)
+        for item in items
+            full_path = joinpath(dir, item)
+            relative_path = isempty(relative_prefix) ? item : joinpath(relative_prefix, item)
+            
+            if isdir(full_path)
+                # Recursively search subdirectories
+                collect_csv_files(full_path, relative_path)
+            elseif endswith(item, ".csv") && !contains(item, "_merged")
+                push!(csv_files, item)
+                push!(csv_paths, full_path)
+                println("  Found: $relative_path")
+            end
+        end
+    end
+    
+    collect_csv_files(solver_path)
     
     if isempty(csv_files)
-        println("No CSV files found in $solver_dir!")
+        println("No CSV files found in $solver_dir (including subdirectories)!")
         return false
     end
     
-    println("Found $(length(csv_files)) CSV files")
+    println("Found $(length(csv_files)) CSV files total")
     
     # Group files by problem type
     file_groups = Dict()
     
-    for file in csv_files
+    for (i, file) in enumerate(csv_files)
         file_info = identify_file_type(file, solver_dir)
         
         # Skip files with unknown problem type
@@ -88,7 +108,8 @@ function process_solver_directory(solver_dir, csv_base_path)
             file_groups[key] = []
         end
         
-        push!(file_groups[key], file)
+        # Store both filename and full path
+        push!(file_groups[key], (filename = file, path = csv_paths[i]))
         println("  $file -> $(file_info.problem_type)")
     end
     
@@ -116,12 +137,11 @@ function process_solver_directory(solver_dir, csv_base_path)
         processed_files = 0
         detected_header = nothing
         
-        for file in sort(files)  # Sort for consistent ordering
-            println("  Processing: $file")
+        for file_info in sort(files, by = x -> x.filename)  # Sort for consistent ordering
+            println("  Processing: $(file_info.filename)")
             
             try
-                file_path = joinpath(solver_path, file)
-                lines = readlines(file_path)
+                lines = readlines(file_info.path)
                 
                 # Remove empty lines
                 lines = filter(line -> !isempty(strip(line)), lines)
@@ -145,7 +165,17 @@ function process_solver_directory(solver_dir, csv_base_path)
                     
                     # Skip any header lines and empty lines
                     if !startswith(clean_line, "seed;") && !startswith(clean_line, "seed,") && !isempty(clean_line)
-                        push!(data_lines, clean_line)
+                        # Additional validation: check if the line has the expected number of semicolons/commas
+                        delimiter = contains(detected_header === nothing ? ";" : detected_header, ";") ? ';' : ','
+                        expected_fields = length(split(detected_header === nothing ? "seed;col1;col2" : detected_header, delimiter))
+                        actual_fields = length(split(clean_line, delimiter))
+                        
+                        # Only include lines that have a reasonable number of fields (at least 3, and not too far from expected)
+                        if actual_fields >= 3 && abs(actual_fields - expected_fields) <= 1
+                            push!(data_lines, clean_line)
+                        else
+                            println("    Skipping malformed line with $actual_fields fields (expected ~$expected_fields): $(length(clean_line) > 50 ? clean_line[1:50] * "..." : clean_line)")
+                        end
                     end
                 end
                 
@@ -155,7 +185,7 @@ function process_solver_directory(solver_dir, csv_base_path)
                 processed_files += 1
                 
             catch e
-                println("    Error reading $file: $e")
+                println("    Error reading $(file_info.filename): $e")
                 continue
             end
         end
@@ -163,18 +193,33 @@ function process_solver_directory(solver_dir, csv_base_path)
         # Write merged file
         if !isempty(merged_data) && detected_header !== nothing
             try
+                # Deduplicate data while preserving order
+                unique_data = String[]
+                seen_lines = Set{String}()
+                
+                for line in merged_data
+                    if !(line in seen_lines)
+                        push!(unique_data, line)
+                        push!(seen_lines, line)
+                    end
+                end
+                
+                if length(unique_data) != length(merged_data)
+                    println("    Removed $(length(merged_data) - length(unique_data)) duplicate lines")
+                end
+                
                 open(output_path, "w") do f
                     # Write detected header
                     println(f, detected_header)
                     
-                    # Write data
-                    for line in merged_data
+                    # Write deduplicated data
+                    for line in unique_data
                         println(f, line)
                     end
                 end
                 
                 println("\n  ✓ Created: $output_file")
-                println("    Total rows: $total_rows")
+                println("    Total rows: $(length(unique_data)) (from $total_rows raw rows)")
                 println("    Source files: $processed_files/$(length(files))")
                 
                 # Validate the merged file
@@ -233,8 +278,8 @@ function merge_all_solvers(target_solvers = nothing)
         return
     end
     
-    # Find all solver directories
-    all_dirs = filter(d -> isdir(joinpath(csv_base_path, d)), readdir(csv_base_path))
+    # Find all solver directories (exclude full_runs directories)
+    all_dirs = filter(d -> isdir(joinpath(csv_base_path, d)) && !startswith(d, "full_runs"), readdir(csv_base_path))
     
     if target_solvers === nothing
         # Process all directories
