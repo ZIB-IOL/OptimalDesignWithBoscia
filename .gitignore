@@ -26,3 +26,6 @@ Manifest.toml
 # ignore slurm files
 slurm-*
 cb_*
+
+# ignore mac files
+.DS_Store
