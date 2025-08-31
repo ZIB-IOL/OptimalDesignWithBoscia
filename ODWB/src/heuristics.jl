@@ -298,6 +298,7 @@ function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
         z = copy(tree.incumbent_solution.solution)
         sols = []
         improved = false
+        k = 0
         while !improved && k <= max_iter
             z_idx = findall(z .> 0.0)
             leverage = fill(0.0, N)

@@ -94,7 +94,7 @@ for k in ratio_para
             else 
                 error("Invalid mode!")
             end
-        catch 
+        catch e
             println(e)
             error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
             open(error_file,"a") do io
