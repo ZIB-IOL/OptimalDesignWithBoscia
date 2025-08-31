@@ -301,7 +301,7 @@ function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
         k = 0
         while !improved && k <= max_iter
             z_idx = findall(z .> 0.0)
-            leverage = fill(0.0, N)
+            leverage = fill(0.0, length(z_idx))
             X = inf_matrix(z)
             X_inv = inv(X)
             for (i, idx) in enumerate(z_idx)
