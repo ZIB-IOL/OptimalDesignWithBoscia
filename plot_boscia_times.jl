@@ -37,19 +37,37 @@ end
 function plot_boscia_times()
     """Main plotting function for Boscia continuous run times."""
     
-    # Load data
+    # Load data - search for merged files in multiple locations
     println("Loading Boscia continuous data...")
-    data_path = "ODWB/csv/Boscia/boscia_continuous_merged.csv"
     
-    if !isfile(data_path)
-        error("Data file not found: $data_path")
+    # Possible locations for merged data files
+    possible_paths = [
+        "ODWB/csv/Boscia/boscia_continuous_merged.csv",
+        "ODWB/csv/full_runs_boscia/full_runs_boscia_continuous_merged.csv",
+        "ODWB/csv/Boscia/full_runs_boscia_continuous_merged.csv"
+    ]
+    
+    data_path = nothing
+    for path in possible_paths
+        if isfile(path)
+            data_path = path
+            println("Found data file: $path")
+            break
+        end
+    end
+    
+    if data_path === nothing
+        error("Data file not found in any of these locations: $(join(possible_paths, ", "))")
     end
     
     df = CSV.read(data_path, DataFrame, delim=';')
     println("Loaded $(nrow(df)) rows of data")
     
-    # Get unique dimensions (numberOfExperiments)
-    dimensions = sort(unique(df.numberOfExperiments))
+    # Filter out rows with missing numberOfExperiments and get unique dimensions
+    valid_df = filter(row -> !ismissing(row.numberOfExperiments), df)
+    println("Filtered $(nrow(df) - nrow(valid_df)) rows with missing numberOfExperiments")
+    
+    dimensions = sort(unique(valid_df.numberOfExperiments))
     println("Dimensions found: $dimensions")
     
     # Initialize arrays for results
@@ -60,7 +78,7 @@ function plot_boscia_times()
     
     # Calculate geometric mean and variance for each dimension
     for dim in dimensions
-        dim_data = filter(row -> row.numberOfExperiments == dim, df)
+        dim_data = filter(row -> row.numberOfExperiments == dim, valid_df)
         println("Processing dimension $dim: $(nrow(dim_data)) samples")
         
         # Extract time data

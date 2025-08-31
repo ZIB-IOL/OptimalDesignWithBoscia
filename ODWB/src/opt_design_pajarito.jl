@@ -429,13 +429,13 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
 
     # Check feasibility
     if criterion == "A" || criterion == "D"
-        A, C, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one)
+        A, C, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     elseif criterion == "AF"|| criterion == "DF"
-        A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one)
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "E" || criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr) : build_data(seed, m, n, true, corr, zero_one=zero_one)
+        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n,criterion == "EF", corr, N=N) : build_data(seed, m, n, criterion == "EF", corr, zero_one=zero_one, N=N)
     else
-        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr) : build_data(seed, m, n, false, corr, zero_one=zero_one)
+        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
     if criterion in ["A","AF"]
         f_check, _ = build_a_criterion(A, criterion == "AF", C=C, build_safe = false, μ=criterion == "A" ? 1e-4 : 0.0)
