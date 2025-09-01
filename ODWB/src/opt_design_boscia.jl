@@ -150,16 +150,16 @@ function solve_opt(
         if use_heuristics
             if criterion in ["E","EF"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
-                push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 1.0, :follow_subgradient))
+                push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
                 sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
                 push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
             end
             if N > 1.5 * n
                 pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N)
-                push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 1.0, :pipage_rounding))
+                push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 0.3, :pipage_rounding))
             end
             fedorov_heuristic = build_greedy_fedorov_heuristic(A, N, 10)
-            push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 1.0, :fedorov))
+            push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 0.4, :fedorov))
         elseif use_follow_subgradient_heu
             if criterion in ["E","EF"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
