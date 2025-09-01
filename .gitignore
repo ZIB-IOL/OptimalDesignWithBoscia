@@ -29,3 +29,4 @@ cb_*
 
 # ignore mac files
 .DS_Store
+**/.DS_Store
