@@ -9,10 +9,12 @@ Usage:
 
 This script will:
 - Find all solver directories in csv/
-- Group CSV files by solver and problem type (continuous/integer)
+- Process files in main solver directories and subdirectories separately
+- Group CSV files by solver, subdirectory (if any), and problem type (continuous/integer)
 - Create separate merged files for each combination
-- Place merged files in each solver's directory
+- Place merged files in the appropriate directories (main or subdirectory)
 - Preserve individual files
+- Naming convention: solver_problemtype_merged.csv (main dir) or solver_subdir_problemtype_merged.csv (subdir)
 """
 
 using CSV, DataFrames
@@ -46,7 +48,7 @@ function identify_file_type(filename, solver_dir)
 end
 
 function process_solver_directory(solver_dir, csv_base_path)
-    """Process all CSV files in a specific solver directory, including subdirectories."""
+    """Process all CSV files in a specific solver directory, handling subdirectories separately."""
     
     solver_path = joinpath(csv_base_path, solver_dir)
     
@@ -60,35 +62,60 @@ function process_solver_directory(solver_dir, csv_base_path)
     println("Directory: $solver_path")
     println("="^60)
     
-    # Find all CSV files recursively (excluding previously merged ones)
-    csv_files = String[]
-    csv_paths = String[]
+    # First, process files directly in the main solver directory
+    main_success = process_directory_files(solver_path, solver_dir, "")
     
-    function collect_csv_files(dir, relative_prefix = "")
-        items = readdir(dir)
-        for item in items
-            full_path = joinpath(dir, item)
-            relative_path = isempty(relative_prefix) ? item : joinpath(relative_prefix, item)
-            
-            if isdir(full_path)
-                # Recursively search subdirectories
-                collect_csv_files(full_path, relative_path)
-            elseif endswith(item, ".csv") && !contains(item, "_merged")
-                push!(csv_files, item)
-                push!(csv_paths, full_path)
-                println("  Found: $relative_path")
-            end
+    # Then, process each subdirectory separately
+    subdirs = filter(d -> isdir(joinpath(solver_path, d)) && !contains(d, "_merged"), readdir(solver_path))
+    subdir_successes = 0
+    
+    for subdir in subdirs
+        subdir_path = joinpath(solver_path, subdir)
+        subdir_success = process_directory_files(subdir_path, solver_dir, subdir)
+        if subdir_success
+            subdir_successes += 1
         end
     end
     
-    collect_csv_files(solver_path)
+    total_success = main_success || subdir_successes > 0
+    
+    if length(subdirs) > 0
+        println("\n$solver_dir summary: Main directory + $subdir_successes/$(length(subdirs)) subdirectories processed successfully")
+    else
+        println("\n$solver_dir summary: Main directory processed $(main_success ? "successfully" : "unsuccessfully")")
+    end
+    
+    return total_success
+end
+
+function process_directory_files(dir_path, solver_dir, subdir_name)
+    """Process CSV files in a specific directory (either main solver dir or subdirectory)."""
+    
+    context_name = isempty(subdir_name) ? solver_dir : "$solver_dir/$subdir_name"
+    prefix = isempty(subdir_name) ? "  " : "    "
+    
+    println("\n$(prefix)Processing: $context_name")
+    
+    # Find CSV files directly in this directory (not recursive)
+    items = readdir(dir_path)
+    csv_files = String[]
+    csv_paths = String[]
+    
+    for item in items
+        full_path = joinpath(dir_path, item)
+        if isfile(full_path) && endswith(item, ".csv") && !contains(item, "_merged")
+            push!(csv_files, item)
+            push!(csv_paths, full_path)
+            println("$(prefix)  Found: $item")
+        end
+    end
     
     if isempty(csv_files)
-        println("No CSV files found in $solver_dir (including subdirectories)!")
+        println("$(prefix)  No CSV files found in $context_name!")
         return false
     end
     
-    println("Found $(length(csv_files)) CSV files total")
+    println("$(prefix)  Found $(length(csv_files)) CSV files")
     
     # Group files by problem type
     file_groups = Dict()
@@ -98,7 +125,7 @@ function process_solver_directory(solver_dir, csv_base_path)
         
         # Skip files with unknown problem type
         if file_info.problem_type == "unknown"
-            println("Skipping unknown problem type: $file")
+            println("$(prefix)  Skipping unknown problem type: $file")
             continue
         end
         
@@ -110,27 +137,32 @@ function process_solver_directory(solver_dir, csv_base_path)
         
         # Store both filename and full path
         push!(file_groups[key], (filename = file, path = csv_paths[i]))
-        println("  $file -> $(file_info.problem_type)")
+        println("$(prefix)  $file -> $(file_info.problem_type)")
     end
     
     if isempty(file_groups)
-        println("No valid files found to merge in $solver_dir!")
+        println("$(prefix)  No valid files found to merge in $context_name!")
         return false
     end
     
-    println("\nFile groups identified:")
+    println("\n$(prefix)File groups identified:")
     for (group_name, files) in file_groups
-        println("  $group_name: $(length(files)) files")
+        println("$(prefix)  $group_name: $(length(files)) files")
     end
     
     # Process each group
     successful_merges = 0
     
     for (problem_type, files) in file_groups
-        println("\nProcessing $solver_dir - $problem_type ($(length(files)) files)")
+        println("\n$(prefix)Processing $context_name - $problem_type ($(length(files)) files)")
         
-        output_file = "$(lowercase(solver_dir))_$(problem_type)_merged.csv"
-        output_path = joinpath(solver_path, output_file)
+        # Create output filename that includes subdirectory name if applicable
+        if isempty(subdir_name)
+            output_file = "$(lowercase(solver_dir))_$(problem_type)_merged.csv"
+        else
+            output_file = "$(lowercase(solver_dir))_$(subdir_name)_$(problem_type)_merged.csv"
+        end
+        output_path = joinpath(dir_path, output_file)
         
         merged_data = String[]
         total_rows = 0
@@ -138,7 +170,7 @@ function process_solver_directory(solver_dir, csv_base_path)
         detected_header = nothing
         
         for file_info in sort(files, by = x -> x.filename)  # Sort for consistent ordering
-            println("  Processing: $(file_info.filename)")
+            println("$(prefix)  Processing: $(file_info.filename)")
             
             try
                 lines = readlines(file_info.path)
@@ -147,7 +179,7 @@ function process_solver_directory(solver_dir, csv_base_path)
                 lines = filter(line -> !isempty(strip(line)), lines)
                 
                 if isempty(lines)
-                    println("    Empty file, skipping...")
+                    println("$(prefix)    Empty file, skipping...")
                     continue
                 end
                 
@@ -159,7 +191,7 @@ function process_solver_directory(solver_dir, csv_base_path)
                     # Detect header from first non-empty line that starts with "seed"
                     if detected_header === nothing && (startswith(clean_line, "seed;") || startswith(clean_line, "seed,"))
                         detected_header = clean_line
-                        println("    Detected header format: $detected_header")
+                        println("$(prefix)    Detected header format: $detected_header")
                         continue  # Skip this header line
                     end
                     
@@ -174,18 +206,18 @@ function process_solver_directory(solver_dir, csv_base_path)
                         if actual_fields >= 3 && abs(actual_fields - expected_fields) <= 1
                             push!(data_lines, clean_line)
                         else
-                            println("    Skipping malformed line with $actual_fields fields (expected ~$expected_fields): $(length(clean_line) > 50 ? clean_line[1:50] * "..." : clean_line)")
+                            println("$(prefix)    Skipping malformed line with $actual_fields fields (expected ~$expected_fields): $(length(clean_line) > 50 ? clean_line[1:50] * "..." : clean_line)")
                         end
                     end
                 end
                 
                 append!(merged_data, data_lines)
-                println("    Added $(length(data_lines)) rows")
+                println("$(prefix)    Added $(length(data_lines)) rows")
                 total_rows += length(data_lines)
                 processed_files += 1
                 
             catch e
-                println("    Error reading $(file_info.filename): $e")
+                println("$(prefix)    Error reading $(file_info.filename): $e")
                 continue
             end
         end
@@ -205,7 +237,7 @@ function process_solver_directory(solver_dir, csv_base_path)
                 end
                 
                 if length(unique_data) != length(merged_data)
-                    println("    Removed $(length(merged_data) - length(unique_data)) duplicate lines")
+                    println("$(prefix)    Removed $(length(merged_data) - length(unique_data)) duplicate lines")
                 end
                 
                 open(output_path, "w") do f
@@ -218,48 +250,48 @@ function process_solver_directory(solver_dir, csv_base_path)
                     end
                 end
                 
-                println("\n  ✓ Created: $output_file")
-                println("    Total rows: $(length(unique_data)) (from $total_rows raw rows)")
-                println("    Source files: $processed_files/$(length(files))")
+                println("\n$(prefix)  ✓ Created: $output_file")
+                println("$(prefix)    Total rows: $(length(unique_data)) (from $total_rows raw rows)")
+                println("$(prefix)    Source files: $processed_files/$(length(files))")
                 
                 # Validate the merged file
                 try
                     # Use appropriate delimiter based on detected header
                     delimiter = contains(detected_header, ";") ? ';' : ','
                     df = CSV.read(output_path, DataFrame, delim=delimiter)
-                    println("    Validated: $(nrow(df)) rows × $(ncol(df)) columns")
+                    println("$(prefix)    Validated: $(nrow(df)) rows × $(ncol(df)) columns")
                     
                     # Show some basic statistics
                     if "numberOfExperiments" in names(df) && nrow(df) > 0
                         unique_experiments = sort(unique(df.numberOfExperiments))
-                        println("    Experiment sizes: $unique_experiments")
+                        println("$(prefix)    Experiment sizes: $unique_experiments")
                     end
                     
                     if "termination" in names(df) && nrow(df) > 0
                         termination_counts = combine(groupby(df, :termination), nrow => :count)
-                        println("    Termination status:")
+                        println("$(prefix)    Termination status:")
                         for row in eachrow(termination_counts)
-                            println("      $(row.termination): $(row.count)")
+                            println("$(prefix)      $(row.termination): $(row.count)")
                         end
                     end
                     
                 catch e
-                    println("    Warning: Could not validate as DataFrame: $e")
+                    println("$(prefix)    Warning: Could not validate as DataFrame: $e")
                 end
                 
                 successful_merges += 1
                 
             catch e
-                println("  ✗ Error writing $output_file: $e")
+                println("$(prefix)  ✗ Error writing $output_file: $e")
             end
         elseif isempty(merged_data)
-            println("  ✗ No data found for $solver_dir - $problem_type")
+            println("$(prefix)  ✗ No data found for $context_name - $problem_type")
         else
-            println("  ✗ No header detected for $solver_dir - $problem_type")
+            println("$(prefix)  ✗ No header detected for $context_name - $problem_type")
         end
     end
     
-    println("\n$solver_dir summary: $successful_merges/$(length(file_groups)) groups processed successfully")
+    println("\n$(prefix)$context_name: $successful_merges/$(length(file_groups)) groups processed successfully")
     return successful_merges > 0
 end
 
@@ -324,10 +356,22 @@ function merge_all_solvers(target_solvers = nothing)
     for solver_dir in solver_dirs
         solver_path = joinpath(csv_base_path, solver_dir)
         if isdir(solver_path)
+            # Check main directory
             merged_files = filter(f -> contains(f, "_merged.csv"), readdir(solver_path))
             for file in merged_files
                 rel_path = joinpath("csv", solver_dir, file)
                 println("  - $rel_path")
+            end
+            
+            # Check subdirectories
+            subdirs = filter(d -> isdir(joinpath(solver_path, d)) && !contains(d, "_merged"), readdir(solver_path))
+            for subdir in subdirs
+                subdir_path = joinpath(solver_path, subdir)
+                subdir_merged_files = filter(f -> contains(f, "_merged.csv"), readdir(subdir_path))
+                for file in subdir_merged_files
+                    rel_path = joinpath("csv", solver_dir, subdir, file)
+                    println("  - $rel_path")
+                end
             end
         end
     end
