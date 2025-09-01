@@ -151,7 +151,7 @@ function solve_opt(
             if criterion in ["E","EF"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
                 push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
-                sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
+                sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 20)
                 push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
             end
             if N > 1.5 * n
