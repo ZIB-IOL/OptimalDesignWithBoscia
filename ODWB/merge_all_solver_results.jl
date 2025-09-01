@@ -111,7 +111,7 @@ function process_directory_files(dir_path, solver_dir, subdir_name)
     end
     
     if isempty(csv_files)
-        println("$(prefix)  No CSV files found in $context_name!")
+        println("$(prefix)  No CSV files found in ", context_name, "!")
         return false
     end
     
@@ -141,7 +141,7 @@ function process_directory_files(dir_path, solver_dir, subdir_name)
     end
     
     if isempty(file_groups)
-        println("$(prefix)  No valid files found to merge in $context_name!")
+        println("$(prefix)  No valid files found to merge in ", context_name, "!")
         return false
     end
     
