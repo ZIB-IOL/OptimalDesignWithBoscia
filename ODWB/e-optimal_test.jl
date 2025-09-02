@@ -12,7 +12,7 @@ integer_data = false
 zero_one = true
 
 A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : ODWB.build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
-f, _ = ODWB.build_e_criterion(A)
+f, sub_grad!, _ = ODWB.build_e_criterion(A)
 @show A, N
 
 
