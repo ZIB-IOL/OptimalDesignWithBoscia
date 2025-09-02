@@ -275,7 +275,7 @@ function build_simple_randomized_rounding_heuristic(A, N, max_iter; rng=Random.d
         k = 1
         while k <= max_iter && no_feasible_solution_found
             for (i, x_i) in zip(collect(1:m), x)
-                x_rounded = rand(rng) < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
+                x_new[i] = rand(rng) < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
             end
             if sum(x_new) == N 
                 push!(sols, x_new)
