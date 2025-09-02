@@ -5,14 +5,15 @@ Plot script for Boscia runs showing average time and optimal_time per dimension
 using geometric mean and variance.
 
 Usage: 
-    julia plot_boscia_times.jl                        # Plot baseline continuous data
-    julia plot_boscia_times.jl heuristics             # Plot heuristics data (both continuous and integer)
+    julia plot_boscia_times.jl                        # Plot baseline continuous data (default)
+    julia plot_boscia_times.jl heuristics             # Plot heuristics continuous data
     julia plot_boscia_times.jl heuristics continuous  # Plot heuristics continuous data only
-    julia plot_boscia_times.jl baseline               # Plot baseline data
-    julia plot_boscia_times.jl fedorov                # Plot fedorov data
-    julia plot_boscia_times.jl follow_subgradient     # Plot follow_subgradient data
-    julia plot_boscia_times.jl sr_rounding            # Plot sr_rounding data
-    julia plot_boscia_times.jl pipage_rounding        # Plot pipage_rounding data
+    julia plot_boscia_times.jl heuristics both        # Plot heuristics data (both continuous and integer)
+    julia plot_boscia_times.jl baseline               # Plot baseline continuous data
+    julia plot_boscia_times.jl fedorov                # Plot fedorov continuous data
+    julia plot_boscia_times.jl follow_subgradient     # Plot follow_subgradient continuous data
+    julia plot_boscia_times.jl sr_rounding            # Plot sr_rounding continuous data
+    julia plot_boscia_times.jl pipage_rounding        # Plot pipage_rounding continuous data
     julia plot_boscia_times.jl compare heuristics baseline  # Compare two sources
 """
 
@@ -85,7 +86,7 @@ function get_data_paths(data_source::String)
     end
 end
 
-function load_data_files(data_source::String, data_types::Vector{String} = ["continuous", "integer"])
+function load_data_files(data_source::String, data_types::Vector{String} = ["continuous"])
     """Load data files for the specified source and data types."""
     
     println("Loading Boscia $data_source data...")
@@ -171,7 +172,7 @@ function process_data_type(df, data_type_name)
     return dimensions, geom_means_time, geom_vars_time, geom_means_optimal, geom_vars_optimal
 end
 
-function plot_boscia_times(data_source::String = "baseline", data_types::Vector{String} = ["continuous", "integer"])
+function plot_boscia_times(data_source::String = "baseline", data_types::Vector{String} = ["continuous"])
     """Main plotting function for Boscia run times."""
     
     # Load data files
@@ -198,24 +199,36 @@ function plot_boscia_times(data_source::String = "baseline", data_types::Vector{
         geom_std_time = sqrt.(geom_vars_time)
         geom_std_optimal = sqrt.(geom_vars_optimal)
         
-        # Plot algorithm time with error bars
-        errorbar(dimensions, geom_means_time, yerr=geom_std_time, 
-                 marker=markers[data_type], markersize=8, linewidth=2, capsize=5,
-                 label="Algorithm Time ($data_type)", color=colors[data_type], alpha=0.8)
+        # Plot algorithm time
+        plot(dimensions, geom_means_time, 
+             marker=markers[data_type], markersize=8, linewidth=2,
+             label="Algorithm Time", color=colors[data_type], alpha=0.8)
         
-        # Plot optimal time with error bars (lighter version of same color)
-        errorbar(dimensions, geom_means_optimal, yerr=geom_std_optimal,
-                 marker=markers[data_type], markersize=6, linewidth=2, capsize=5, linestyle="--",
-                 label="Optimal Time ($data_type)", color=colors[data_type], alpha=0.5)
+        # Plot optimal time (lighter version of same color)
+        plot(dimensions, geom_means_optimal,
+             marker=markers[data_type], markersize=6, linewidth=2, linestyle="--",
+             label="Optimal Time", color=colors[data_type], alpha=0.5)
     end
     
     # Formatting
     xlabel("Dimension (Number of Experiments)", fontsize=14)
-    ylabel("Time (seconds) - Geometric Scale", fontsize=14)
-    title("Boscia $(uppercasefirst(data_source)): Time Performance by Dimension\n(Geometric Mean ± Geometric Standard Deviation)", fontsize=16)
+    ylabel("Time (s)", fontsize=14)
+    title("Boscia $(uppercasefirst(data_source)): Time Performance by Dimension", fontsize=16)
     
     # Set log scale for y-axis since we're dealing with geometric means
     yscale("log")
+    
+    # Set y-axis ticks for better readability
+    # Get the current y-axis limits to determine appropriate tick range
+    ylims = ylim()
+    min_exp = floor(Int, log10(ylims[1]))
+    max_exp = ceil(Int, log10(ylims[2]))
+    
+    # Create tick positions and labels
+    tick_positions = [10.0^i for i in min_exp:max_exp]
+    tick_labels = ["10^$i" for i in min_exp:max_exp]
+    
+    yticks(tick_positions, tick_labels)
     
     # Grid and legend
     grid(true, alpha=0.3)
@@ -272,6 +285,7 @@ function compare_sources(sources::Vector{String}, data_types::Vector{String} = [
     
     # Define colors and markers for different sources
     colors = ["blue", "red", "green", "orange", "purple", "brown"]
+    algorithm_color = "black"  # Different color for algorithm time
     markers = ["o", "s", "^", "D", "v", "<"]
     
     all_plot_data = Dict()
@@ -302,16 +316,25 @@ function compare_sources(sources::Vector{String}, data_types::Vector{String} = [
             # Store for summary
             all_plot_data[source] = (dimensions, geom_means_time, geom_vars_time, geom_means_optimal, geom_vars_optimal, actual_data_type)
             
-            # Calculate error bars for optimal time
+            # Calculate error bars for both algorithm and optimal time
+            geom_std_time = sqrt.(geom_vars_time)
             geom_std_optimal = sqrt.(geom_vars_optimal)
             
-            # Plot only optimal time for comparison
+            # Plot algorithm time and optimal time for comparison
             color = colors[min(idx, length(colors))]
             marker = markers[min(idx, length(markers))]
             
-            errorbar(dimensions, geom_means_optimal, yerr=geom_std_optimal,
-                     marker=marker, markersize=8, linewidth=2, capsize=5,
-                     label="$(uppercasefirst(source)) Optimal Time", color=color, alpha=0.8)
+            # Only plot algorithm time for baseline
+            if source == "baseline"
+                plot(dimensions, geom_means_time,
+                     marker=marker, markersize=8, linewidth=2,
+                     label="$(uppercasefirst(source)) Algorithm Time", color=algorithm_color, alpha=0.8)
+            end
+            
+            # Always plot optimal time for all sources
+            plot(dimensions, geom_means_optimal,
+                 marker=marker, markersize=6, linewidth=2, linestyle="--",
+                 label="$(uppercasefirst(source)) Optimal Time", color=color, alpha=0.5)
                      
         catch e
             println("Warning: Could not load data for source '$source': $e")
@@ -320,15 +343,27 @@ function compare_sources(sources::Vector{String}, data_types::Vector{String} = [
     
     # Formatting
     xlabel("Dimension (Number of Experiments)", fontsize=14)
-    ylabel("Optimal Time (seconds) - Geometric Scale", fontsize=14)
-    title("Optimal Time Comparison: $(join([uppercasefirst(s) for s in sources], " vs "))\n(Geometric Mean ± Geometric Standard Deviation)", fontsize=16)
+    ylabel("Time (s)", fontsize=14)
+    title("Algorithm & Optimal Time Comparison: $(join([uppercasefirst(s) for s in sources], " vs "))", fontsize=16)
     
     # Set log scale for y-axis
     yscale("log")
     
+    # Set y-axis ticks for better readability
+    # Get the current y-axis limits to determine appropriate tick range
+    ylims = ylim()
+    min_exp = floor(Int, log10(ylims[1]))
+    max_exp = ceil(Int, log10(ylims[2]))
+    
+    # Create tick positions and labels
+    tick_positions = [10.0^i for i in min_exp:max_exp]
+    tick_labels = ["10^$i" for i in min_exp:max_exp]
+    
+    yticks(tick_positions, tick_labels)
+    
     # Grid and legend
     grid(true, alpha=0.3)
-    legend(fontsize=12, loc="upper left")
+    legend(fontsize=12, loc="lower right")
     
     # Adjust layout
     tight_layout()
@@ -339,7 +374,7 @@ function compare_sources(sources::Vector{String}, data_types::Vector{String} = [
         mkdir(plots_dir)
     end
     
-    filename = "boscia_optimal_time_comparison_$(join(sources, "_vs_")).png"
+    filename = "boscia_algorithm_optimal_time_comparison_$(join(sources, "_vs_")).png"
     output_file = joinpath(plots_dir, filename)
     savefig(output_file, dpi=300, bbox_inches="tight")
     println("Comparison plot saved as: $output_file")
@@ -350,10 +385,13 @@ function compare_sources(sources::Vector{String}, data_types::Vector{String} = [
     
     for (source, (dimensions, geom_means_time, geom_vars_time, geom_means_optimal, geom_vars_optimal, data_type)) in all_plot_data
         println("\n$(uppercasefirst(source)) ($data_type):")
+        geom_std_time = sqrt.(geom_vars_time)
         geom_std_optimal = sqrt.(geom_vars_optimal)
         
         for (i, dim) in enumerate(dimensions)
-            println("  Dimension $dim: $(round(geom_means_optimal[i], digits=2)) ± $(round(geom_std_optimal[i], digits=2)) seconds")
+            println("  Dimension $dim:")
+            println("    Algorithm Time: $(round(geom_means_time[i], digits=2)) ± $(round(geom_std_time[i], digits=2)) seconds")
+            println("    Optimal Time:   $(round(geom_means_optimal[i], digits=2)) ± $(round(geom_std_optimal[i], digits=2)) seconds")
         end
     end
     
@@ -385,8 +423,10 @@ if abspath(PROGRAM_FILE) == @__FILE__
                 ["continuous"]
             elseif length(ARGS) > 1 && ARGS[2] == "integer"
                 ["integer"]
-            else
+            elseif length(ARGS) > 1 && ARGS[2] == "both"
                 ["continuous", "integer"]
+            else
+                ["continuous"]  # Default to continuous only
             end
             
             println("Plotting data for source: $data_source, types: $(join(data_types, ", "))")
