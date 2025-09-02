@@ -197,9 +197,9 @@ function solve_opt(
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
     elseif criterion == "E"
-        f, generate_smoothing_function = build_e_criterion(A)
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A)
     elseif criterion == "EF"
-        f, generate_smoothing_function = build_e_criterion(A)
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A)
     elseif criterion == "GTI"
         f, grad! = log_trace ? build_general_log_trace(A, p, false) : build_general_trace(A, p, false)
     elseif criterion == "GTIF"
@@ -252,7 +252,7 @@ function solve_opt(
     elseif criterion in ["E", "EF"]
         line_search = FrankWolfe.Adaptive()
         # Precompile run
-        x, _, result = Boscia.solve(f, nothing, lmo; 
+        x, _, result = Boscia.solve(f, sub_grad!, lmo; 
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=false, time_limit=10, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_tolerances = Boscia.settings_tolerances(rel_dual_gap=5e-2),
@@ -263,7 +263,7 @@ function solve_opt(
         )
         # Actual run
         @show rounding_prob
-        x, _, result = Boscia.solve(f, nothing, lmo; 
+        x, _, result = Boscia.solve(f, sub_grad!, lmo; 
             mode = Boscia.SMOOTHING_MODE,
             settings_bnb = Boscia.settings_bnb(verbose=verbose, time_limit=time_limit, use_shadow_set=use_shadow_set, branching_strategy=branching_strategy),
             settings_tolerances = Boscia.settings_tolerances(rel_dual_gap=5e-2),

@@ -246,6 +246,13 @@ function build_e_criterion(A)
         return (-1) * minimum(eigvals(X))    
     end
 
+    function sub_grad!(storage, x)
+        X = inf_matrix(x)
+        _, V = eigen(X)
+        storage .= -(A * V[:, 1]).^2
+        return storage
+    end
+
     function generate_smoothing_function(μ)
 
         function f_mu(x)
@@ -277,7 +284,7 @@ function build_e_criterion(A)
         return f_mu, grad_mu!
     end
 
-    return f, generate_smoothing_function
+    return f, sub_grad!, generate_smoothing_function
 end
 
 function build_general_log_trace(A, p, fusion; C=nothing, μ=0.0, build_safe=false)
