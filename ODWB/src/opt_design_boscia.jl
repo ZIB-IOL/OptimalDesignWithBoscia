@@ -78,6 +78,7 @@ function solve_opt(
     use_fedorov_heu=false,
     N=-Inf,
     M=5,
+    use_exclusion_criterion=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -178,6 +179,39 @@ function solve_opt(
         elseif use_fedorov_heu
             fedorov_heuristic = build_greedy_fedorov_heuristic(A, N, 10)
             push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 1.0, :fedorov))
+        end
+    end
+
+    if use_exclusion_criterion
+        function build_tree_callback(A, N, m, n)
+            return function tree_callback(tree, node)
+                y = copy(node.active_set.x)/N
+                X = A' * diagm(y) * A
+                λ, V = eigen(X)
+                fx = tree.root.problem.f(y)
+                @assert isapprox(fx, minimum(λ), atol=1e-6)
+
+                λ_min = minimum(λ)
+                if λ_min <= 0.0
+                    return 
+                end
+                # Use both relative and absolute tolerance (similar to isapprox)
+                tolerance = max(1e-10 * abs(λ_min), 1e-10)
+                # Count eigenvalues within tolerance of the minimum
+                mult= count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
+
+                for i in 1:m 
+                    v_i = A[i,:]
+                    max_inner = -Inf
+                    for j in 1:mult 
+                        max_inner = max(max_inner, (v_i' * V[:,j])^2)
+                    end
+                    if max_inner < fx - 1e-3
+                        tree.root.problem.integer_variable_bounds.upper_bounds[i] = 0.0
+                    end
+                end
+                return 
+            end
         end
     end
 
