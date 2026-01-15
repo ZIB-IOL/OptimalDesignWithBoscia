@@ -307,19 +307,17 @@ function solve_opt(
     elseif criterion in ["E", "EF"]
         line_search = FrankWolfe.Adaptive()
         # Precompile run
-        settings = Boscia.create_default_settings()
+        settings = Boscia.create_default_settings(mode=Boscia.SMOOTHING_MODE)
         settings.branch_and_bound[:verbose] = false
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
         settings.tolerances[:rel_dual_gap] = 5e-2
-        settings.smoothing[:mode] = Boscia.SMOOTHING_MODE
         settings.smoothing[:generate_smoothing_objective] = generate_smoothing_function
         settings.smoothing[:smoothing_start] = smoothing_start
         settings.smoothing[:smoothing_min] = smoothing_min
         settings.smoothing[:smoothing_min_valid] = smoothing_min_valid
         settings.smoothing[:smoothing_decay] = smoothing_decay
-        settings.frank_wolfe[:mode] = Boscia.SMOOTHING_MODE
         settings.frank_wolfe[:max_fw_iter] = 1000
         settings.frank_wolfe[:line_search] = line_search
         settings.frank_wolfe[:fw_verbose] = fw_verbose
@@ -341,6 +339,7 @@ function solve_opt(
         
         # Actual run
         @show rounding_prob
+        @show N
         settings.branch_and_bound[:verbose] = verbose
         settings.branch_and_bound[:time_limit] = time_limit
         x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
@@ -390,11 +389,11 @@ function solve_opt(
     end
 
     total_time_in_sec=result[:total_time_in_sec]
-    status = result[:status]
-    if occursin("Optimal", result[:status])
+    status = result[:status_string]
+    if occursin("Optimal", result[:status_string])
         status = "OPTIMAL"
     end
-    if occursin("Time", result[:status])
+    if occursin("Time", result[:status_string])
         status = "TIME_LIMIT"
     end
     if full_callback

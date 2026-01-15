@@ -213,7 +213,7 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
         )
 
         for (idx, x_i) in enumerate(x_pipage)
-            x_pipage[idx] = rand(rng) < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
+            x_pipage[idx] = rand() < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
         end
 
         # reset LMO to node state
