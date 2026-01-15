@@ -185,6 +185,9 @@ function solve_opt(
     if use_exclusion_criterion
         function build_tree_callback(A, N, m, n)
             return function tree_callback(tree, node)
+                if node.id !=1
+                    return
+                end 
                 y = copy(node.active_set.x)/N
                 X = A' * diagm(y) * A
                 λ, V = eigen(X)
@@ -294,7 +297,7 @@ function solve_opt(
         settings.heuristic[:rounding_prob] = rounding_prob
         settings.heuristic[:custom_heuristics] = custom_heu
         if tree_callback !== nothing
-            settings.branch_and_bound[:callback] = tree_callback
+            settings.branch_and_bound[:bnb_callback] = tree_callback
         end
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
         
@@ -332,7 +335,7 @@ function solve_opt(
         settings.heuristic[:rounding_prob] = rounding_prob
         settings.heuristic[:custom_heuristics] = custom_heu
         if tree_callback !== nothing
-            settings.branch_and_bound[:callback] = tree_callback
+            settings.branch_and_bound[:bnb_callback] = tree_callback
         end
         x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
         
@@ -371,7 +374,7 @@ function solve_opt(
         settings.domain[:active_set] = active_set
         settings.domain[:find_domain_point] = domain_point
         if tree_callback !== nothing
-            settings.branch_and_bound[:callback] = tree_callback
+            settings.branch_and_bound[:bnb_callback] = tree_callback
         end
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
         
