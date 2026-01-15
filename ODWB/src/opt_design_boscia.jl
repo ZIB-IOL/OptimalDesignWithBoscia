@@ -206,7 +206,7 @@ function solve_opt(
                     for j in 1:mult 
                         max_inner = max(max_inner, (v_i' * V[:,j])^2)
                     end
-                    if max_inner < fx - 1e-3
+                    if max_inner < fx - 1e-3 && tree.root.problem.integer_variable_bounds.lower_bounds[i] != 1.0
                         tree.root.problem.integer_variable_bounds.upper_bounds[i] = 0.0
                     end
                 end
@@ -257,6 +257,8 @@ function solve_opt(
     end
 
     fw_variant = use_BCG ? Boscia.BlendedConditionalGradient() : Boscia.BlendedPairwiseConditionalGradient()
+
+    tree_callback = use_exclusion_criterion ? build_tree_callback(A, N, m, n) : nothing
 
 
     if criterion in ["AF","DF","GTIF"]
