@@ -248,8 +248,17 @@ function build_e_criterion(A)
 
     function sub_grad!(storage, x)
         X = inf_matrix(x)
-        _, V = eigen(X)
-        storage .= -(A * V[:, 1]).^2
+        λ, V = eigen(X)
+        λ_min = minimum(λ)
+         # Use both relative and absolute tolerance (similar to isapprox)
+         tolerance = max(1e-10 * abs(λ_min), 1e-10)
+         # Count eigenvalues within tolerance of the minimum
+         mult= count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
+         @show mult
+         for i in 1:mult 
+            push!(storage, -(A * V[:, i]).^2)
+         end
+        #storage .= -(A * V[:, 1]).^2
         return storage
     end
 
