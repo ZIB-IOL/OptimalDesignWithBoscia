@@ -1,5 +1,6 @@
 name = "ODWB"
 uuid = "49ca3bab-d703-4446-b288-6682b719a780"
+version = "0.1.0"
 authors = ["Deborah Hendrych <hendrych@zib.de>"]
 version = "0.1.0"
 
