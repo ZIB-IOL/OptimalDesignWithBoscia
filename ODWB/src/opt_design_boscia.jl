@@ -122,6 +122,14 @@ function solve_opt(
         lmo, x = build_lmo(o, m, N, ub, silent=true)
         branching_strategy = Bonobo.MOST_INFEASIBLE()
         heu = Boscia.Heuristic()
+
+        hyperplane_aware_rounding_prob = 0.0
+        follow_gradient_prob=0.3
+        follow_gradient_steps=n
+        rounding_lmo_01_prob=0.7
+        probability_rounding_prob=0.7
+        rounding_prob =0.3
+        custom_heu = []
     else
         lmo = build_blmo(m, N, ub)
         if do_strong_branching
