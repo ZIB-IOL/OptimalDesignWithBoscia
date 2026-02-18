@@ -94,7 +94,7 @@ function build_lmo(o, m, N, ub; silent=false)
     MOI.add_constraint(
         o,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(m), x), 0.0),
-        MOI.EqualTo(N)
+        MOI.EqualTo(Float64(N))
     )
     lmo = FrankWolfe.MathOptLMO(o)
 
