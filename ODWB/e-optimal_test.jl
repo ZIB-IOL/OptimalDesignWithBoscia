@@ -3,12 +3,12 @@ using Boscia
 using FrankWolfe
 
 seed = 5 # 4
-m = 10 #10
+m = 30 #10
 n = Int(floor(sqrt(m)))
 corr = false
 N = Int(floor(1.5 * n * log(n)))
 
-ENV["JULIA_DEBUG"] = "Boscia"
+#ENV["JULIA_DEBUG"] = "Boscia"
 
 integer_data = false
 zero_one = true
@@ -27,24 +27,25 @@ x, result = ODWB.solve_opt(
     corr, 
     full_callback=false, 
     write=false, 
+    use_BPCG=false,
     verbose=true, 
-    integer_data=integer_data, 
+    integer_data=integer_data,
+    use_scip=false,
     zero_one=zero_one, 
     fw_verbose=false, 
-    ls_secant=true, 
+    ls_secant=false, 
     smoothing_start=5.0, 
     smoothing_min=1e-1, 
     N=N, 
     use_heuristics=true,
     use_tightening=true,
-    use_sub_grad_info=false,
-    branch_all=true,
+    use_sub_grad_info=true,
 )
 
 @show x
 @show findall(x-> x == 0, x)
 
-#= x_e, result_e = ODWB.solve_opt(
+x_e, result_e = ODWB.solve_opt(
     seed, 
     m, 
     n, 
@@ -56,16 +57,16 @@ x, result = ODWB.solve_opt(
     verbose=true, 
     integer_data=integer_data, 
     zero_one=zero_one, 
+    use_BPCG=false,
     fw_verbose=false, 
-    ls_secant=true, 
+    ls_secant=false, 
     smoothing_start=5.0, 
     smoothing_min=1e-1, 
     N=N, 
     use_heuristics=true,
     use_exclusion_criterion=true,
-    use_sub_grad_info=false,
-    branch_all=true,
-) =#
+    use_sub_grad_info=true,
+)
 
 println("Pajarito")
 y = ODWB.solve_opt_pajarito(
