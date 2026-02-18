@@ -232,13 +232,7 @@ Follow subgradient heuristic for E-optimal design.
 """
 function build_follow_subgradient_heuristic(A, k)
     m, n = size(A)
-    function sub_g(storage, x)
-        X = A' * Diagonal(x) * A
-        λ, V = eigen(X)
-        return V[:, 1]
-    end
     return function follow_gradient_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
-        nabla = similar(x)
         x_new = copy(x)
         sols = []
         sol_hashes = Set{UInt}()
@@ -249,7 +243,11 @@ function build_follow_subgradient_heuristic(A, k)
                 break
             end
 
-            sub_g(nabla, x_new)
+            # Direction to maximize λ_min: use (A*v_min)² as LMO direction (negative subgradient of -λ_min)
+            X = A' * Diagonal(x_new) * A
+            λ, V = eigen(X)
+            v_min = V[:, 1]
+            nabla = (A * v_min).^2
             x_new = Boscia.compute_extreme_point(tlmo, nabla)
             sol_hash = hash(x_new)
             if in(sol_hash, sol_hashes)
