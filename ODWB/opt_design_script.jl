@@ -12,11 +12,11 @@
 # E-Opimal Design
 num_experiments = [50,80,100,120,150]
 criteria = ["E"] # "EF"
-data_types = ["IND"]
+data_types = ["IND", "CORR"]
 integer_data = [0, 1]
-solvers = ["Boscia"] #, "Pajarito"
+solvers = ["Boscia", "SCIPSDP"] #, "Pajarito"
 seeds = [0] #[1,2,3,4,5]
-options = ["baseline", "all_heuristics", "follow_subgradient", "pipage_rounding", "sr_rounding", "fedorov"]
+options = ["baseline", "use_exclusion_criterion", "oa"]
 N_construct = ["one", "log"] 
 
 
@@ -30,6 +30,9 @@ for criterion in criteria
                         for int_data in integer_data
                             for N in N_construct
                                 # 
+                                if options == "use_exclusion_criterion" && mode == "SCIPSDP"
+                                    continue
+                                end
                                 run(`sbatch -A optimi -J E-Opt experiment.sbatch $criterion $solver $data $m $int_data $seed $option $N`) # CB
                             end
                         end
