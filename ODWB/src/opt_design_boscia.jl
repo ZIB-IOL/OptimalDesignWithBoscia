@@ -248,9 +248,9 @@ function solve_opt(
                 end
                 u = fill(1.0, m)
                 for i in tree.root.problem.integer_variables
-                    ub = get(node.local_bounds.upper_bounds, i, Inf)
-                    lb = get(node.local_bounds.lower_bounds, i, -Inf)
-                    if ub == 0.0 || lb == 1.0
+                    local_ub = get(node.local_bounds.upper_bounds, i, Inf)
+                    local_lb = get(node.local_bounds.lower_bounds, i, -Inf)
+                    if local_ub == 0.0 || local_lb == 1.0
                         u[i] = 0.0
                     end
                 end
@@ -278,7 +278,7 @@ function solve_opt(
         tree_callback = nothing
     end
 
-    fw_variant = use_BBCG ? Boscia.BlendedPairwiseConditionalGradient() : Boscia.DecompositionInvariantConditionalGradient()
+    fw_variant = use_BPCG ? Boscia.BlendedPairwiseConditionalGradient() : Boscia.DecompositionInvariantConditionalGradient()
 
     if criterion in ["AF","DF","GTIF"]
         direction = collect(1.0:m)
