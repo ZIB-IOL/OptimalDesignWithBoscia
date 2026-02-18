@@ -79,6 +79,8 @@ function solve_opt(
     N=-Inf,
     M=5,
     use_exclusion_criterion=false,
+    use_sub_grad_info=false,
+    branch_all=false,
 )
     type = corr ? "correlated" : "independent"
     
