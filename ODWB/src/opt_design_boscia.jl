@@ -64,7 +64,7 @@ function solve_opt(
     sharpness=false, 
     log_trace=false, 
     zero_one=false,
-    use_BCG=false,
+    use_BPCG=false,
     print_iter=1,
     specific_seed=false,
     smoothing_start=1.0,
@@ -235,10 +235,50 @@ function solve_opt(
         end
     end
 
-    fw_variant = use_BCG ? Boscia.BlendedConditionalGradient() : Boscia.BlendedPairwiseConditionalGradient()
+    if use_exclusion_criterion && criterion in ["E", "EF"]
+        function build_bnb_callback(A, N, f, sub_grad!)
+            return function bnb_callback(tree,
+                node;
+                worse_than_incumbent=false,
+                node_infeasible=false,
+                lb_update=false,)
+                m, n = size(A)
+                if node.depth > m/10
+                    return
+                end
+                u = fill(1.0, m)
+                for i in tree.root.problem.integer_variables
+                    ub = get(node.local_bounds.upper_bounds, i, Inf)
+                    lb = get(node.local_bounds.lower_bounds, i, -Inf)
+                    if ub == 0.0 || lb == 1.0
+                        u[i] = 0.0
+                    end
+                end
+                x = node.active_set.x 
+                X = A' * diagm(x) * A
+                λ, V = eigen(X)
+                λ_min = minimum(λ)
+                tolerance = max(1e-10 * abs(λ_min), 1e-10)
+                mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
+                fx = -f(x)
+                W = Symmetric(sum(V[:, j] * V[:, j]' for j in 1:mult)) #+ I(n)
+                W -= n/2 * minimum(eigvals(W)) * I(n)
+                W = 1/LinearAlgebra.tr(W) * W 
+        
+                UB = N * maximum(A[j,:]' * W * A[j,:] for j in 1:m)
+                _, fixed_indices = model_exclusion(A, m, n, UB, fx, N, u=u, x=x)
+        
+                for i in fixed_indices
+                    node.local_bounds.upper_bounds[i] = 0.0
+                end
+            end
+        end
+        tree_callback = build_bnb_callback(A, N, f, sub_grad!)
+    else
+        tree_callback = nothing
+    end
 
-    tree_callback = use_exclusion_criterion ? build_tree_callback(A, N, m, n) : nothing
-
+    fw_variant = use_BBCG ? Boscia.BlendedPairwiseConditionalGradient() : Boscia.DecompositionInvariantConditionalGradient()
 
     if criterion in ["AF","DF","GTIF"]
         direction = collect(1.0:m)
@@ -281,10 +321,10 @@ function solve_opt(
         settings.branch_and_bound[:time_limit] = time_limit
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
     elseif criterion in ["E", "EF"]
-        line_search = FrankWolfe.Adaptive()
+        line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
         # Precompile run
         settings = Boscia.create_default_settings(mode=Boscia.SMOOTHING_MODE)
-        settings.branch_and_bound[:verbose] = false
+        settings.branch_and_bound[:verbose] = true
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
@@ -294,6 +334,7 @@ function solve_opt(
         settings.smoothing[:smoothing_min] = smoothing_min
         settings.smoothing[:smoothing_min_valid] = smoothing_min_valid
         settings.smoothing[:smoothing_decay] = smoothing_decay
+        settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.frank_wolfe[:max_fw_iter] = 1000
         settings.frank_wolfe[:line_search] = line_search
         settings.frank_wolfe[:fw_verbose] = fw_verbose
@@ -393,6 +434,8 @@ function solve_opt(
     if write
         folder = if long_runs
             "long_runs"
+        elseif use_exclusion_criterion
+            "exclusion_criterion"
         elseif use_heuristics
             "heuristics"
         elseif use_follow_subgradient_heu
@@ -441,7 +484,7 @@ function solve_opt(
             list_local_tightening = result[:local_tightenings]
             list_global_tightening = result[:global_tightenings]
             df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
-            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
+            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
             CSV.write(file_name, df, append=false)
         end
 
@@ -465,7 +508,7 @@ function solve_opt(
             optimal_time=optimal_time, 
             optimal_iteration=idx, 
             solution_source=String(result[:solution_source]))
-        file_name = joinpath(@__DIR__, "../csv/Boscia/" * folder * "/boscia_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
+        file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=false, writeheader=true, delim=";")
         else 
