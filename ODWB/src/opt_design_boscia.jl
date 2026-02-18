@@ -132,15 +132,6 @@ function solve_opt(
         custom_heu = []
     else
         lmo = build_blmo(m, N, ub)
-        if do_strong_branching
-            function perform_strong_branch(tree, node)
-                return node.level <= length(tree.root.problem.integer_variables) / 3
-            end
-            branching_strategy = Boscia.HybridStrongBranching(10, 1e-3, lmo, perform_strong_branch)
-        else
-            branching_strategy = Bonobo.MOST_INFEASIBLE()
-        end
-
         custom_heu = []
         
         if use_follow_subgradient_heu || use_pipage_heu || use_sr_rounding_heu || use_fedorov_heu
@@ -192,40 +183,15 @@ function solve_opt(
         end
     end
 
-    if use_exclusion_criterion
-        function build_tree_callback(A, N, m, n)
-            return function tree_callback(tree, node)
-                if node.id !=1
-                    return
-                end 
-                y = copy(node.active_set.x)/N
-                X = A' * diagm(y) * A
-                λ, V = eigen(X)
-                fx = tree.root.problem.f(y)
-                @assert isapprox(fx, minimum(λ), atol=1e-6)
-
-                λ_min = minimum(λ)
-                if λ_min <= 0.0
-                    return 
-                end
-                # Use both relative and absolute tolerance (similar to isapprox)
-                tolerance = max(1e-10 * abs(λ_min), 1e-10)
-                # Count eigenvalues within tolerance of the minimum
-                mult= count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
-
-                for i in 1:m 
-                    v_i = A[i,:]
-                    max_inner = -Inf
-                    for j in 1:mult 
-                        max_inner = max(max_inner, (v_i' * V[:,j])^2)
-                    end
-                    if max_inner < fx - 1e-3 && tree.root.problem.integer_variable_bounds.lower_bounds[i] != 1.0
-                        tree.root.problem.integer_variable_bounds.upper_bounds[i] = 0.0
-                    end
-                end
-                return 
-            end
+    if do_strong_branching
+        function perform_strong_branch(tree, node)
+            return node.level <= length(tree.root.problem.integer_variables) / 3
         end
+        branching_strategy = Boscia.HybridStrongBranching(10, 1e-3, lmo, perform_strong_branch)
+    elseif branch_all
+        branching_strategy = Boscia.BRANCH_ALL()
+    else
+        branching_strategy = Bonobo.MOST_INFEASIBLE()
     end
 
     result = 0.0
