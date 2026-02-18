@@ -254,7 +254,6 @@ function build_e_criterion(A)
          tolerance = max(1e-10 * abs(λ_min), 1e-10)
          # Count eigenvalues within tolerance of the minimum
          mult= count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
-         @show mult
          for i in 1:mult 
             push!(storage, -(A * V[:, i]).^2)
          end
