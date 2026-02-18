@@ -33,6 +33,7 @@ const MOD = MathOptSetDistances
 
 include("utilities.jl")
 include("heuristics.jl")
+include("exclusion_criterion.jl")
 include("opt_design_boscia.jl")
 include("scip_oa.jl")
 include("opt_design_scip.jl")
