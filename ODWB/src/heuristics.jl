@@ -245,6 +245,9 @@ function build_follow_subgradient_heuristic(A, k)
 
             # Direction to maximize λ_min: use (A*v_min)² as LMO direction (negative subgradient of -λ_min)
             X = A' * Diagonal(x_new) * A
+            if !isreal(λ[1])
+                return [x], true
+            end
             λ, V = eigen(X)
             v_min = V[:, 1]
             nabla = (A * v_min).^2
