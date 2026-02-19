@@ -134,6 +134,9 @@ function solve_opt_scip_sdp(
     cbf_path = joinpath(mktempdir(), "eopt_scip_sdp_$(getpid()).cbf")
     
     _export_model_to_cbf(model, cbf_path)
+    # Precompile: 10s run to trigger JIT and avoid large first-run compile (same pattern as other solvers)
+    SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit=10, gap=1e-2, verbose=false, sdp_mode=scip_sdp_mode)
+    # Actual run
     result = SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit, gap=1e-2, verbose, sdp_mode=scip_sdp_mode)
     status = get(_SCIP_STATUS_TO_MOI, result.status, MOI.OTHER_ERROR)
     solution = result.obj_val
