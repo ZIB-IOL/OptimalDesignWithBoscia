@@ -160,6 +160,7 @@ function solve_opt_scip_sdp(
 
     if boscia_solution !== nothing
         @show boscia_solution
+        @show isfeasible(seed, m, n, criterion, boscia_solution, corr, ub=ub)
         @show f_check(boscia_solution)
         @show abs(f_check(boscia_solution) - f_check(y))/min(abs(f_check(boscia_solution)), abs(f_check(y)))
     end
