@@ -68,6 +68,7 @@ for k in ratio_para
                     corr, 
                     integer_data=integer_data, 
                     N=N, 
+                    use_exclusion_criterion=option == "exclusion_criterion", 
                     use_heuristics=option == "all_heuristics", 
                     use_follow_subgradient_heu=option == "follow_subgradient", 
                     use_pipage_heu=option == "pipage_rounding", 
@@ -79,6 +80,11 @@ for k in ratio_para
                    error("SCIP OA does not work with the $(criterion)-optimal problems!")
                 end
                 ODWB.solve_opt_scip(seed, m, n, time_limit, criterion, corr, N=N)
+            elseif mode == "SCIPSDP"
+                if criterion in ["A", "D", "AF", "DF"]
+                   error("SCIP SDP does not work with the $(criterion)-optimal problems!")
+                end
+                ODWB.solve_opt_scip_sdp(seed, m, n, time_limit, criterion, corr, N=N, oa=option == "oa")
             elseif mode == "Pajarito"
                 ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
             elseif mode == "Custom"

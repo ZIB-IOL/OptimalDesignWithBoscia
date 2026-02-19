@@ -94,7 +94,7 @@ function build_lmo(o, m, N, ub; silent=false)
     MOI.add_constraint(
         o,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(m), x), 0.0),
-        MOI.EqualTo(N)
+        MOI.EqualTo(Float64(N))
     )
     lmo = FrankWolfe.MathOptLMO(o)
 
@@ -248,8 +248,16 @@ function build_e_criterion(A)
 
     function sub_grad!(storage, x)
         X = inf_matrix(x)
-        _, V = eigen(X)
-        storage .= -(A * V[:, 1]).^2
+        λ, V = eigen(X)
+        λ_min = minimum(λ)
+         # Use both relative and absolute tolerance (similar to isapprox)
+         tolerance = max(1e-10 * abs(λ_min), 1e-10)
+         # Count eigenvalues within tolerance of the minimum
+         mult= count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
+         for i in 1:mult 
+            push!(storage, -(A * V[:, i]).^2)
+         end
+        #storage .= -(A * V[:, 1]).^2
         return storage
     end
 
@@ -265,24 +273,12 @@ function build_e_criterion(A)
         function grad_mu!(storage, x)
             X = inf_matrix(x)
             λ, V = eigen(X)
-            #frac = - 1/(sum(exp.(-λ ./ μ)))
             frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
-            #@show λ
-            #@show frac
-            # VERSION 1: want I have figured out by hand
-            #sum_exp = sum(exp(-λ[j]/ μ) * norm(V[:,j])^2 for j in 1:n)
-            #for i in 1:length(x)
-            #    storage[i] = frac * norm(A[i,:])^2 * sum_exp
-            #end
-
-            # VERSION 2: ChatGPT solution
-           # @show sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n)
-            #storage .= frac * sum(exp.(-λ[j]/ μ) * (A * V[:,j]).^2 for j in 1:n) # xexpy(x, y)
             storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,j]).^2 , -λ[j]/ μ)  for j in 1:n)
             return storage
         end
         return f_mu, grad_mu!
-    end
+    end 
 
     return f, sub_grad!, generate_smoothing_function
 end

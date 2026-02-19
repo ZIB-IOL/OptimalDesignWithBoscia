@@ -37,8 +37,9 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
     m, n = size(A)
     
     # Validate inputs
-    @assert target_size >= length(initial_idx_set) "Target size must be >= initial set size: $(target_size) < $(length(initial_idx_set))"
-    @assert target_size >= n "Target size must be >= number of parameters for full rank"
+    if target_size < length(initial_idx_set) || target_size < n
+        return initial_idx_set, false
+    end
     @assert all(1 ≤ idx ≤ m for idx in initial_idx_set) "All indices must be in valid range"
     
     current_set = copy(initial_idx_set)
@@ -46,7 +47,7 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
     # If we already have the target size, check if we have full rank
     if length(current_set) == target_size
         if rank(A[current_set, :]) == n
-            return current_set
+            return current_set, true
         else
             # Need to replace some indices to get full rank
             # Find linearly independent subset and rebuild
@@ -133,7 +134,7 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
         @warn "Unable to achieve full column rank. Final rank: $final_rank, required: $n"
     end
     
-    return current_set
+    return current_set, true
 end
 
 """
@@ -146,7 +147,10 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
         x_new = copy(x)
         idx_set = findall(x .> threshold)
         cut_off = Int(floor(min(max(n * log(n)/epsilon^2, length(idx_set)), N)))
-        S = find_large_leverage_set(A, idx_set, cut_off)
+        S, valid = find_large_leverage_set(A, idx_set, cut_off) 
+        if valid
+            return [x], true
+        end
         sols = []
         # save original bounds
         node = tree.nodes[tree.root.current_node_id[]]
@@ -213,7 +217,7 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
         )
 
         for (idx, x_i) in enumerate(x_pipage)
-            x_pipage[idx] = rand(rng) < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
+            x_pipage[idx] = rand() < x_i ? min(1.0, ceil(x_i)) : max(0.0, floor(x_i))
         end
 
         # reset LMO to node state
@@ -232,13 +236,7 @@ Follow subgradient heuristic for E-optimal design.
 """
 function build_follow_subgradient_heuristic(A, k)
     m, n = size(A)
-    function sub_g(storage, x)
-        X = A' * Diagonal(x) * A
-        λ, V = eigen(X)
-        return V[:, 1]
-    end
     return function follow_gradient_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
-        nabla = similar(x)
         x_new = copy(x)
         sols = []
         sol_hashes = Set{UInt}()
@@ -249,7 +247,14 @@ function build_follow_subgradient_heuristic(A, k)
                 break
             end
 
-            sub_g(nabla, x_new)
+            # Direction to maximize λ_min: use (A*v_min)² as LMO direction (negative subgradient of -λ_min)
+            X = A' * Diagonal(x_new) * A
+            if !isposdef(X)
+                return [x], true
+            end
+            λ, V = eigen(X)
+            v_min = V[:, 1]
+            nabla = (A * v_min).^2
             x_new = Boscia.compute_extreme_point(tlmo, nabla)
             sol_hash = hash(x_new)
             if in(sol_hash, sol_hashes)

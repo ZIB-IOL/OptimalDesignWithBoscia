@@ -59,9 +59,14 @@ end
                 x = rand(dim)
                 n = Int(floor(dim/10))
                 A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
-                f, f_mu, _ = ODWB.build_e_criterion(A, μ=mu)
+                f, sub_grad!, generate_smoothing_function = ODWB.build_e_criterion(A)
+
+                f_mu, grad! = generate_smoothing_function(mu)
 
                 @test f(x) >= f_mu(x)
+
+                y = rand(dim)
+                @test f_mu(mu * x + (1-mu) * y) <= mu * f_mu(x) + (1-mu) * f_mu(y)
             end
         end
     end
@@ -74,7 +79,7 @@ end
             @show dim, n
             gradient = rand(dim)
             A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
-            f_orig, generate_smoothing_function = ODWB.build_e_criterion(A)
+            f_orig, sub_grad!, generate_smoothing_function = ODWB.build_e_criterion(A)
             f_mu, grad! = generate_smoothing_function(μ)
 
             @test check_gradients(grad!, f_mu, gradient)
