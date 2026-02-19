@@ -3,7 +3,7 @@ using Boscia
 using FrankWolfe
 
 seed = 5 # 4
-m = 30 #10
+m = 50 #10
 n = Int(floor(sqrt(m)))
 corr = false
 N = Int(floor(1.5 * n * log(n)))
@@ -22,7 +22,7 @@ x, result = ODWB.solve_opt(
     seed, 
     m, 
     n, 
-    300, 
+    120, 
     "E", 
     corr, 
     full_callback=false, 
@@ -34,18 +34,17 @@ x, result = ODWB.solve_opt(
     zero_one=zero_one, 
     fw_verbose=false, 
     ls_secant=false, 
-    smoothing_start=5.0, 
-    smoothing_min=1e-1, 
     N=N, 
-    use_heuristics=true,
     use_tightening=true,
     use_sub_grad_info=true,
+    smoothing_start=m/25,
+    smoothing_min=1e-1,
 )
 
 @show x
-@show findall(x-> x == 0, x)
+@show findall(x-> x == 0, x) 
 
-x_e, result_e = ODWB.solve_opt(
+#=x_e, result_e = ODWB.solve_opt(
     seed, 
     m, 
     n, 
@@ -66,10 +65,11 @@ x_e, result_e = ODWB.solve_opt(
     use_heuristics=true,
     use_exclusion_criterion=true,
     use_sub_grad_info=true,
-)
+) =#
 
-println("Pajarito")
-y = ODWB.solve_opt_pajarito(
+println("SCIP SDP")
+
+y_bnb = ODWB.solve_opt_scip_sdp(
     seed, 
     m, 
     n, 
@@ -78,17 +78,32 @@ y = ODWB.solve_opt_pajarito(
     corr, 
     write=false, 
     verbose=true, 
-    integer_data=integer_data, 
-    boscia_solution=x, 
+    scip_sdp_mode=:bnb,
+    integer_data=integer_data,
     zero_one=zero_one, 
-    N=N)
+    N=N,
+    )
 
-@show findall(y-> y == 0, y)
+y_oa = ODWB.solve_opt_scip_sdp(
+    seed, 
+    m, 
+    n, 
+    300, 
+    "E", 
+    corr, 
+    write=false, 
+    verbose=true, 
+    scip_sdp_mode=:oa,
+    integer_data=integer_data,
+    zero_one=zero_one, 
+    N=N,
+    )
+#@show findall(y-> y == 0, y)
 
-if !any(isnan.(y))
-    @show f(x), f(y), abs(f(x) - f(y))/min(abs(f(x)), abs(f(y)))
-    @show "Pajarito solution is better: " f(y) <= f(x)
-end
+#if !any(isnan.(y))
+#    @show f(x), f(y), abs(f(x) - f(y))/min(abs(f(x)), abs(f(y)))
+#    @show "SCIP SDP solution is better: " f(y) <= f(x)
+#end
 
 #=
 A, _, N, ub, _ = ODWB.build_integer_data(seed, m, n, false, corr)
