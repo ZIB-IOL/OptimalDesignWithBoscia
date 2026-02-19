@@ -245,7 +245,7 @@ function build_follow_subgradient_heuristic(A, k)
 
             # Direction to maximize λ_min: use (A*v_min)² as LMO direction (negative subgradient of -λ_min)
             X = A' * Diagonal(x_new) * A
-            if !isreal(λ[1])
+            if !isposdef(X)
                 return [x], true
             end
             λ, V = eigen(X)
