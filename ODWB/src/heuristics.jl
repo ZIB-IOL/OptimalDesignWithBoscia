@@ -37,8 +37,9 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
     m, n = size(A)
     
     # Validate inputs
-    @assert target_size >= length(initial_idx_set) "Target size must be >= initial set size: $(target_size) < $(length(initial_idx_set))"
-    @assert target_size >= n "Target size must be >= number of parameters for full rank"
+    if target_size < length(initial_idx_set) || target_size < n
+        return initial_idx_set, false
+    end
     @assert all(1 ≤ idx ≤ m for idx in initial_idx_set) "All indices must be in valid range"
     
     current_set = copy(initial_idx_set)
@@ -46,7 +47,7 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
     # If we already have the target size, check if we have full rank
     if length(current_set) == target_size
         if rank(A[current_set, :]) == n
-            return current_set
+            return current_set, true
         else
             # Need to replace some indices to get full rank
             # Find linearly independent subset and rebuild
@@ -133,7 +134,7 @@ function find_large_leverage_set(A::Matrix{Float64}, initial_idx_set::Vector{Int
         @warn "Unable to achieve full column rank. Final rank: $final_rank, required: $n"
     end
     
-    return current_set
+    return current_set, true
 end
 
 """
@@ -146,7 +147,10 @@ function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
         x_new = copy(x)
         idx_set = findall(x .> threshold)
         cut_off = Int(floor(min(max(n * log(n)/epsilon^2, length(idx_set)), N)))
-        S = find_large_leverage_set(A, idx_set, cut_off)
+        S, valid = find_large_leverage_set(A, idx_set, cut_off) 
+        if valid
+            return [x], true
+        end
         sols = []
         # save original bounds
         node = tree.nodes[tree.root.current_node_id[]]
