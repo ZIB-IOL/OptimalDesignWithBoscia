@@ -118,7 +118,7 @@ function solve_opt_scip_sdp(
     verbose=true, 
     integer_data=false, 
     boscia_solution=nothing, 
-    zero_one=false, 
+    zero_one=true, 
     N=-Inf, 
     use_scip_sdp=true, 
     scip_sdp_mode=:oa, 

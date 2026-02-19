@@ -63,7 +63,7 @@ function solve_opt(
     ls_secant=false, 
     sharpness=false, 
     log_trace=false, 
-    zero_one=false,
+    zero_one=true,
     use_BPCG=false,
     print_iter=1,
     specific_seed=false,
