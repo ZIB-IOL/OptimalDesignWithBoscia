@@ -342,6 +342,7 @@ function solve_opt(
         settings.smoothing[:smoothing_min_valid] = smoothing_min_valid
         settings.smoothing[:smoothing_decay] = smoothing_decay
         settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
+        settings.smoothing[:max_restart_fw_iter] = min(m,100)
         settings.frank_wolfe[:max_fw_iter] = 1000
         settings.frank_wolfe[:line_search] = line_search
         settings.frank_wolfe[:fw_verbose] = fw_verbose
