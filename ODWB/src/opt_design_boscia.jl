@@ -88,9 +88,9 @@ function solve_opt(
         A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
     elseif criterion in ["E", "EF"]
         if integer_data
-            A, C, N, ub, _ = build_integer_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, M=M, N=N)
+            A, C, N, ub, _ = build_integer_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, M=M, N=N, zero_one=zero_one)
         else
-            A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, N=N)
+            A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, N=N, zero_one=zero_one)
         end
     else
         A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
@@ -148,10 +148,6 @@ function solve_opt(
             rounding_lmo_01_prob= criterion in ["E","EF"] ? 0.8 : 0.0
             probability_rounding_prob= criterion in ["E","EF"] ? 0.8 : 0.0
             rounding_prob =1.0
-            sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
-            push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
-            follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
-            push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
         end
         if use_heuristics
             if criterion in ["E","EF"]
@@ -169,12 +165,12 @@ function solve_opt(
         elseif use_follow_subgradient_heu
             if criterion in ["E","EF"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
-                push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 1.0, :follow_subgradient))
+                push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
             end
         elseif use_pipage_heu
             if N > 1.5 * n
                 pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N)
-                push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 1.0, :pipage_rounding))
+                push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 0.3, :pipage_rounding))
             end
         elseif use_sr_rounding_heu
             if criterion in ["E","EF"]
