@@ -49,7 +49,7 @@ end
 
 function model_exclusion(A, m, n, UB, LB, M; u=fill(1.0, m), x=fill(0.0, m))
     fixed_indices = Int64[]
-    opt = optimizer_with_attributes(Hypatia.Optimizer, MOI.Silent() => true)
+    opt = optimizer_with_attributes(Mosek.Optimizer, MOI.Silent() => true)
     model = Model(opt)
     @variable(model, Z[1:n, 1:n])
     @constraint(model, sum(Z[i,i] for i in 1:n) == 1)

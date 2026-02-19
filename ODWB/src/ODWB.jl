@@ -32,6 +32,7 @@ import MathOptSetDistances
 const MOD = MathOptSetDistances
 
 using Mosek # path /Users/deborah/mosek/mosek/11.0/tools/platform/osxaarch64/bin
+using MosekTools
 
 include("utilities.jl")
 include("heuristics.jl")
