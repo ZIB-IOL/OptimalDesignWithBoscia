@@ -107,7 +107,23 @@ const _SCIP_STATUS_TO_MOI = Dict(
     SCIP.SCIP_STATUS_GAPLIMIT => MOI.OPTIMAL,
 )
 
-function solve_opt_scip_sdp(seed, m, n, time_limit, criterion, corr; write=true, verbose=true, integer_data=false, boscia_solution=nothing, zero_one=false, N=-Inf, use_scip_sdp=true, scip_sdp_mode=:oa, return_diagnostics=false)
+function solve_opt_scip_sdp(
+    seed, 
+    m, 
+    n, 
+    time_limit, 
+    criterion, 
+    corr; 
+    write=true, 
+    verbose=true, 
+    integer_data=false, 
+    boscia_solution=nothing, 
+    zero_one=false, 
+    N=-Inf, 
+    use_scip_sdp=true, 
+    scip_sdp_mode=:oa, 
+    return_diagnostics=false
+    )
     if criterion != "E" && criterion != "EF"
         error("SCIP SDP can currently only handle E-optimal and EF-optimal problems")
     end
@@ -138,6 +154,12 @@ function solve_opt_scip_sdp(seed, m, n, time_limit, criterion, corr; write=true,
     feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub)
     scaled_solution = feasible ? f_check(y) : Inf
     @show feasible, scaled_solution
+
+    if boscia_solution !== nothing
+        @show boscia_solution
+        @show f_check(boscia_solution)
+        @show abs(f_check(boscia_solution) - f_check(y))/min(abs(f_check(boscia_solution)), abs(f_check(y)))
+    end
 
     if write
         integer_data_str = integer_data ? "_int_" : "_cont_"
