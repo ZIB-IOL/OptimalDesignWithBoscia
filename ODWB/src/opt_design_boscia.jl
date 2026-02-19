@@ -324,7 +324,7 @@ function solve_opt(
         line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
         # Precompile run
         settings = Boscia.create_default_settings(mode=Boscia.SMOOTHING_MODE)
-        settings.branch_and_bound[:verbose] = true
+        settings.branch_and_bound[:verbose] = false
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
