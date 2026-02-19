@@ -143,11 +143,15 @@ function solve_opt(
             rounding_prob =0.0
         else
             hyperplane_aware_rounding_prob = 0.8
-            follow_gradient_prob=0.7
+            follow_gradient_prob=0.5
             follow_gradient_steps=n
             rounding_lmo_01_prob= criterion in ["E","EF"] ? 0.8 : 0.0
             probability_rounding_prob= criterion in ["E","EF"] ? 0.8 : 0.0
             rounding_prob =1.0
+            sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
+            push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
+            follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
+            push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
         end
         if use_heuristics
             if criterion in ["E","EF"]
