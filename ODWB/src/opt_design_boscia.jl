@@ -257,6 +257,9 @@ function solve_opt(
                 x = node.active_set.x 
                 X = A' * diagm(x) * A
                 λ, V = eigen(X)
+                if !isreal(λ[1])
+                    return
+                end
                 λ_min = minimum(λ)
                 tolerance = max(1e-10 * abs(λ_min), 1e-10)
                 mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
