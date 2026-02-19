@@ -11,7 +11,7 @@ import Hypatia.Cones: vec_length, vec_copyto!, svec_length, svec_side
 import Hypatia.Cones: smat_to_svec!, svec_to_smat!
 const Cones = Hypatia.Cones
 using Pajarito
-using PajaritoExtras # https://github.com/chriscoey/PajaritoExtras.jl
+#using PajaritoExtras # https://github.com/chriscoey/PajaritoExtras.jl
 using HiGHS
 using LinearAlgebra
 using Statistics
@@ -30,6 +30,8 @@ using StableRNGs
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances
+
+using Mosek # path /Users/deborah/mosek/mosek/11.0/tools/platform/osxaarch64/bin
 
 include("utilities.jl")
 include("heuristics.jl")
