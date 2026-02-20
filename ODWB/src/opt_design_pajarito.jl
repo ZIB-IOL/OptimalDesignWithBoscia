@@ -164,10 +164,8 @@ function build_E_pajarito_model(seed, m, n, criterion, time_limit, corr; verbose
         "mip_rel_gap" => 1e-6,
     )=#
 
-    oa_solver = optimizer_with_attributes(SCIP.Optimizer,
+    oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
         MOI.Silent() => true,
-        "limits/absgap" => 1e-8,
-        "limits/gap" => 1e-8,
     )
     # SDP solver
     conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
