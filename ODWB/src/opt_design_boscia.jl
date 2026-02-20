@@ -331,7 +331,7 @@ function solve_opt(
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
-        settings.tolerances[:rel_dual_gap] = 5e-2
+        settings.tolerances[:rel_dual_gap] = 1e-2
         settings.smoothing[:generate_smoothing_objective] = generate_smoothing_function
         settings.smoothing[:smoothing_start] = smoothing_start
         settings.smoothing[:smoothing_min] = smoothing_min
