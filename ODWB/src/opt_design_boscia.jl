@@ -103,6 +103,11 @@ function solve_opt(
             use_shadow_set = true
         elseif !(criterion in ["A","AF"])
             lazy_tolerance = 1.5
+        elseif criterion in ["E","EF"]
+            use_tightening = false
+            use_shadow_set = false
+            use_sub_grad_info = true
+            ls_secant = true
         end
     end
 
@@ -331,7 +336,10 @@ function solve_opt(
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
+
         settings.tolerances[:rel_dual_gap] = 1e-2
+        settings.tolerances[:dual_gap] = 1e-6
+
         settings.smoothing[:generate_smoothing_objective] = generate_smoothing_function
         settings.smoothing[:smoothing_start] = smoothing_start
         settings.smoothing[:smoothing_min] = smoothing_min
@@ -339,13 +347,16 @@ function solve_opt(
         settings.smoothing[:smoothing_decay] = smoothing_decay
         settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
+
         settings.frank_wolfe[:max_fw_iter] = 1000
         settings.frank_wolfe[:line_search] = line_search
         settings.frank_wolfe[:fw_verbose] = fw_verbose
         settings.frank_wolfe[:lazy_tolerance] = lazy_tolerance
         settings.frank_wolfe[:variant] = fw_variant
+
         settings.tightening[:dual_tightening] = use_tightening
         settings.tightening[:global_dual_tightening] = use_tightening
+
         settings.heuristic[:hyperplane_aware_rounding_prob] = hyperplane_aware_rounding_prob
         settings.heuristic[:follow_gradient_prob] = follow_gradient_prob
         settings.heuristic[:follow_gradient_steps] = follow_gradient_steps
@@ -353,6 +364,7 @@ function solve_opt(
         settings.heuristic[:probability_rounding_prob] = probability_rounding_prob
         settings.heuristic[:rounding_prob] = rounding_prob
         settings.heuristic[:custom_heuristics] = custom_heu
+
         if tree_callback !== nothing
             settings.branch_and_bound[:bnb_callback] = tree_callback
         end
