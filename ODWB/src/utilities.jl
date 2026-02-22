@@ -243,7 +243,8 @@ function build_e_criterion(A)
 
     function f(x)
         X = inf_matrix(x)   
-        return (-1) * minimum(eigvals(X))    
+        #return (-1) * minimum(eigvals(X))  
+        return (-1) * LinearAlgebra.eigmin(X)  
     end
 
     function sub_grad!(storage, x)
