@@ -50,6 +50,8 @@ for k in ratio_para
         Int(floor(1.5 * n))
     elseif N_construct == "log"
         Int(floor(1.5 * n * log(n)))
+    elseif N_construct == "rank_deficient"
+        Int(floor(3n/4))
     elseif N_construct == "nothing"
         -Inf
     else
