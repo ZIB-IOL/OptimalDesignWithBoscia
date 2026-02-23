@@ -174,8 +174,6 @@ function solve_opt_scip_sdp(
             seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N,
             solution=solution, dual_bound=dual_bound, rel_gap=rel_gap,
             scaled_solution=scaled_solution, termination=status, feasible=feasible,
-            dual_bound=dual_bound,
-            rel_gap=rel_gap,
             n_nodes=diagnostics.n_nodes,
             n_cuts_found=diagnostics.n_cuts_found, n_cuts_applied=diagnostics.n_cuts_applied,
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
