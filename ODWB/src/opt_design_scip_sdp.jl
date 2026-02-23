@@ -165,7 +165,7 @@ function solve_opt_scip_sdp(
     end
 
     if write
-        run_mode = scip_sdp_mode == :oa ? "oa" : "baseline"
+        run_mode = scip_sdp_mode == :oa ? "oa" : "bnb"
         integer_data_str = integer_data ? "_int_" : "_cont_"
         df = DataFrame(
             seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N,
@@ -174,7 +174,7 @@ function solve_opt_scip_sdp(
             n_cuts_found=diagnostics.n_cuts_found, n_cuts_applied=diagnostics.n_cuts_applied,
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
         )
-        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated_" : "independent_")$(integer_data_str)_$(m)_$(n)_$(N)_$(seed).csv")
+        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")$(integer_data_str)_$(m)_$(n)_$(N)_$(seed).csv")
         isfile(file_name) ? CSV.write(file_name, df, append=true) : CSV.write(file_name, df, writeheader=true)
     end
     return_diagnostics ? (y, diagnostics) : y
