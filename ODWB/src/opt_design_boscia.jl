@@ -99,15 +99,15 @@ function solve_opt(
     # parameter tunning
     if !options_run
         use_heuristics = true
-        if !(criterion in ["D","DF"])
-            use_shadow_set = true
-        elseif !(criterion in ["A","AF"])
-            lazy_tolerance = 1.5
-        elseif criterion in ["E","EF"]
+        if criterion in ["E","EF"]
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
             ls_secant = true
+        elseif !(criterion in ["D","DF"])
+            use_shadow_set = true
+        elseif !(criterion in ["A","AF"])
+            lazy_tolerance = 1.5
         end
     end
 
