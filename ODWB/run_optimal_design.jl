@@ -86,7 +86,15 @@ for k in ratio_para
                 if criterion in ["A", "D", "AF", "DF"]
                    error("SCIP SDP does not work with the $(criterion)-optimal problems!")
                 end
-                ODWB.solve_opt_scip_sdp(seed, m, n, time_limit, criterion, corr, N=N, oa=option == "oa")
+                ODWB.solve_opt_scip_sdp(
+                    seed, 
+                    m, 
+                    n, 
+                    time_limit, 
+                    criterion, 
+                    corr, 
+                    N=N, 
+                    scip_sdp_mode=option == "oa" ? :oa : :bnb) #scip_sdp_mode=option == "oa" ? :oa : :bnb
             elseif mode == "Pajarito"
                 ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
             elseif mode == "Custom"

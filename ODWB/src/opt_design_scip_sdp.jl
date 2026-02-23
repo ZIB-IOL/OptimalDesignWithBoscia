@@ -120,7 +120,6 @@ function solve_opt_scip_sdp(
     boscia_solution=nothing, 
     zero_one=true, 
     N=-Inf, 
-    use_scip_sdp=true, 
     scip_sdp_mode=:oa, 
     return_diagnostics=false
     )
@@ -169,9 +168,8 @@ function solve_opt_scip_sdp(
     end
 
     if write
+        run_mode = scip_sdp_mode == :oa ? "oa" : "bnb"
         integer_data_str = integer_data ? "_int_" : "_cont_"
-        mode = use_scip_sdp ? "SCIPSDP" : "Pajarito"
-        sdp_mode_str = use_scip_sdp ? "_$(scip_sdp_mode)" : ""
         df = DataFrame(
             seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N,
             solution=solution, dual_bound=dual_bound, rel_gap=rel_gap,
@@ -182,7 +180,7 @@ function solve_opt_scip_sdp(
             n_cuts_found=diagnostics.n_cuts_found, n_cuts_applied=diagnostics.n_cuts_applied,
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
         )
-        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(mode)$(sdp_mode_str)_$(criterion)_optimality_$(corr ? "correlated" : "independent")$(integer_data_str)_$(m)_$(n)_$(N)_$(seed).csv")
+        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")$(integer_data_str)_$(m)_$(n)_$(N)_$(seed).csv")
         isfile(file_name) ? CSV.write(file_name, df, append=true) : CSV.write(file_name, df, writeheader=true)
     end
     return_diagnostics ? (y, diagnostics) : y

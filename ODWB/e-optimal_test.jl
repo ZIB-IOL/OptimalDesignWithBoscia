@@ -44,7 +44,7 @@ x, result = ODWB.solve_opt(
 @show x
 @show findall(x-> x == 0, x) 
 
-#=x_e, result_e = ODWB.solve_opt(
+x_e, result_e = ODWB.solve_opt(
     seed, 
     m, 
     n, 
@@ -65,7 +65,7 @@ x, result = ODWB.solve_opt(
     use_heuristics=true,
     use_exclusion_criterion=true,
     use_sub_grad_info=true,
-) =#
+) 
 
 println("SCIP SDP")
 

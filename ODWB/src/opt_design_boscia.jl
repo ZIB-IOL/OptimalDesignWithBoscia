@@ -482,6 +482,22 @@ function solve_opt(
             ""
         end
 
+        folder = if use_exclusion_criterion
+            "exclusion_criterion"
+        elseif use_heuristics && options_run
+            "heuristics"
+        elseif use_follow_subgradient_heu && options_run
+            "follow_subgradient"
+        elseif use_pipage_heu && options_run
+            "pipage_rounding"
+        elseif use_sr_rounding_heu && options_run
+            "sr_rounding"
+        elseif use_fedorov_heu && options_run
+            "fedorov"
+        else
+            ""
+        end
+
         @show folder
 
         if criterion in ["GTI","GTIF"]
