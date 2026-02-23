@@ -30,3 +30,6 @@ cb_*
 # ignore mac files
 .DS_Store
 **/.DS_Store
+
+# ignore full runs -> too large to commit
+ODWB/csv/full_runs_boscia/
