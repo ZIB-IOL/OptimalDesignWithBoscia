@@ -141,6 +141,9 @@ function solve_opt_scip_sdp(
     status = get(_SCIP_STATUS_TO_MOI, result.status, MOI.OTHER_ERROR)
     solution = result.obj_val
     t = result.solve_time
+    dual_bound = result.dual_bound
+    rel_gap = result.rel_gap
+    @show solution, dual_bound, rel_gap
     # CBF order: x[1..m] then t (m+1 vars total)
     ord = result.var_values_ordered
     y = length(ord) >= m ? ord[1:m] : fill(NaN, m)
@@ -171,7 +174,10 @@ function solve_opt_scip_sdp(
         sdp_mode_str = use_scip_sdp ? "_$(scip_sdp_mode)" : ""
         df = DataFrame(
             seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N,
-            solution=solution, scaled_solution=scaled_solution, termination=status, feasible=feasible,
+            solution=solution, dual_bound=dual_bound, rel_gap=rel_gap,
+            scaled_solution=scaled_solution, termination=status, feasible=feasible,
+            dual_bound=dual_bound,
+            rel_gap=rel_gap,
             n_nodes=diagnostics.n_nodes,
             n_cuts_found=diagnostics.n_cuts_found, n_cuts_applied=diagnostics.n_cuts_applied,
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
