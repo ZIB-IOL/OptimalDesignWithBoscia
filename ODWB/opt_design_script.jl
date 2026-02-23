@@ -30,7 +30,7 @@ for criterion in criteria
                         for int_data in integer_data
                             for N in N_construct
                                 # 
-                                if (options == "use_exclusion_criterion" && mode == "SCIPSDP") || (options == "oa" && mode == "Boscia")
+                                if (option == "use_exclusion_criterion" && solver == "SCIPSDP") || (option == "oa" && solver == "Boscia")
                                     continue
                                 end
                                 run(`sbatch -A optimi -J E-Opt experiment.sbatch $criterion $solver $data $m $int_data $seed $option $N`) # CB
