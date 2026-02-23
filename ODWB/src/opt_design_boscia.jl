@@ -68,9 +68,9 @@ function solve_opt(
     print_iter=1,
     specific_seed=false,
     smoothing_start=m/20,
-    smoothing_min=max(exp10(-m/10), 1e-5),
+    smoothing_min=max(exp10(-m/100), 1e-3),
     smoothing_min_valid=false,
-    smoothing_decay=0.6,
+    smoothing_decay=0.7,
     integer_data=false,
     use_follow_subgradient_heu=false,
     use_pipage_heu=false,
@@ -344,7 +344,7 @@ function solve_opt(
         settings.smoothing[:smoothing_start] = smoothing_start
         settings.smoothing[:smoothing_min] = smoothing_min
         settings.smoothing[:smoothing_min_valid] = smoothing_min_valid
-        settings.smoothing[:smoothing_decay] = smoothing_decay
+        settings.smoothing[:smoothing_decay] = N <= 1.5 * n ? smoothing_decay : 0.9
         settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
 
@@ -352,6 +352,7 @@ function solve_opt(
         settings.frank_wolfe[:line_search] = line_search
         settings.frank_wolfe[:fw_verbose] = fw_verbose
         settings.frank_wolfe[:lazy_tolerance] = lazy_tolerance
+        settings.frank_wolfe[:lazy] = false
         settings.frank_wolfe[:variant] = fw_variant
 
         settings.tightening[:dual_tightening] = use_tightening
