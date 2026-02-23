@@ -308,6 +308,9 @@ function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
             z_idx = findall(z .> 0.0)
             leverage = fill(0.0, length(z_idx))
             X = inf_matrix(z)
+            if rank(X) < n
+                return [z], true
+            end
             X_inv = inv(X)
             for (i, idx) in enumerate(z_idx)
                 leverage[i] = A[idx, :]' * X_inv * A[idx, :]
