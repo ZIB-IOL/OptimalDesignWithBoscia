@@ -12,7 +12,7 @@ ENV["CRITERION"] = "E"
 ENV["TYPE"] = "IND"
 ENV["INTEGER_DATA"] = "false"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "use_all_heuristics"
+ENV["OPTION"] = "mu_testing"
 ENV["N"] = "log"
 ENV["DIMENSION"] = "50"
 =#
@@ -72,69 +72,69 @@ for k in ratio_para
                 if decay != 1.0 && start == exp10(-200/m)
                     continue
                 end
-        @show m, n, N, seed, decay, start
-        try
-            if mode == "Boscia"
-                ODWB.solve_opt(
-                    seed, 
-                    m, 
-                    n, 
-                    time_limit, 
-                    criterion, 
-                    corr, 
-                    integer_data=integer_data, 
-                    N=N, 
-                    smoothing_start=start,
-                    smoothing_decay=decay,
-                    smoothing_min=exp10(-200/m),
-                    use_exclusion_criterion=option == "exclusion_criterion", 
-                    use_heuristics=option == "all_heuristics", 
-                    use_follow_subgradient_heu=option == "follow_subgradient", 
-                    use_pipage_heu=option == "pipage_rounding", 
-                    use_sr_rounding_heu=option == "sr_rounding", 
-                    use_fedorov_heu=option == "fedorov", 
-                    options_run=option != "baseline", 
-                    mu_testing=option == "mu_testing")
-            elseif mode == "SCIP"
-                if criterion in ["A", "D", "E", "EF"]
-                   error("SCIP OA does not work with the $(criterion)-optimal problems!")
+                @show m, n, N, seed, decay, start
+                try
+                    if mode == "Boscia"
+                        ODWB.solve_opt(
+                            seed, 
+                            m, 
+                            n, 
+                            time_limit, 
+                            criterion, 
+                            corr, 
+                            integer_data=integer_data, 
+                            N=N, 
+                            smoothing_start=start,
+                            smoothing_decay=decay,
+                            smoothing_min=exp10(-200/m),
+                            use_exclusion_criterion=option == "exclusion_criterion", 
+                            use_heuristics=option == "all_heuristics", 
+                            use_follow_subgradient_heu=option == "follow_subgradient", 
+                            use_pipage_heu=option == "pipage_rounding", 
+                            use_sr_rounding_heu=option == "sr_rounding", 
+                            use_fedorov_heu=option == "fedorov", 
+                            options_run=option != "baseline", 
+                            mu_testing=option == "mu_testing")
+                    elseif mode == "SCIP"
+                        if criterion in ["A", "D", "E", "EF"]
+                        error("SCIP OA does not work with the $(criterion)-optimal problems!")
+                        end
+                        ODWB.solve_opt_scip(seed, m, n, time_limit, criterion, corr, N=N)
+                    elseif mode == "SCIPSDP"
+                        if criterion in ["A", "D", "AF", "DF"]
+                        error("SCIP SDP does not work with the $(criterion)-optimal problems!")
+                        end
+                        ODWB.solve_opt_scip_sdp(
+                            seed, 
+                            m, 
+                            n, 
+                            time_limit, 
+                            criterion, 
+                            corr, 
+                            N=N, 
+                            scip_sdp_mode=option == "oa" ? :oa : :bnb) #scip_sdp_mode=option == "oa" ? :oa : :bnb
+                    elseif mode == "Pajarito"
+                        ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
+                    elseif mode == "Custom"
+                        if criterion in ["E", "EF"]
+                            error("Co-BnB does not work with the $(criterion)-optimal problems!")
+                        end
+                        ODWB.solve_opt_custom(seed, m, n, time_limit, criterion, corr, N=N)
+                    elseif mode == "SOCP"
+                        if criterion in ["E", "EF"]
+                            error("SOCP does not work with the $(criterion)-optimal problems!")
+                        end
+                        ODWB.solve_opt_socp(seed, m, n, time_limit, criterion, corr, N=N)
+                    else 
+                        error("Invalid mode!")
+                    end
+                catch e
+                    println(e)
+                    error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
+                    open(error_file,"a") do io
+                        println(io, seed, " ", m, " ", N, " ", mode, " : ", e)
+                    end
                 end
-                ODWB.solve_opt_scip(seed, m, n, time_limit, criterion, corr, N=N)
-            elseif mode == "SCIPSDP"
-                if criterion in ["A", "D", "AF", "DF"]
-                   error("SCIP SDP does not work with the $(criterion)-optimal problems!")
-                end
-                ODWB.solve_opt_scip_sdp(
-                    seed, 
-                    m, 
-                    n, 
-                    time_limit, 
-                    criterion, 
-                    corr, 
-                    N=N, 
-                    scip_sdp_mode=option == "oa" ? :oa : :bnb) #scip_sdp_mode=option == "oa" ? :oa : :bnb
-            elseif mode == "Pajarito"
-                ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
-            elseif mode == "Custom"
-                if criterion in ["E", "EF"]
-                    error("Co-BnB does not work with the $(criterion)-optimal problems!")
-                 end
-                ODWB.solve_opt_custom(seed, m, n, time_limit, criterion, corr, N=N)
-            elseif mode == "SOCP"
-                if criterion in ["E", "EF"]
-                    error("SOCP does not work with the $(criterion)-optimal problems!")
-                 end
-                ODWB.solve_opt_socp(seed, m, n, time_limit, criterion, corr, N=N)
-            else 
-                error("Invalid mode!")
-            end
-        end
-    end
-        catch e
-            println(e)
-            error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
-            open(error_file,"a") do io
-                println(io, seed, " ", m, " ", N, " ", mode, " : ", e)
             end
         end
     end
