@@ -1,0 +1,23 @@
+\begin{tabular}{llrrr}
+\toprule
+ Solver & Metric & rank\_deficient & one & log \\
+\midrule
+\multirow{5}{*}{Boscia} & \% sol. & \textbf{0.0} & \textbf{48.0} & 16.0 \\
+  & time (s) & 3605.3 & 1574.4 & 2891.3 \\
+  & time std & 4.82 & 1593.19 & 874.76 \\
+  & rel. gap & 9.39e+13 & 8.49e-02 & 4.13e-02 \\
+  & failed & 10 & 6 & 0 \\
+\midrule
+\multirow{5}{*}{SCIPSDP (OA)} & \% sol. & \textbf{0.0} & 40.0 & 40.0 \\
+  & time (s) & \textbf{3600.0} & \textbf{696.5} & \textbf{336.6} \\
+  & time std & 0.00 & 2276.89 & 2535.46 \\
+  & rel. gap & 1.72e+18 & 6.51e-01 & 7.29e-02 \\
+  & failed & 8 & 10 & 10 \\
+\midrule
+\multirow{5}{*}{SCIPSDP (B\&B)} & \% sol. & \textbf{0.0} & 40.0 & \textbf{60.0} \\
+  & time (s) & 3600.0 & 856.5 & 627.6 \\
+  & time std & 0.01 & 2175.81 & 2045.89 \\
+  & rel. gap & 1.43e+09 & 1.27e-01 & 2.50e-02 \\
+  & failed & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,23 @@
+\begin{tabular}{llrrrrr}
+\toprule
+ Solver & Metric & 50 & 80 & 100 & 120 & 150 \\
+\midrule
+\multirow{5}{*}{Boscia} & \% sol. & 26.7 & 20.0 & 13.3 & \textbf{13.3} & \textbf{33.3} \\
+  & time (s) & 1742.9 & 3408.4 & \textbf{2861.9} & \textbf{2853.0} & \textbf{2185.2} \\
+  & time std & 1743.20 & 376.19 & 1054.74 & 1069.07 & 1403.29 \\
+  & rel. gap & 3.92e+05 & 1.26e+05 & 2.15e+06 & 4.12e-02 & 6.00e-02 \\
+  & failed & 0 & 0 & 3 & 8 & 5 \\
+\midrule
+\multirow{5}{*}{SCIPSDP (OA)} & \% sol. & \textbf{66.7} & \textbf{66.7} & 0.0 & 0.0 & 0.0 \\
+  & time (s) & \textbf{53.1} & \textbf{304.1} & 3600.0 & 3600.0 & 3600.1 \\
+  & time std & 2048.06 & 1911.14 & 0.00 & 0.00 & 0.47 \\
+  & rel. gap & 1.02e+05 & --- & 1.00e+20 & 1.00e+20 & 1.68e+06 \\
+  & failed & 3 & 5 & 10 & 10 & 0 \\
+\midrule
+\multirow{5}{*}{SCIPSDP (B\&B)} & \% sol. & \textbf{66.7} & \textbf{66.7} & \textbf{26.7} & 6.7 & 0.0 \\
+  & time (s) & 221.0 & 356.7 & 2951.3 & 3588.2 & 3600.0 \\
+  & time std & 1955.58 & 1882.69 & 853.08 & 43.21 & 0.01 \\
+  & rel. gap & 8.83e+06 & 4.83e+08 & 2.68e+04 & 3.33e+02 & 3.05e+02 \\
+  & failed & 0 & 0 & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}
