@@ -39,6 +39,15 @@ ratio_para = criterion in ["E", "EF"] ? [1] : [4,10]
 time_limit = 3600 # one hour time limit
 seeds = seed == 0 ? collect(1:5) : [seed]
 
+if option == "mu_testing"
+    starts = [m/50, exp10(-200/m)]
+    decays = [1.0, 0.9, 0.7]
+else
+    starts = [m/50]
+    decays = [0.7]
+end
+
+
 @show criterion, mode, corr
 
 if !(criterion in ["A", "D", "DF", "AF", "E", "EF"])
@@ -58,7 +67,12 @@ for k in ratio_para
         error("Invalid N_construct!")
     end
     for seed in seeds
-        @show m, n, N, seed
+        for decay in decays
+            for start in starts
+                if decay != 1.0 && start == exp10(-200/m)
+                    continue
+                end
+        @show m, n, N, seed, decay, start
         try
             if mode == "Boscia"
                 ODWB.solve_opt(
@@ -70,13 +84,17 @@ for k in ratio_para
                     corr, 
                     integer_data=integer_data, 
                     N=N, 
+                    smoothing_start=start,
+                    smoothing_decay=decay,
+                    smoothing_min=exp10(-200/m),
                     use_exclusion_criterion=option == "exclusion_criterion", 
                     use_heuristics=option == "all_heuristics", 
                     use_follow_subgradient_heu=option == "follow_subgradient", 
                     use_pipage_heu=option == "pipage_rounding", 
                     use_sr_rounding_heu=option == "sr_rounding", 
                     use_fedorov_heu=option == "fedorov", 
-                    options_run=option != "baseline")
+                    options_run=option != "baseline", 
+                    mu_testing=option == "mu_testing")
             elseif mode == "SCIP"
                 if criterion in ["A", "D", "E", "EF"]
                    error("SCIP OA does not work with the $(criterion)-optimal problems!")
@@ -110,6 +128,8 @@ for k in ratio_para
             else 
                 error("Invalid mode!")
             end
+        end
+    end
         catch e
             println(e)
             error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
