@@ -103,7 +103,7 @@ function solve_opt(
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
-            ls_secant = true
+            ls_secant = false
         elseif !(criterion in ["D","DF"])
             use_shadow_set = true
         elseif !(criterion in ["A","AF"])
