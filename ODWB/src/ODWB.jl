@@ -14,6 +14,7 @@ using Pajarito
 #using PajaritoExtras # https://github.com/chriscoey/PajaritoExtras.jl
 using HiGHS
 using LinearAlgebra
+using SparseArrays
 using Statistics
 using Distributions
 import MathOptInterface

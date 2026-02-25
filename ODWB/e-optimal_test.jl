@@ -9,6 +9,9 @@ if criterion == "AGC"
     n = 50
     m = 2 * n
     N = Int(floor(m/2))
+    edges, potential_edges = ODWB.build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+    L = ODWB.graph_laplacian(n, edges) + ones(n, n)
+    A = ODWB.potential_edges_incidence_matrix(n, potential_edges)
 else
     m = 50
     n = Int(floor(sqrt(m)))
