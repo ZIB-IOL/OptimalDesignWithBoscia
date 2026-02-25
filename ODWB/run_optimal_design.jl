@@ -135,7 +135,7 @@ for k in ratio_para
                     end
                 catch e
                     println(e)
-                    error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
+                    error_file = criterion * "_opt_" * mode * "_" * type * "_" * "_" * option * ".txt" 
                     open(error_file,"a") do io
                         println(io, seed, " ", m, " ", N, " ", mode, " : ", e)
                     end
