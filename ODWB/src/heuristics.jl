@@ -234,7 +234,7 @@ end
 """
 Follow subgradient heuristic for E-optimal design.
 """
-function build_follow_subgradient_heuristic(A, k)
+function build_follow_subgradient_heuristic(A, k; L=nothing)
     m, n = size(A)
     return function follow_gradient_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
@@ -248,7 +248,7 @@ function build_follow_subgradient_heuristic(A, k)
             end
 
             # Direction to maximize λ_min: use (A*v_min)² as LMO direction (negative subgradient of -λ_min)
-            X = A' * Diagonal(x_new) * A
+            X = L === nothing ? A' * Diagonal(x_new) * A : L + A' * Diagonal(x_new) * A
             if !isposdef(X)
                 return [x], true
             end
@@ -296,9 +296,9 @@ end
 Greedy Fedorov heuristic for E-optimal design without repetition.
 From https://jourdainlamperski.com/wp-content/uploads/2024/01/rand_round_max_min_eig.pdf 
 """
-function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0)
+function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0, L=nothing)
     m, n = size(A)
-    inf_matrix(x) = A' * Diagonal(x) * A
+    inf_matrix(x) = L === nothing ? A' * Diagonal(x) * A : L + A' * Diagonal(x) * A
     return function greedy_fedorov_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         z = copy(tree.incumbent_solution.solution)
         sols = []

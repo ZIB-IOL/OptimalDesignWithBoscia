@@ -184,18 +184,25 @@ end
 """
     potential_edges_incidence_matrix(n_nodes, potential_edges)
 
-Return a matrix A of size (length(potential_edges) × n_nodes) where each row corresponds to
-a potential edge (i, j): row has a_i = 1, a_j = -1, and 0 elsewhere (the vector e_i - e_j).
-So adding a potential edge with weight x contributes x * (row' * row) to the graph Laplacian.
+Return a sparse matrix A of size (length(potential_edges) × n_nodes) where each row
+corresponds to a potential edge (i, j): row has a_i = 1, a_j = -1, and 0 elsewhere
+(the vector e_i - e_j). So adding a potential edge with weight x contributes
+x * (row' * row) to the graph Laplacian.
 """
 function potential_edges_incidence_matrix(n_nodes, potential_edges)
     m = length(potential_edges)
-    A = zeros(Float64, m, n_nodes)
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+    sizehint!(I, 2 * m)
+    sizehint!(J, 2 * m)
+    sizehint!(V, 2 * m)
     for (r, (i, j)) in enumerate(potential_edges)
-        A[r, i] = 1
-        A[r, j] = -1
+        push!(I, r, r)
+        push!(J, i, j)
+        push!(V, 1.0, -1.0)
     end
-    return A
+    return SparseArrays.sparse(I, J, V, m, n_nodes)
 end
 
 """
