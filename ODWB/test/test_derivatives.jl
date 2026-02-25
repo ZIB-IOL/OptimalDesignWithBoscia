@@ -53,20 +53,29 @@ end
 end
 
 @testset "Sanity check smoothing" begin
-    for dim in [20, 50, 80]
-        for mu in [0.2, 0.5, 1.0]
-            for _ in 1:10
-                x = rand(dim)
-                n = Int(floor(dim/10))
-                A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
-                f, sub_grad!, generate_smoothing_function = ODWB.build_e_criterion(A)
+    for fusion in [false, true]
+        for dim in [20, 50, 80]
+            for mu in [0.2, 0.5, 1.0]
+                for _ in 1:10
+                    n = Int(floor(dim/10))
+                    x = fusion ? rand(n) : rand(dim)
+                    if fusion 
+                        edges, potential_edges = ODWB.build_graph_connectivity_data(dim, dim, n, seed=seed, connected=fusion)
+                        L = ODWB.graph_laplacian(dim, edges)
+                        A = ODWB.potential_edges_incidence_matrix(dim, potential_edges)
+                    else
+                        A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
+                        L = nothing
+                    end
+                    f, sub_grad!, generate_smoothing_function = ODWB.build_e_criterion(A, L=L)
 
-                f_mu, grad! = generate_smoothing_function(mu)
+                    f_mu, grad! = generate_smoothing_function(mu)
 
-                @test f(x) >= f_mu(x)
+                    @test f(x) >= f_mu(x)
 
-                y = rand(dim)
-                @test f_mu(mu * x + (1-mu) * y) <= mu * f_mu(x) + (1-mu) * f_mu(y)
+                    y = fusion ? rand(n) : rand(dim)
+                    @test f_mu(mu * x + (1-mu) * y) <= mu * f_mu(x) + (1-mu) * f_mu(y)
+                end
             end
         end
     end

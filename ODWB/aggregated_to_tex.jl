@@ -16,12 +16,13 @@ Usage:
 
 All arguments after --hide (until the next --) are treated as column names to hide; commas are optional.
 
-Output: writes .tex files into csv/aggregated/ (or --out) and prints required preamble.
+Output: writes .tex files into the paper repo (or --out DIR) and prints required preamble.
 =#
 
 using CSV, DataFrames, Printf
 
 const AGG_DIR = joinpath(@__DIR__, "csv", "aggregated")
+const TEX_OUT_DIR = "/Users/deborah/Documents/research_projects/Smoothing-in-Boscia/paper"
 const SOLVERS = ["Boscia", "SCIPSDP_oa", "SCIPSDP_bnb"]
 const SOLVER_LABELS = Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP (OA)", "SCIPSDP_bnb" => "SCIPSDP (B\\&B)")
 
@@ -177,7 +178,7 @@ end
 
 function main(; data_type="both", hide=nothing, out_dir=nothing)
     hide_list = String.(parse_hide(hide))
-    out = something(out_dir, AGG_DIR)
+    out = something(out_dir, TEX_OUT_DIR)
     mkpath(out)
     data_types = data_type == "both" ? ["independent", "correlated"] : [data_type]
     for dtype in data_types

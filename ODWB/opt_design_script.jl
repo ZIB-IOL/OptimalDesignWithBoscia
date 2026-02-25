@@ -27,14 +27,12 @@ for criterion in criteria
             for m in num_experiments
                 for option in options
                     for seed in seeds
-                        for int_data in integer_data
-                            for N in N_construct
-                                # 
-                                if (option == "use_exclusion_criterion" && solver == "SCIPSDP") || (option == "oa" && solver == "Boscia") || (option == "mu_testing" && solver == "SCIPSDP")
-                                    continue
-                                end
-                                run(`sbatch -A optimi -J E-B-M experiment.sbatch $criterion $solver $data $m $int_data $seed $option $N`) # CB
+                        for N in N_construct
+                            # 
+                            if (option == "use_exclusion_criterion" && solver == "SCIPSDP") || (option == "oa" && solver == "Boscia")
+                                continue
                             end
+                            run(`sbatch -A optimi -J E-Opt experiment.sbatch $criterion $solver $data $m $seed $option $N`) # CB
                         end
                     end
                 end

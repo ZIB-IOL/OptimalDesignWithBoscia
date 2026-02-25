@@ -8,7 +8,6 @@ fusion - boolean deiciding whether we build the fusion or standard problem.
 corr - boolean deciding whether we build the independent or correlated data.   
 """
 function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false, N=-Inf)
-    @show scaling_C
     # set up
     Random.seed!(seed)
     if corr 
@@ -77,6 +76,126 @@ function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero
     end
         
     return A, C, N, ub, C_hat
+end
+
+"""
+    build_graph_connectivity_data(n_nodes, n_edges, n_potential_edges; seed=nothing, connected=true)
+
+Generate data for the maximum algebraic graph connectivity problem: a random graph and
+a set of candidate edges that can be added to it.
+
+**Arguments**
+- `n_nodes`: number of vertices (nodes).
+- `n_edges`: number of edges in the base graph. Must satisfy `n_edges >= n_nodes - 1` if
+  `connected=true`, and `n_edges <= n_nodes*(n_nodes-1)/2`.
+- `n_potential_edges`: number of potential (candidate) edges to add; these are drawn
+  uniformly from edges not present in the base graph.
+
+**Keyword arguments**
+- `seed`: optional integer for reproducible randomness (uses `StableRNG`).
+- `connected`: if `true`, the base graph is built as connected (spanning tree plus
+  random edges); if `false`, edges are chosen uniformly at random among all possible edges.
+
+**Returns**
+- `current_edges`: vector of `(i, j)` with `i < j` for the base graph edges.
+- `potential_edges`: vector of `(i, j)` with `i < j` for the candidate edges to add.
+
+Edges are undirected and stored once with the smaller node index first. For algebraic
+connectivity you typically use the graph Laplacian of the base graph and consider adding
+a subset of `potential_edges` to maximize the second smallest eigenvalue.
+"""
+function build_graph_connectivity_data(
+    n_nodes,
+    n_edges,
+    n_potential_edges;
+    seed=nothing,
+    connected=true,
+)
+    rng = seed === nothing ? Random.GLOBAL_RNG : StableRNG(seed)
+    max_edges = n_nodes * (n_nodes - 1) ÷ 2
+    @assert n_nodes >= 2 "n_nodes must be at least 2"
+    @assert n_edges >= 0 && n_edges <= max_edges "n_edges must be in 0 .. $(max_edges)"
+    if connected
+        @assert n_edges >= n_nodes - 1 "for connected graph, n_edges must be >= n_nodes - 1"
+    end
+    @assert n_potential_edges >= 0 "n_potential_edges must be non-negative"
+
+    # All possible undirected edges (i, j) with i < j
+    all_edges = [(i, j) for i in 1:n_nodes for j in (i+1):n_nodes]
+
+    # Build base graph
+    if n_edges == 0
+        current_edges = Tuple{Int,Int}[]
+    else
+        if connected && n_edges >= n_nodes - 1
+            # Spanning tree: random permutation of nodes, then connect consecutive nodes
+            perm = randperm(rng, n_nodes)
+            tree_edges = [(min(perm[i], perm[i+1]), max(perm[i], perm[i+1])) for i in 1:(n_nodes-1)]
+            remaining = setdiff(Set(all_edges), Set(tree_edges))
+            remaining = collect(remaining)
+            n_extra = n_edges - (n_nodes - 1)
+            if n_extra > 0
+                @assert length(remaining) >= n_extra "not enough remaining edges"
+                idx = randperm(rng, length(remaining))[1:n_extra]
+                extra_edges = [remaining[i] for i in idx]
+                current_edges = vcat(tree_edges, extra_edges)
+            else
+                current_edges = tree_edges
+            end
+        else
+            # Arbitrary random edges: sample without replacement
+            idx = randperm(rng, length(all_edges))[1:n_edges]
+            current_edges = [all_edges[i] for i in idx]
+        end
+    end
+
+    # Potential edges: sample from edges not in current_edges
+    current_set = Set(current_edges)
+    candidate_pool = [(i, j) for (i, j) in all_edges if !((i, j) in current_set)]
+    n_available = length(candidate_pool)
+    n_take = min(n_potential_edges, n_available)
+    if n_take == 0
+        potential_edges = Tuple{Int,Int}[]
+    else
+        idx = randperm(rng, n_available)[1:n_take]
+        potential_edges = [candidate_pool[i] for i in idx]
+    end
+
+    return current_edges, potential_edges
+end
+
+"""
+    graph_laplacian(n_nodes, edges)
+
+Return the Laplacian matrix L (n_nodes × n_nodes) for the graph with the given edges.
+`edges` is a vector of `(i, j)` with 1 ≤ i < j ≤ n_nodes. L = ∑_{(i,j)∈edges} (e_i - e_j)(e_i - e_j)'.
+"""
+function graph_laplacian(n_nodes, edges)
+    L = zeros(Float64, n_nodes, n_nodes)
+    for (i, j) in edges
+        L[i, i] += 1
+        L[j, j] += 1
+        L[i, j] -= 1
+        L[j, i] -= 1
+    end
+    return L
+end
+
+"""
+    potential_edges_incidence_matrix(n_nodes, potential_edges)
+
+Return a matrix A of size (length(potential_edges) × n_nodes) where each row corresponds to
+a potential edge (i, j): row has a_i = 1, a_j = -1, and 0 elsewhere (the vector e_i - e_j).
+So adding a potential edge with weight x contributes x * (row' * row) to the graph Laplacian.
+"""
+function potential_edges_incidence_matrix(n_nodes, potential_edges)
+    m = length(potential_edges)
+    A = zeros(Float64, m, n_nodes)
+    for (r, (i, j)) in enumerate(potential_edges)
+        A[r, i] = 1
+        A[r, j] = -1
+    end
+    return A
 end
 
 """
@@ -235,10 +354,10 @@ end
 """
 Build the E-criterion and its smoothed version.
 """
-function build_e_criterion(A)
+function build_e_criterion(A; L=nothing)
     m, n = size(A)
     function inf_matrix(x)
-        return Symmetric(A' * diagm(x) * A)
+        return L === nothing ? Symmetric(A' * diagm(x) * A) : Symmetric(L + A' * diagm(x) * A)
     end
 
     function f(x)
