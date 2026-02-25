@@ -31,7 +31,6 @@ elseif type == "CORR"
 else 
     error("Type not found")
 end
-integer_data = parse(Bool, ENV["INTEGER_DATA"])
 seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
@@ -50,12 +49,18 @@ end
 
 @show criterion, mode, corr
 
-if !(criterion in ["A", "D", "DF", "AF", "E", "EF"])
+if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC"])
     error("Invalid criterion!")
 end
 for k in ratio_para
-    n = k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
-    N = if N_construct == "one"
+    n = if criterion== "AGC"
+        Int(floor(m/3))
+    else
+        k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
+    end
+    N = if criterion == "AGC"
+        Int(floor(m/2))
+    elseif N_construct == "one"
         Int(floor(1.5 * n))
     elseif N_construct == "log"
         Int(floor(1.5 * n * log(n)))
@@ -82,7 +87,6 @@ for k in ratio_para
                             time_limit, 
                             criterion, 
                             corr, 
-                            integer_data=integer_data, 
                             N=N, 
                             smoothing_start=start,
                             smoothing_decay=decay,
@@ -94,7 +98,8 @@ for k in ratio_para
                             use_sr_rounding_heu=option == "sr_rounding", 
                             use_fedorov_heu=option == "fedorov", 
                             options_run=option != "baseline", 
-                            mu_testing=option == "mu_testing")
+                            mu_testing=option == "mu_testing",
+                            connected = criterion == "AGC" ? corr : true)
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
                         error("SCIP OA does not work with the $(criterion)-optimal problems!")
