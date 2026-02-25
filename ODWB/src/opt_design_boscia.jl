@@ -89,8 +89,9 @@ function solve_opt(
         A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
     elseif criterion in ["E", "EF"]
         A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, N=N, zero_one=zero_one)
+        L = nothing
     elseif criterion == "AGC"
-        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        edges, potential_edges = build_graph_connectivity_data(n, connected ? 2 * m : 1/2 * m, m, seed=seed, connected=connected)
         L = graph_laplacian(n, edges) + ones(n, n)
         A = potential_edges_incidence_matrix(n, potential_edges)
         ub = fill(1.0, m)
@@ -452,12 +453,12 @@ function solve_opt(
     @show result[:solution_source]
 
     if write
-        folder = if long_runs
+        #=folder = if long_runs
             "long_runs"
         elseif use_exclusion_criterion
             "exclusion_criterion"
         elseif mu_testing
-            "$smoothing_start" * "_" * "$smoothing_decay" * "_" * "$smoothing_min"
+            string(smoothing_start) * "_" * string(smoothing_decay) * "_" * string(smoothing_min)
         elseif use_heuristics
             "heuristics"
         elseif use_follow_subgradient_heu
@@ -486,10 +487,12 @@ function solve_opt(
             end
         else
             ""
-        end
+        end =#
 
         folder = if use_exclusion_criterion
             "exclusion_criterion"
+        elseif mu_testing
+            string(smoothing_start) * "_" * string(smoothing_decay) * "_" * string(smoothing_min)
         elseif use_heuristics && options_run
             "heuristics"
         elseif use_follow_subgradient_heu && options_run

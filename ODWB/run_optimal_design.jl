@@ -10,7 +10,6 @@ using CSV
 ENV["MODE"] = "Boscia"
 ENV["CRITERION"] = "AGC"
 ENV["TYPE"] = "IND"
-ENV["INTEGER_DATA"] = "false"
 ENV["SEED"] = "1"
 ENV["OPTION"] = "baseline"
 ENV["N"] = "log"
@@ -121,12 +120,12 @@ for k in ratio_para
                     elseif mode == "Pajarito"
                         ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
                     elseif mode == "Custom"
-                        if criterion in ["E", "EF"]
+                        if criterion in ["E", "EF", "AGC"]
                             error("Co-BnB does not work with the $(criterion)-optimal problems!")
                         end
                         ODWB.solve_opt_custom(seed, m, n, time_limit, criterion, corr, N=N)
                     elseif mode == "SOCP"
-                        if criterion in ["E", "EF"]
+                        if criterion in ["E", "EF", "AGC"]
                             error("SOCP does not work with the $(criterion)-optimal problems!")
                         end
                         ODWB.solve_opt_socp(seed, m, n, time_limit, criterion, corr, N=N)

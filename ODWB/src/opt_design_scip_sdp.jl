@@ -5,7 +5,7 @@ function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, 
     if criterion == "EF" 
         A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "AGC"
-        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        edges, potential_edges = build_graph_connectivity_data(n, connected ? 2 * m : 1/2 * m, m, seed=seed, connected=connected)
         L = graph_laplacian(n, edges)
         A = potential_edges_incidence_matrix(n, potential_edges)
         C = L + ones(n, n)
@@ -162,7 +162,7 @@ function solve_opt_scip_sdp(
 
     @show diagnostics
     if criterion == "AGC"
-        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        edges, potential_edges = build_graph_connectivity_data(n, connected ? 2 * m : 1/2 * m, m, seed=seed, connected=connected)
         L = graph_laplacian(n, edges)
         A = potential_edges_incidence_matrix(n, potential_edges)
         C = L + ones(n, n)
