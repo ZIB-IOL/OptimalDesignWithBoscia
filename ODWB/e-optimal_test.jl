@@ -2,34 +2,35 @@ using ODWB
 using Boscia
 using FrankWolfe
 
+criterion = "AGC"
 seed = 5 # 4
-m = 50 #10
-n = Int(floor(sqrt(m)))
+connected = true
+if criterion == "AGC"
+    n = 50
+    m = 2 * n
+    N = Int(floor(m/2))
+else
+    m = 50
+    n = Int(floor(sqrt(m)))
+    N = Int(floor(1.5 * n * log(n)))
+end
 corr = false
-N = Int(floor(1.5 * n * log(n)))
 
 #ENV["JULIA_DEBUG"] = "Boscia"
 
-integer_data = false
 zero_one = true
-
-A, C, N, ub, _ = integer_data ? ODWB.build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : ODWB.build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
-f, sub_grad!, _ = ODWB.build_e_criterion(A)
-@show A, N
-
 
 x, result = ODWB.solve_opt(
     seed, 
     m, 
     n, 
     120, 
-    "E", 
+    criterion, 
     corr, 
     full_callback=false, 
     write=false, 
     use_BPCG=false,
     verbose=true, 
-    integer_data=integer_data,
     use_scip=false,
     zero_one=zero_one, 
     fw_verbose=false, 
@@ -49,12 +50,11 @@ x_e, result_e = ODWB.solve_opt(
     m, 
     n, 
     300, 
-    "E", 
+    criterion, 
     corr, 
     full_callback=false, 
     write=false, 
     verbose=true, 
-    integer_data=integer_data, 
     zero_one=zero_one, 
     use_BPCG=false,
     fw_verbose=false, 
@@ -74,12 +74,11 @@ y_bnb = ODWB.solve_opt_scip_sdp(
     m, 
     n, 
     300, 
-    "E", 
+    criterion, 
     corr, 
     write=false, 
     verbose=true, 
     scip_sdp_mode=:bnb,
-    integer_data=integer_data,
     zero_one=zero_one, 
     N=N,
     )
@@ -89,12 +88,11 @@ y_oa = ODWB.solve_opt_scip_sdp(
     m, 
     n, 
     300, 
-    "E", 
+    criterion, 
     corr, 
     write=false, 
     verbose=true, 
     scip_sdp_mode=:oa,
-    integer_data=integer_data,
     zero_one=zero_one, 
     N=N,
     )

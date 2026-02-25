@@ -42,11 +42,10 @@ export CRITERION=$1
 export MODE=$2
 export TYPE=$3
 export DIMENSION=$4 
-export INTEGER_DATA=$5
-export SEED=$6
-export OPTION=$7
-export N=$8
-julia --project run_optimal_design.jl &> cb_$1_$2_$4_$3_$5_$6_$7_$8_$SLURM_JOB_ID.txt
+export SEED=$5
+export OPTION=$6
+export N=$7
+julia --project run_optimal_design.jl &> cb_$1_$2_$4_$3_$5_$6_$7_$SLURM_JOB_ID.txt
 
 # Finish the script
 exit 0

@@ -1,11 +1,18 @@
 # SCIP SDP: Use SCIP-SDP when possible via CBF round-trip (avoids checkVarsLocks assertion).
 # Fallback: Pajarito (HiGHS+Hypatia) when use_scip_sdp=false.
 
-function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; integer_data=false, zero_one=false, N=-Inf)
-    if criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
+function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true)
+    if criterion == "EF" 
+        A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
+    elseif criterion == "AGC"
+        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        L = graph_laplacian(n, edges)
+        A = potential_edges_incidence_matrix(n, potential_edges)
+        C = L + ones(n, n)
+        ub = fill(1.0, m)
+        N = !isfinite(N) ? Int(floor(m/2)) : N
     else
-        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
+        A, _, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
         C = nothing
     end
     model = Model()
@@ -121,15 +128,16 @@ function solve_opt_scip_sdp(
     zero_one=true, 
     N=-Inf, 
     scip_sdp_mode=:oa, 
-    return_diagnostics=false
+    return_diagnostics=false,
+    connected=true
     )
-    if criterion != "E" && criterion != "EF"
-        error("SCIP SDP can currently only handle E-optimal and EF-optimal problems")
+    if !(criterion in ["E", "EF", "AGC"])
+        error("SCIP SDP can currently only handle E-optimal and EF-optimal and AGC problems")
     end
 
     @assert SCIP.have_scip_sdp "SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP."
     # CBF round-trip: avoids checkVarsLocks assertion when vars appear in SDP + linear constraints
-    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; integer_data, zero_one, N)
+    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected)
     cbf_path = joinpath(mktempdir(), "eopt_scip_sdp_$(getpid()).cbf")
     
     _export_model_to_cbf(model, cbf_path)
@@ -153,23 +161,30 @@ function solve_opt_scip_sdp(
     diagnostics = (; n_nodes=result.n_nodes, n_cuts_found=result.n_cuts_found, n_cuts_applied=result.n_cuts_applied, n_sdp_iters=result.n_sdp_iters)
 
     @show diagnostics
-
-    A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
-    f_check, _ = build_e_criterion(A)
-    feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub)
+    if criterion == "AGC"
+        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        L = graph_laplacian(n, edges)
+        A = potential_edges_incidence_matrix(n, potential_edges)
+        C = L + ones(n, n)
+        ub = fill(1.0, m)
+        N = !isfinite(N) ? Int(floor(m/2)) : N
+    else
+        A, C, N, ub, _ =  build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
+    end
+    f_check, _ = build_e_criterion(A, L=C)
+    feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
     scaled_solution = feasible ? f_check(y) : Inf
     @show feasible, scaled_solution
 
     if boscia_solution !== nothing
         @show boscia_solution
-        @show isfeasible(seed, m, n, criterion, boscia_solution, corr, ub=ub)
+        @show isfeasible(seed, m, n, criterion, boscia_solution, corr, ub=ub, N=N)
         @show f_check(boscia_solution)
         @show abs(f_check(boscia_solution) - f_check(y))/min(abs(f_check(boscia_solution)), abs(f_check(y)))
     end
 
     if write
         run_mode = scip_sdp_mode == :oa ? "oa" : "bnb"
-        integer_data_str = integer_data ? "_int_" : "_cont_"
         df = DataFrame(
             seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N,
             solution=solution, dual_bound=dual_bound, rel_gap=rel_gap,
@@ -178,8 +193,9 @@ function solve_opt_scip_sdp(
             n_cuts_found=diagnostics.n_cuts_found, n_cuts_applied=diagnostics.n_cuts_applied,
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
         )
-        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")$(integer_data_str)_$(m)_$(n)_$(N)_$(seed).csv")
-        isfile(file_name) ? CSV.write(file_name, df, append=true) : CSV.write(file_name, df, writeheader=true)
+        connection = criterion == "AGC" ? connected ? "connected" : "disconnected" : ""
+        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")_$(connection)_$(m)_$(n)_$(N)_$(seed).csv")
+        isfile(file_name) ? CSV.write(file_name, df, append=false) : CSV.write(file_name, df, writeheader=true)
     end
     return_diagnostics ? (y, diagnostics) : y
 end

@@ -71,7 +71,6 @@ function solve_opt(
     smoothing_min=max(exp10(-m/100), 1e-3),
     smoothing_min_valid=false,
     smoothing_decay=0.7,
-    integer_data=false,
     use_follow_subgradient_heu=false,
     use_pipage_heu=false,
     use_sr_rounding_heu=false,
@@ -81,17 +80,20 @@ function solve_opt(
     use_exclusion_criterion=false,
     use_sub_grad_info=false,
     branch_all=false,
+    connected=true,
 )
     type = corr ? "correlated" : "independent"
     
     if criterion in ["AF","DF","GTIF"]
         A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
     elseif criterion in ["E", "EF"]
-        if integer_data
-            A, C, N, ub, _ = build_integer_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, M=M, N=N, zero_one=zero_one)
-        else
-            A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, N=N, zero_one=zero_one)
-        end
+        A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, N=N, zero_one=zero_one)
+    elseif criterion == "AGC"
+        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        L = graph_laplacian(n, edges) + ones(n, n)
+        A = potential_edges_incidence_matrix(n, potential_edges)
+        ub = fill(1.0, m)
+        N = !isfinite(N) ? Int(floor(m/2)) : N
     else
         A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
     end
@@ -99,7 +101,7 @@ function solve_opt(
     # parameter tunning
     if !options_run
         use_heuristics = true
-        if criterion in ["E","EF"]
+        if criterion in ["E","EF","AGC"]
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
@@ -150,12 +152,12 @@ function solve_opt(
             hyperplane_aware_rounding_prob = 0.8
             follow_gradient_prob=0.5
             follow_gradient_steps=n
-            rounding_lmo_01_prob= criterion in ["E","EF"] ? 0.8 : 0.0
-            probability_rounding_prob= criterion in ["E","EF"] ? 0.8 : 0.0
+            rounding_lmo_01_prob= criterion in ["E","EF","AGC"] ? 0.8 : 0.0
+            probability_rounding_prob= criterion in ["E","EF","AGC"] ? 0.8 : 0.0
             rounding_prob =1.0
         end
         if use_heuristics
-            if criterion in ["E","EF"]
+            if criterion in ["E","EF","AGC"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
                 push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
                 sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 20)
@@ -168,7 +170,7 @@ function solve_opt(
             fedorov_heuristic = build_greedy_fedorov_heuristic(A, N, 10)
             push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 0.4, :fedorov))
         elseif use_follow_subgradient_heu
-            if criterion in ["E","EF"]
+            if criterion in ["E","EF","AGC"]
                 follow_subgradient_heuristic = build_follow_subgradient_heuristic(A, n)
                 push!(custom_heu, Boscia.Heuristic(follow_subgradient_heuristic, 0.5, :follow_subgradient))
             end
@@ -178,7 +180,7 @@ function solve_opt(
                 push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 0.3, :pipage_rounding))
             end
         elseif use_sr_rounding_heu
-            if criterion in ["E","EF"]
+            if criterion in ["E","EF","AGC"]
                 sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
                 push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
             end
@@ -214,10 +216,10 @@ function solve_opt(
         f, grad! = build_d_criterion(A, false, μ=1e-4, build_safe=false, long_run=long_runs)
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
-    elseif criterion == "E"
-        f, sub_grad!, generate_smoothing_function = build_e_criterion(A)
+    elseif criterion in ["E","AGC"]
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L)
     elseif criterion == "EF"
-        f, sub_grad!, generate_smoothing_function = build_e_criterion(A)
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=C)
     elseif criterion == "GTI"
         f, grad! = log_trace ? build_general_log_trace(A, p, false) : build_general_trace(A, p, false)
     elseif criterion == "GTIF"
@@ -240,7 +242,7 @@ function solve_opt(
         end
     end
 
-    if use_exclusion_criterion && criterion in ["E", "EF"]
+    if use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
         function build_bnb_callback(A, N, f, sub_grad!)
             return function bnb_callback(tree,
                 node;
@@ -328,7 +330,7 @@ function solve_opt(
         # Actual Run
         settings.branch_and_bound[:time_limit] = time_limit
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
-    elseif criterion in ["E", "EF"]
+    elseif criterion in ["E", "EF", "AGC"]
         line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
         # Precompile run
         settings = Boscia.create_default_settings(mode=Boscia.SMOOTHING_MODE)
@@ -501,11 +503,11 @@ function solve_opt(
 
         @show folder
 
+        connection = criterion == "AGC" ? connected ? "connected" : "disconnected" : ""
+
         if criterion in ["GTI","GTIF"]
             criterion = criterion * "_" * string(Int64(p*100))
         end
-
-        integer_data = criterion in ["E","EF"] ? (integer_data ? "_int_" : "_cont_") : ""
 
         if full_callback
             lb_list = result[:list_lb]
@@ -517,7 +519,7 @@ function solve_opt(
             list_local_tightening = result[:local_tightenings]
             list_global_tightening = result[:global_tightenings]
             df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
-            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
+            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * "_" * connection * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
             CSV.write(file_name, df, append=false)
         end
 
@@ -541,7 +543,7 @@ function solve_opt(
             optimal_time=optimal_time, 
             optimal_iteration=idx, 
             solution_source=String(result[:solution_source]))
-        file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * integer_data * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
+        file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * "_" * connection * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=false, writeheader=true, delim=";")
         else 
