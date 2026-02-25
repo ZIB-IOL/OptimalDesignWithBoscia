@@ -33,7 +33,7 @@ final_set = find_large_leverage_set(A, initial_set, target_size)
 @assert rank(A[final_set, :]) == 5  # Full column rank
 ```
 """
-function find_large_leverage_set(A::Union{Matrix{Float64},Adjoint{Float64,Matrix{Float64}}}, initial_idx_set::Vector{Int}, target_size::Int; max_attempts::Int=1000)
+function find_large_leverage_set(A::Union{Matrix{Float64},Adjoint{Float64,Matrix{Float64}},SparseArrays.SparseMatrixCSC{Float64, Int64}}, initial_idx_set::Vector{Int}, target_size::Int; max_attempts::Int=1000)
     m, n = size(A)
     
     # Validate inputs
@@ -132,6 +132,7 @@ function find_large_leverage_set(A::Union{Matrix{Float64},Adjoint{Float64,Matrix
     final_rank = rank(A[current_set, :])
     if final_rank < n
         @warn "Unable to achieve full column rank. Final rank: $final_rank, required: $n"
+        return current_set, false
     end
     
     return current_set, true
