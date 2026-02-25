@@ -10,7 +10,6 @@ using CSV
 ENV["MODE"] = "Boscia"
 ENV["CRITERION"] = "E"
 ENV["TYPE"] = "IND"
-ENV["INTEGER_DATA"] = "false"
 ENV["SEED"] = "1"
 ENV["OPTION"] = "mu_testing"
 ENV["N"] = "log"
@@ -31,12 +30,11 @@ elseif type == "CORR"
 else 
     error("Type not found")
 end
-integer_data = parse(Bool, ENV["INTEGER_DATA"])
 seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
 ratio_para = criterion in ["E", "EF"] ? [1] : [4,10]
-time_limit = 3600 # one hour time limit
+time_limit = 600 #3600 # one hour time limit
 seeds = seed == 0 ? collect(1:5) : [seed]
 
 if option == "mu_testing"
@@ -50,7 +48,7 @@ end
 
 @show criterion, mode, corr
 
-if !(criterion in ["A", "D", "DF", "AF", "E", "EF"])
+if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC"])
     error("Invalid criterion!")
 end
 for k in ratio_para
@@ -82,7 +80,6 @@ for k in ratio_para
                             time_limit, 
                             criterion, 
                             corr, 
-                            integer_data=integer_data, 
                             N=N, 
                             smoothing_start=start,
                             smoothing_decay=decay,
@@ -116,19 +113,19 @@ for k in ratio_para
                     elseif mode == "Pajarito"
                         ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
                     elseif mode == "Custom"
-                        if criterion in ["E", "EF"]
+                        if criterion in ["E", "EF", "AGC"]
                             error("Co-BnB does not work with the $(criterion)-optimal problems!")
                         end
                         ODWB.solve_opt_custom(seed, m, n, time_limit, criterion, corr, N=N)
                     elseif mode == "SOCP"
-                        if criterion in ["E", "EF"]
+                        if criterion in ["E", "EF", "AGC"]
                             error("SOCP does not work with the $(criterion)-optimal problems!")
                         end
                         ODWB.solve_opt_socp(seed, m, n, time_limit, criterion, corr, N=N)
                     else 
                         error("Invalid mode!")
                     end
-                catch e
+                catch 
                     println(e)
                     error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
                     open(error_file,"a") do io
