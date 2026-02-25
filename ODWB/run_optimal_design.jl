@@ -116,7 +116,8 @@ for k in ratio_para
                             criterion, 
                             corr, 
                             N=N, 
-                            scip_sdp_mode=option == "oa" ? :oa : :bnb) #scip_sdp_mode=option == "oa" ? :oa : :bnb
+                            scip_sdp_mode=option == "oa" ? :oa : :bnb,
+                            connected = criterion == "AGC" ? corr : true) #scip_sdp_mode=option == "oa" ? :oa : :bnb
                     elseif mode == "Pajarito"
                         ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
                     elseif mode == "Custom"
