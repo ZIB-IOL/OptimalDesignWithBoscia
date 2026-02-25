@@ -34,7 +34,7 @@ seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
 ratio_para = criterion in ["E", "EF"] ? [1] : [4,10]
-time_limit = 600 #3600 # one hour time limit
+time_limit = 3600 # one hour time limit
 seeds = seed == 0 ? collect(1:5) : [seed]
 
 if option == "mu_testing"
@@ -125,7 +125,7 @@ for k in ratio_para
                     else 
                         error("Invalid mode!")
                     end
-                catch 
+                catch e
                     println(e)
                     error_file = criterion * "_opt_" * mode * "_" * type * "_" * string(integer_data) * "_" * option * ".txt" 
                     open(error_file,"a") do io
