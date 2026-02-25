@@ -81,6 +81,7 @@ function solve_opt(
     use_sub_grad_info=false,
     branch_all=false,
     connected=true,
+    mu_testing=false
 )
     type = corr ? "correlated" : "independent"
     
@@ -105,7 +106,7 @@ function solve_opt(
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
-            ls_secant = true
+            ls_secant = false
         elseif !(criterion in ["D","DF"])
             use_shadow_set = true
         elseif !(criterion in ["A","AF"])
@@ -455,6 +456,8 @@ function solve_opt(
             "long_runs"
         elseif use_exclusion_criterion
             "exclusion_criterion"
+        elseif mu_testing
+            "$smoothing_start" * "_" * "$smoothing_decay" * "_" * "$smoothing_min"
         elseif use_heuristics
             "heuristics"
         elseif use_follow_subgradient_heu
