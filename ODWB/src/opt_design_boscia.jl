@@ -91,7 +91,7 @@ function solve_opt(
         A, C, N, ub, _ = build_data(seed, m, n, criterion == "EF", corr; scaling_C=long_runs, N=N, zero_one=zero_one)
         L = nothing
     elseif criterion == "AGC"
-        edges, potential_edges = build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
+        edges, potential_edges = build_graph_connectivity_data(n, connected ? 2 * m : 1/2 * m, m, seed=seed, connected=connected)
         L = graph_laplacian(n, edges) + ones(n, n)
         A = potential_edges_incidence_matrix(n, potential_edges)
         ub = fill(1.0, m)
