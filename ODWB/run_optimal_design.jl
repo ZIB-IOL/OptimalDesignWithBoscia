@@ -8,11 +8,11 @@ using CSV
 #=
 # For debugging
 ENV["MODE"] = "Boscia"
-ENV["CRITERION"] = "E"
+ENV["CRITERION"] = "AGC"
 ENV["TYPE"] = "IND"
 ENV["INTEGER_DATA"] = "false"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "mu_testing"
+ENV["OPTION"] = "baseline"
 ENV["N"] = "log"
 ENV["DIMENSION"] = "50"
 =#
