@@ -41,8 +41,8 @@ if option == "mu_testing"
     starts = [m/50, exp10(-200/m)]
     decays = [1.0, 0.9, 0.7]
 elseif criterion == "AGC"
-    starts = [m/100]
-    decays = [0.8]
+    starts = [m/200]
+    decays = corr ? [0.7] : [0.9]
 else
     starts = [m/50]
     decays = [0.8]
