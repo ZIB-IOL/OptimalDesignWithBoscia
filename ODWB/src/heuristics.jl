@@ -141,9 +141,9 @@ end
 """
 Heuristic based on the approach in https://arxiv.org/abs/2401.14317
 """
-function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1)
+function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1, L=nothing)
     m, n = size(A)
-    inf_matrix(x) = A' * Diagonal(x) * A
+    inf_matrix(x) = L === nothing ? A' * Diagonal(x) * A : L + A' * Diagonal(x) * A
     return function pipage_rounding_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
         idx_set = findall(x .> threshold)
