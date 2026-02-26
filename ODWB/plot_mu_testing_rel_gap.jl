@@ -182,6 +182,22 @@ function find_common_instances(df::DataFrame)
     return by_type
 end
 
+"""For each data_type, find instances that have at least min_settings (for plotting when not all 4 exist)."""
+function find_plotable_instances(df::DataFrame; min_settings::Int = 2)
+    by_type = Dict{String, Set{Tuple{Int,Int,Int,Int}}}()
+    for dt in ["independent", "correlated"]
+        sub = df[df.data_type .== dt, :]
+        instances = Set{Tuple{Int,Int,Int,Int}}()
+        for g in groupby(sub, [:m, :n, :N, :seed])
+            if length(unique(g.setting)) >= min_settings
+                push!(instances, (g.m[1], g.n[1], g.N[1], g.seed[1]))
+            end
+        end
+        by_type[dt] = instances
+    end
+    return by_type
+end
+
 """Load progress CSV and compute relative gap. Returns (time, iteration, rel_gap) vectors.
 
 Relative gap = (upperBound - lowerBound) / scale, with scale = max(|upperBound|, |lowerBound|, 1e-10).
@@ -306,15 +322,21 @@ function main()
     by_type = find_common_instances(df)
     ind_common = by_type["independent"]
     corr_common = by_type["correlated"]
+    plotable = find_plotable_instances(df; min_settings = 2)
+    ind_plotable = plotable["independent"]
+    corr_plotable = plotable["correlated"]
     intersection = ind_common ∩ corr_common
-    println("Independent: $(length(ind_common)) instances with all 4 settings.")
-    println("Correlated:  $(length(corr_common)) instances with all 4 settings.")
+    println("Independent: $(length(ind_common)) instances with all 4 settings; $(length(ind_plotable)) plotable (≥2 settings).")
+    println("Correlated:  $(length(corr_common)) instances with all 4 settings; $(length(corr_plotable)) plotable (≥2 settings).")
     println("Intersection (same m,n,N,seed with all 4 settings for BOTH types): $(length(intersection)) instances.")
     if length(ind_common) > 0
         println("Independent instances (m,n,N,seed): ", sort(collect(ind_common)))
     end
     if length(corr_common) > 0
         println("Correlated instances (m,n,N,seed): ", sort(collect(corr_common)))
+    end
+    if length(corr_plotable) > 0 && length(corr_common) == 0
+        println("Correlated plotable instances (≥2 μ settings): ", sort(collect(corr_plotable)))
     end
     if length(intersection) > 0
         println("Common to both: ", sort(collect(intersection)))
@@ -329,20 +351,12 @@ function main()
         end
         m, n, N, seed = parse(Int, parts[1]), parse(Int, parts[2]), parse(Int, parts[3]), parse(Int, parts[4])
         instances_to_plot = Dict{String, Vector{Tuple{Int,Int,Int,Int}}}()
-        if (m, n, N, seed) in ind_common
-            instances_to_plot["independent"] = [(m, n, N, seed)]
-        else
-            instances_to_plot["independent"] = []
-        end
-        if (m, n, N, seed) in corr_common
-            instances_to_plot["correlated"] = [(m, n, N, seed)]
-        else
-            instances_to_plot["correlated"] = []
-        end
+        instances_to_plot["independent"] = (m, n, N, seed) in ind_plotable ? [(m, n, N, seed)] : []
+        instances_to_plot["correlated"] = (m, n, N, seed) in corr_plotable ? [(m, n, N, seed)] : []
     else
         instances_to_plot = Dict(
-            "independent" => collect(ind_common),
-            "correlated" => collect(corr_common),
+            "independent" => collect(ind_plotable),
+            "correlated" => collect(corr_plotable),
         )
     end
 
@@ -357,8 +371,8 @@ function main()
             for row in eachrow(sub)
                 files_by_setting[row.setting] = joinpath(FULL_RUNS_DIR, row.file)
             end
-            if length(files_by_setting) < 4
-                @warn "Instance $m $n $N $seed ($dt) has only $(length(files_by_setting)) settings; skipping."
+            if length(files_by_setting) < 2
+                @warn "Instance $m $n $N $seed ($dt) has only $(length(files_by_setting)) setting(s); need ≥2 to compare; skipping."
                 continue
             end
             plot_instance_rel_gap(files_by_setting, dt, m, n, N, seed)
