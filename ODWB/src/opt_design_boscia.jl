@@ -353,7 +353,7 @@ function solve_opt(
         settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
 
-        settings.frank_wolfe[:max_fw_iter] = 1000
+        settings.frank_wolfe[:max_fw_iter] = 5000
         settings.frank_wolfe[:line_search] = line_search
         settings.frank_wolfe[:fw_verbose] = fw_verbose
         settings.frank_wolfe[:lazy_tolerance] = lazy_tolerance
