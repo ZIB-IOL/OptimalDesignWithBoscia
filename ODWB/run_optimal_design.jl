@@ -42,7 +42,7 @@ if option == "mu_testing"
     decays = [1.0, 0.9, 0.7]
 else
     starts = [m/50]
-    decays = [0.7]
+    decays = [0.8]
 end
 
 

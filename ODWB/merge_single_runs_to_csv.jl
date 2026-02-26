@@ -2,13 +2,14 @@
 #=
 Merge single-run CSVs into one CSV per group (solver + mode + data type + correlated/independent).
 - Keeps all single-run CSV files unchanged.
-- Expects 75 runs per group: dimensions 50, 80, 100, 120, 150 × 5 seeds × 3 N values.
+- E-optimal / SCIP: 75 runs per group (dimensions 50, 80, 100, 120, 150 × 5 seeds × 3 N values).
+- Boscia smoothing: 36 runs per group (dimensions 50, 100, 150, 200 × 3 seeds × 3 N values);
+  four regimes: large_mu (decay=1, μ_min<0.001), small_mu (decay=1, μ_min≥0.001), decay_0.9, decay_0.7.
 - Missing instances get a placeholder row: time=3600, solution/scaled_solution=Inf, termination=ERROR,
-  statistics (ncalls, num_nodes, n_cuts_*, n_sdp_iters, etc.) = 0.
-- Prints which instances are missing per group.
+  statistics = 0. Prints which instances are missing per group.
 
-Usage: julia merge_single_runs_to_csv.jl [Boscia] [SCIPSDP]
-  No args = process both solvers.
+Usage: julia merge_single_runs_to_csv.jl [Boscia] [SCIPSDP] [BosciaSmoothing]
+  No args = process all (Boscia, SCIPSDP, BosciaSmoothing).
 =#
 
 using CSV, DataFrames
@@ -17,6 +18,9 @@ const CSV_BASE = joinpath(@__DIR__, "csv")
 const TIME_LIMIT = 3600
 const SEEDS = 1:5
 const DIMENSIONS_M = [50, 80, 100, 120, 150]
+# Smoothing experiment: 4 dims × 3 seeds × 3 N = 36
+const DIMENSIONS_SMOOTHING = [50, 100, 150, 200]
+const SEEDS_SMOOTHING = 1:3
 
 # (m) -> (n, N_list); E-optimal n = floor(sqrt(m)), three N values: rank_deficient, one, log
 function expected_n_and_n_values(m::Int)
@@ -42,7 +46,54 @@ function all_instance_keys()
     return keys_list
 end
 
+function all_instance_keys_smoothing()
+    keys_list = Tuple{Int,Int,Int,Int}[]
+    for m in DIMENSIONS_SMOOTHING
+        n, N_list = expected_n_and_n_values(m)
+        for N in N_list
+            for seed in SEEDS_SMOOTHING
+                push!(keys_list, (m, n, N, seed))
+            end
+        end
+    end
+    @assert length(keys_list) == 36 "expected 36 smoothing instances, got $(length(keys_list))"
+    return keys_list
+end
+
 const ALL_KEYS = all_instance_keys()
+const ALL_KEYS_SMOOTHING = all_instance_keys_smoothing()
+
+# Smoothing regimes: classify from filename prefix boscia_<mu0>_<decay>_<mu_min>_
+const SMOOTHING_REGIMES = ["large_mu", "small_mu", "decay_0.9", "decay_0.7"]
+function smoothing_regime_from_filename(basename::String)::Union{String,Nothing}
+    # Match boscia_<num>_<num>_<num>_E_optimality_...
+    m = match(r"^boscia_([0-9.]+)_([0-9.]+)_([0-9.]+)_E_optimality", basename)
+    m === nothing && return nothing
+    decay = try; parse(Float64, m.captures[2]); catch; return nothing; end
+    mu_min = try; parse(Float64, m.captures[3]); catch; return nothing; end
+    if abs(decay - 1.0) < 1e-6
+        return mu_min < 0.001 ? "large_mu" : "small_mu"
+    end
+    if abs(decay - 0.9) < 1e-6
+        return "decay_0.9"
+    end
+    if abs(decay - 0.7) < 1e-6
+        return "decay_0.7"
+    end
+    return nothing
+end
+
+function parse_smoothing_filename(basename::String)::Union{Tuple{Bool,Int,Int,Int,Int},Nothing}
+    # ...E_optimality_(correlated|independent)__m_n_N_seed.csv
+    m = match(r"E_optimality_(correlated|independent)__(\d+)_(\d+)_(\d+)_(\d+)\.csv$", basename)
+    m === nothing && return nothing
+    corr = m.captures[1] == "correlated"
+    m_val = parse(Int, m.captures[2])
+    n_val = parse(Int, m.captures[3])
+    N_val = parse(Int, m.captures[4])
+    seed_val = parse(Int, m.captures[5])
+    return (corr, m_val, n_val, N_val, seed_val)
+end
 
 # ----- Boscia -----
 const BOSCIA_DIR = joinpath(CSV_BASE, "Boscia")
@@ -223,24 +274,92 @@ function merge_scipsdp_group(mode::String, corr::Bool; verbose=true)
     return merged, missing_list
 end
 
+# ----- Boscia smoothing (4 regimes) -----
+function boscia_smoothing_merged_filename(regime::String, corr::Bool)
+    type = corr ? "correlated" : "independent"
+    return "boscia_smoothing_$(regime)_E_optimality_$(type)_merged.csv"
+end
+
+function merge_boscia_smoothing_group(regime::String, corr::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    group_name = "Boscia smoothing $regime $type_str"
+    if verbose
+        println("\n--- $group_name ---")
+    end
+    # Discover files in BOSCIA_DIR that belong to this (regime, corr)
+    key_to_path = Dict{Tuple{Int,Int,Int,Int}, String}()
+    for ent in readdir(BOSCIA_DIR; join=true)
+        isfile(ent) || continue
+        base = basename(ent)
+        r = smoothing_regime_from_filename(base)
+        r === nothing || r != regime && continue
+        parsed = parse_smoothing_filename(base)
+        parsed === nothing && continue
+        (c, m, n, N, seed) = parsed
+        c != corr && continue
+        key = (m, n, N, seed)
+        key_to_path[key] = ent
+    end
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    for key in ALL_KEYS_SMOOTHING
+        path = get(key_to_path, key, nothing)
+        df = path !== nothing ? read_boscia_single(path) : nothing
+        if df !== nothing
+            key_to_row[key] = df
+        else
+            push!(missing_list, key)
+            (m, n, N, seed) = key
+            key_to_row[key] = boscia_placeholder_row(m, n, N, seed)
+        end
+    end
+    n_found = 36 - length(missing_list)
+    if verbose
+        println("Found $n_found/36 runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    end
+    if !isempty(missing_list) && verbose
+        println("Missing instances:")
+        for key in sort!(missing_list)
+            println("  m=$(key[1]) n=$(key[2]) N=$(key[3]) seed=$(key[4])")
+        end
+    end
+    rows = [key_to_row[k] for k in ALL_KEYS_SMOOTHING]
+    merged = vcat(rows...)
+    out_path = joinpath(BOSCIA_DIR, boscia_smoothing_merged_filename(regime, corr))
+    CSV.write(out_path, merged; delim=BOSCIA_DELIM)
+    if verbose
+        println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    end
+    return merged, missing_list
+end
+
 # ----- Main -----
 function run_merge(; solvers=nothing, verbose=true)
     if solvers === nothing
-        solvers = ["Boscia", "SCIPSDP"]
+        solvers = ["Boscia", "SCIPSDP", "BosciaSmoothing"]
     end
-    println("Merging single-run CSVs (75 instances per group). Base: $CSV_BASE")
+    println("Merging single-run CSVs. Base: $CSV_BASE")
     println("Solvers: $(join(solvers, ", "))")
     for s in solvers
         if s == "Boscia"
             isdir(BOSCIA_DIR) || (println("Skip Boscia: $BOSCIA_DIR not found"); continue)
+            println("(75 instances per group)")
             merge_boscia_group(true; verbose)
             merge_boscia_group(false; verbose)
         elseif s == "SCIPSDP"
             isdir(SCIPSDP_DIR) || (println("Skip SCIPSDP: $SCIPSDP_DIR not found"); continue)
+            println("(75 instances per group)")
             merge_scipsdp_group("oa", true; verbose)
             merge_scipsdp_group("oa", false; verbose)
             merge_scipsdp_group("bnb", true; verbose)
             merge_scipsdp_group("bnb", false; verbose)
+        elseif s == "BosciaSmoothing"
+            isdir(BOSCIA_DIR) || (println("Skip BosciaSmoothing: $BOSCIA_DIR not found"); continue)
+            println("(36 instances per group, 4 regimes)")
+            for regime in SMOOTHING_REGIMES
+                merge_boscia_smoothing_group(regime, true; verbose)
+                merge_boscia_smoothing_group(regime, false; verbose)
+            end
         else
             println("Unknown solver: $s")
         end
@@ -249,6 +368,6 @@ function run_merge(; solvers=nothing, verbose=true)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    solvers = length(ARGS) == 0 ? nothing : ARGS
+    solvers = isempty(ARGS) ? nothing : ARGS
     run_merge(; solvers)
 end

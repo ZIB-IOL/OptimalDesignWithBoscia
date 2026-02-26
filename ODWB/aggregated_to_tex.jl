@@ -10,9 +10,9 @@ Hideable column names: pct_solved, time_geom_mean, time_std_wrt_geom,
   avg_cuts, avg_sdp_iters.
 
 Usage:
-  julia aggregated_to_tex.jl [--hide COL1 COL2 ...] [--data independent|correlated|both] [--out DIR]
+  julia aggregated_to_tex.jl [--hide COL1 COL2 ...] [--data independent|correlated|both] [--out DIR] [--smoothing]
+  julia aggregated_to_tex.jl --smoothing   # Boscia smoothing regimes (4) → smoothing_*.tex
   julia aggregated_to_tex.jl --hide avg_nodes time_std_wrt_geom
-  julia aggregated_to_tex.jl --hide avg_lmo_calls avg_nodes avg_cuts avg_sdp_iters
 
 All arguments after --hide (until the next --) are treated as column names to hide; commas are optional.
 
@@ -25,6 +25,13 @@ const AGG_DIR = joinpath(@__DIR__, "csv", "aggregated")
 const TEX_OUT_DIR = "/Users/deborah/Documents/research_projects/Smoothing-in-Boscia/paper"
 const SOLVERS = ["Boscia", "SCIPSDP_oa", "SCIPSDP_bnb"]
 const SOLVER_LABELS = Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP (OA)", "SCIPSDP_bnb" => "SCIPSDP (B\\&B)")
+const SMOOTHING_REGIMES = ["large_mu", "small_mu", "decay_0.9", "decay_0.7"]
+const SMOOTHING_LABELS = Dict(
+    "large_mu" => "Large \$\\mu\$ (decay=1)",
+    "small_mu" => "Small \$\\mu\$ (decay=1)",
+    "decay_0.9" => "Decay 0.9",
+    "decay_0.7" => "Decay 0.7",
+)
 
 # All metrics that can be shown; order and short header for LaTeX; 5th elem = :max/:min to bold best per column (or nothing)
 const METRIC_CONFIG = [
@@ -77,7 +84,7 @@ function format_cell(val, fmt_type)
     return string(val)
 end
 
-function pivot_aggregated(df::DataFrame, row_col::Symbol, hide::Vector{String})
+function pivot_aggregated(df::DataFrame, row_col::Symbol, hide::Vector{String}, solvers::Vector{String}=SOLVERS)
     metrics = [m[1] for m in METRIC_CONFIG if m[1] in names(df) && !(m[1] in hide)]
     raw_vals = unique(df[!, row_col])
     row_vals = if row_col == :N_construction
@@ -89,7 +96,7 @@ function pivot_aggregated(df::DataFrame, row_col::Symbol, hide::Vector{String})
     rows = []
     for rv in row_vals
         row_data = Any[rv]
-        for solver in SOLVERS
+        for solver in solvers
             sub = df[(df[!, row_col] .== rv) .& (df.solver .== solver), :]
             for (key, _, _, _, _) in METRIC_CONFIG
                 key in metrics || continue
@@ -113,9 +120,9 @@ function tex_escape(s)
     return s
 end
 
-function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::String)
+function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::String; solvers::Vector{String}=SOLVERS, solver_labels::Dict=SOLVER_LABELS)
     n_metrics = length(metrics)
-    n_solvers = length(SOLVERS)
+    n_solvers = length(solvers)
     n_col_vals = length(row_vals)
     # Precompute best value per (metric, column) for highlighting; best_dir from config (:max or :min)
     best_per_col = Matrix{Union{Missing,Float64}}(undef, n_metrics, n_col_vals)
@@ -140,7 +147,7 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
     println(io, line1, " \\\\")
     println(io, "\\midrule")
     # Data: for each solver, multirow block with one row per metric (first col = solver multirow, second = metric name)
-    for (solver_idx, solver) in enumerate(SOLVERS)
+    for (solver_idx, solver) in enumerate(solvers)
         data_idx_base = 2 + (solver_idx - 1) * n_metrics
         row_in_block = 0
         for (key, label, _, fmt, best_dir) in METRIC_CONFIG
@@ -160,7 +167,7 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
                 push!(col_cells, cell)
             end
             first_cell = if row_in_block == 1
-                "\\multirow{$(n_metrics)}{*}{$(SOLVER_LABELS[solver])}"
+                "\\multirow{$(n_metrics)}{*}{$(solver_labels[solver])}"
             else
                 " "
             end
@@ -176,23 +183,26 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
     println(io, "\\end{tabular}")
 end
 
-function main(; data_type="both", hide=nothing, out_dir=nothing)
+function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false)
     hide_list = String.(parse_hide(hide))
     out = something(out_dir, TEX_OUT_DIR)
     mkpath(out)
+    prefix = smoothing ? "smoothing_" : ""
+    solvers = smoothing ? SMOOTHING_REGIMES : SOLVERS
+    solver_labels = smoothing ? SMOOTHING_LABELS : SOLVER_LABELS
     data_types = data_type == "both" ? ["independent", "correlated"] : [data_type]
     for dtype in data_types
         for (row_col, suffix, title_suffix) in [
             (:dimension, "dimension", "by dimension"),
             (:N_construction, "N_construction", "by N construction"),
         ]
-            path = joinpath(AGG_DIR, "$(dtype)_by_$(suffix).csv")
+            path = joinpath(AGG_DIR, "$(prefix)$(dtype)_by_$(suffix).csv")
             isfile(path) || continue
             df = CSV.read(path, DataFrame)
-            row_vals, metrics, rows = pivot_aggregated(df, row_col, hide_list)
-            tex_path = joinpath(out, "$(dtype)_by_$(suffix).tex")
+            row_vals, metrics, rows = pivot_aggregated(df, row_col, hide_list, solvers)
+            tex_path = joinpath(out, "$(prefix)$(dtype)_by_$(suffix).tex")
             open(tex_path, "w") do io
-                write_tex_table(io, row_vals, metrics, rows, row_col, "$(title_suffix) ($(dtype))")
+                write_tex_table(io, row_vals, metrics, rows, row_col, "$(title_suffix) ($(dtype))"; solvers=solvers, solver_labels=solver_labels)
             end
             println("Wrote ", tex_path)
         end
@@ -220,10 +230,10 @@ if abspath(PROGRAM_FILE) == @__FILE__
         hide_arg = nothing
         data_type_arg = "both"
         out_dir_arg = nothing
+        smoothing_arg = false
         idx = 1
         while idx <= length(args)
             if args[idx] == "--hide"
-                # Consume all following args until next -- (or end) as the hide list
                 idx += 1
                 hide_list = String[]
                 while idx <= length(args) && !startswith(args[idx], "--")
@@ -237,11 +247,14 @@ if abspath(PROGRAM_FILE) == @__FILE__
             elseif args[idx] == "--out" && idx + 1 <= length(args)
                 out_dir_arg = args[idx + 1]
                 idx += 2
+            elseif args[idx] == "--smoothing"
+                smoothing_arg = true
+                idx += 1
             else
                 idx += 1
             end
         end
-        return (; data_type=data_type_arg, hide=hide_arg, out_dir=out_dir_arg)
+        return (; data_type=data_type_arg, hide=hide_arg, out_dir=out_dir_arg, smoothing=smoothing_arg)
     end
     opts = parse_args(ARGS)
     main(; opts...)
