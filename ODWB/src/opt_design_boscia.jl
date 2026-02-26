@@ -167,8 +167,8 @@ function solve_opt(
                 push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
             end
             if N > 1.5 * n
-                pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N)
-                push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 0.3, :pipage_rounding))
+                pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N, L=L)
+                push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, criterion == "AGC" ? 0.0 : 0.3, :pipage_rounding))
             end
             fedorov_heuristic = build_greedy_fedorov_heuristic(A, N, 10, L=L)
             push!(custom_heu, Boscia.Heuristic(fedorov_heuristic, 0.4, :fedorov))
@@ -179,7 +179,7 @@ function solve_opt(
             end
         elseif use_pipage_heu
             if N > 1.5 * n
-                pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N)
+                pipage_rounding_heuristic = build_pipage_rounding_heuristic(A, N, L=L)
                 push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 0.3, :pipage_rounding))
             end
         elseif use_sr_rounding_heu
