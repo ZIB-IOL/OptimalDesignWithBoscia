@@ -349,7 +349,7 @@ function solve_opt(
         settings.smoothing[:smoothing_start] = smoothing_start
         settings.smoothing[:smoothing_min] = smoothing_min
         settings.smoothing[:smoothing_min_valid] = smoothing_min_valid
-        settings.smoothing[:smoothing_decay] = N <= 1.5 * n ? smoothing_decay : 0.9
+        settings.smoothing[:smoothing_decay] = smoothing_decay
         settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
 
