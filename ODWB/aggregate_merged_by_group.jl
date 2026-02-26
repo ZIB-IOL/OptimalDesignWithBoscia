@@ -1,11 +1,11 @@
 #!/usr/bin/env julia
 #=
-Build aggregated CSVs combining both solvers (Boscia, SCIPSDP_oa, SCIPSDP_bnb) per data type.
-- One group = one data type (independent or correlated).
-- Metrics: geometric mean of time, std of time w.r.t. geometric mean, n_solved, pct_solved,
-  geometric mean of rel_gap (unsolved only, skip Inf), failed_instances (placeholder rows).
-- Two grouping modes: by dimension (m) and by N construction (rank_deficient, one, log) → 4 files:
-  independent_by_dimension.csv, independent_by_N_construction.csv, correlated_by_dimension.csv, correlated_by_N_construction.csv.
+Build aggregated CSVs combining solvers per data type.
+- Default: Boscia + SCIPSDP_oa + SCIPSDP_bnb → independent/correlated_by_dimension/N_construction (4 files).
+- Smoothing mode (--smoothing): 4 Boscia smoothing regimes (large_mu, small_mu, decay_0.9, decay_0.7) →
+  smoothing_independent/correlated_by_dimension/N_construction (4 files).
+- Metrics: geometric mean of time, std w.r.t. geom mean, n_solved, pct_solved, rel_gap geom (unsolved),
+  failed_instances, avg_lmo_calls, avg_nodes, etc.
 
 Run after merge_single_runs_to_csv.jl. Reads merged CSVs from csv/Boscia and csv/SCIPSDP.
 =#
@@ -86,6 +86,27 @@ function load_and_normalize_boscia(corr::Bool)
     return df
 end
 
+const SMOOTHING_REGIMES = ["large_mu", "small_mu", "decay_0.9", "decay_0.7"]
+
+function load_and_normalize_boscia_smoothing(regime::String, corr::Bool)
+    type = corr ? "correlated" : "independent"
+    path = joinpath(BOSCIA_DIR, "boscia_smoothing_$(regime)_E_optimality_$(type)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill(regime, n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = hasproperty(df, :rel_dual_gap) ? coalesce.(df.rel_dual_gap, Inf) : fill(Inf, n)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    df[!, :N_construction] = [n_construction_label(row.numberOfParameters, row.N) for row in eachrow(df)]
+    df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
+    df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
+    df[!, :n_cuts_applied] = fill(0, n)
+    df[!, :n_sdp_iters] = fill(0, n)
+    return df
+end
+
 function load_and_normalize_scipsdp(mode::String, corr::Bool)
     type = corr ? "correlated" : "independent"
     path = joinpath(SCIPSDP_DIR, "scip_sdp_$(mode)_E_optimality_$(type)_cont_merged.csv")
@@ -120,7 +141,19 @@ function combined_table(corr::Bool)
         push!(dfs, df)
     end
     isempty(dfs) && return nothing
-    # Common columns for aggregation (incl. N_construction and solver stats)
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    available = [n for n in common if all(hasproperty(d, n) for d in dfs)]
+    return vcat([df[:, available] for df in dfs]...)
+end
+
+function combined_table_smoothing(corr::Bool)
+    dfs = DataFrame[]
+    for regime in SMOOTHING_REGIMES
+        df = load_and_normalize_boscia_smoothing(regime, corr)
+        df === nothing && continue
+        push!(dfs, df)
+    end
+    isempty(dfs) && return nothing
     common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
     available = [n for n in common if all(hasproperty(d, n) for d in dfs)]
     return vcat([df[:, available] for df in dfs]...)
@@ -147,7 +180,8 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
         # Averages over solved instances only; 0 when not applicable for that solver
         solved_idx = findall(solved)
         n_sol = length(solved_idx)
-        avg_lmo_calls = (solver == "Boscia" && n_sol > 0) ? round(sum(sdf.ncalls[solved_idx]) / n_sol; digits=2) : 0.0
+        is_boscia_like = solver == "Boscia" || solver in SMOOTHING_REGIMES
+        avg_lmo_calls = (is_boscia_like && n_sol > 0) ? round(sum(sdf.ncalls[solved_idx]) / n_sol; digits=2) : 0.0
         avg_nodes = n_sol > 0 ? round(sum(sdf.nodes[solved_idx]) / n_sol; digits=2) : 0.0
         avg_cuts = (solver == "SCIPSDP_oa" && n_sol > 0) ? round(sum(skipmissing(sdf.n_cuts_applied[solved_idx])) / n_sol; digits=2) : 0.0
         avg_sdp_iters = (solver == "SCIPSDP_bnb" && n_sol > 0) ? round(sum(coalesce.(sdf.n_sdp_iters[solved_idx], 0)) / n_sol; digits=2) : 0.0
@@ -181,33 +215,33 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
     return out[:, idx]
 end
 
-function run_aggregation(; out_dir=nothing, verbose=true)
+function run_aggregation(; out_dir=nothing, smoothing=false, verbose=true)
     out_dir = something(out_dir, joinpath(CSV_BASE, "aggregated"))
     mkpath(out_dir)
+    prefix = smoothing ? "smoothing_" : ""
     if verbose
-        println("Aggregating merged results (both solvers) by data type and by dimension/N.")
+        println(smoothing ? "Aggregating Boscia smoothing regimes (4) by data type and dimension/N." : "Aggregating merged results (Boscia + SCIPSDP) by data type and dimension/N.")
         println("Output directory: $out_dir")
     end
     for corr in (false, true)
         data_type = corr ? "correlated" : "independent"
-        df = combined_table(corr)
+        df = smoothing ? combined_table_smoothing(corr) : combined_table(corr)
         if df === nothing
-            verbose && println("No data for $data_type, skipping.")
+            verbose && println("No data for $(prefix)$data_type, skipping.")
             continue
         end
         if verbose
-            println("\n--- $data_type ---")
-            println("  Combined rows: $(nrow(df)), solvers: $(unique(df.solver))")
+            println("\n--- $(prefix)$data_type ---")
+            println("  Combined rows: $(nrow(df)), solvers/regimes: $(unique(df.solver))")
         end
         by_dim = aggregate_by(df, :dimension)
         by_n = aggregate_by(df, :N_construction)
-        # Sort by N_construction order: rank_deficient, one, log
         n_order = ["rank_deficient", "one", "log"]
         col_n = :N_construction in names(by_n) ? :N_construction : "N_construction"
         perm = sortperm(by_n[!, col_n]; by=x -> (idx = findfirst(==(string(x)), n_order); idx === nothing ? 4 : idx))
         by_n = by_n[perm, :]
-        out_dim = joinpath(out_dir, "$(data_type)_by_dimension.csv")
-        out_n = joinpath(out_dir, "$(data_type)_by_N_construction.csv")
+        out_dim = joinpath(out_dir, "$(prefix)$(data_type)_by_dimension.csv")
+        out_n = joinpath(out_dir, "$(prefix)$(data_type)_by_N_construction.csv")
         CSV.write(out_dim, by_dim)
         CSV.write(out_n, by_n)
         if verbose
@@ -216,10 +250,14 @@ function run_aggregation(; out_dir=nothing, verbose=true)
         end
     end
     if verbose
-        println("\nDone. Outputs: *_by_dimension.csv, *_by_N_construction.csv (N construction: rank_deficient, one, log)")
+        println("\nDone. Outputs: $(prefix)*_by_dimension.csv, $(prefix)*_by_N_construction.csv")
     end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_aggregation()
+    smoothing = "--smoothing" in ARGS
+    if smoothing
+        filter!(x -> x != "--smoothing", ARGS)
+    end
+    run_aggregation(; smoothing)
 end
