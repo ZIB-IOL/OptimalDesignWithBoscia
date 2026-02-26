@@ -92,7 +92,7 @@ for k in ratio_para
                             N=N, 
                             smoothing_start=start,
                             smoothing_decay=decay,
-                            smoothing_min= criterion == "AGC" ? exp10(-400/m) : exp10(-50/m),#exp10(-200/m),
+                            smoothing_min= criterion == "AGC" ? exp10(-400/m) : exp10(-20/m),#exp10(-200/m), exp10(-400/m) for AGC
                             use_exclusion_criterion=option == "exclusion_criterion", 
                             use_heuristics=option == "all_heuristics", 
                             use_follow_subgradient_heu=option == "follow_subgradient", 
