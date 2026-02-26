@@ -45,7 +45,7 @@ elseif criterion == "AGC"
     decays = corr ? [0.7] : [0.9]
 else
     starts = [m/10] 
-    decays = [0.8]
+    decays = N_construct == "log" ? [0.9] : [0.8]
 end
 
 
