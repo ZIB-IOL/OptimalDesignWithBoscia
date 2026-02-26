@@ -40,6 +40,9 @@ seeds = seed == 0 ? collect(1:5) : [seed]
 if option == "mu_testing"
     starts = [m/50, exp10(-200/m)]
     decays = [1.0, 0.9, 0.7]
+elseif criterion == "AGC"
+    starts = [m/100]
+    decays = [0.8]
 else
     starts = [m/50]
     decays = [0.8]
@@ -89,7 +92,7 @@ for k in ratio_para
                             N=N, 
                             smoothing_start=start,
                             smoothing_decay=decay,
-                            smoothing_min=exp10(-200/m),
+                            smoothing_min= criterion == "AGC" ? exp10(-400/m) : exp10(-50/m),#exp10(-200/m),
                             use_exclusion_criterion=option == "exclusion_criterion", 
                             use_heuristics=option == "all_heuristics", 
                             use_follow_subgradient_heu=option == "follow_subgradient", 
