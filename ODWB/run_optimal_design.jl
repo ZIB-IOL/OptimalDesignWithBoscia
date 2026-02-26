@@ -44,7 +44,7 @@ elseif criterion == "AGC"
     starts = [m/200]
     decays = corr ? [0.7] : [0.9]
 else
-    starts = [m/50]
+    starts = [m/10] 
     decays = [0.8]
 end
 
