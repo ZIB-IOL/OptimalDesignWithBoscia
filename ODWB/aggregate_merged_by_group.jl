@@ -4,6 +4,8 @@ Build aggregated CSVs combining solvers per data type.
 - Default: Boscia + SCIPSDP_oa + SCIPSDP_bnb → independent/correlated_by_dimension/N_construction (4 files).
 - Smoothing mode (--smoothing): 4 Boscia smoothing regimes (large_mu, small_mu, decay_0.9, decay_0.7) →
   smoothing_independent/correlated_by_dimension/N_construction (4 files).
+- AGC mode (--agc): Boscia + SCIPSDP_oa + SCIPSDP_bnb for AGC setups →
+  agc_correlated_connected_by_dimension.csv and agc_independent_disconnected_by_dimension.csv.
 - Metrics: geometric mean of time, std w.r.t. geom mean, n_solved, pct_solved, rel_gap geom (unsolved),
   failed_instances, avg_lmo_calls, avg_nodes, etc.
 
@@ -18,6 +20,8 @@ const SCIPSDP_DIR = joinpath(CSV_BASE, "SCIPSDP")
 const TIME_LIMIT = 3600
 const BOSCIA_DELIM = ';'
 const SCIPSDP_DELIM = ','
+
+const SCIPSOLVERS = ["Boscia", "SCIPSDP_oa", "SCIPSDP_bnb"]
 
 # Solved = reached optimal (or gap limit) within time
 function is_solved(termination, time)
@@ -159,6 +163,66 @@ function combined_table_smoothing(corr::Bool)
     return vcat([df[:, available] for df in dfs]...)
 end
 
+function load_and_normalize_boscia_agc(corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    path = joinpath(BOSCIA_DIR, "boscia_AGC_optimality_$(type)_$(conn)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("Boscia", n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = hasproperty(df, :rel_dual_gap) ? coalesce.(df.rel_dual_gap, Inf) : fill(Inf, n)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    # For AGC, N_construction is not meaningful; mark as "other"
+    df[!, :N_construction] = fill("other", n)
+    df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
+    df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
+    df[!, :n_cuts_applied] = fill(0, n)
+    df[!, :n_sdp_iters] = fill(0, n)
+    return df
+end
+
+function load_and_normalize_scipsdp_agc(mode::String, corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    path = joinpath(SCIPSDP_DIR, "scip_sdp_$(mode)_AGC_optimality_$(type)_$(conn)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=SCIPSDP_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("SCIPSDP_$(mode)", n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = hasproperty(df, :rel_gap) ? df.rel_gap : fill(Inf, n)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    df[!, :N_construction] = fill("other", n)
+    df[!, :nodes] = hasproperty(df, :n_nodes) ? df.n_nodes : fill(0, n)
+    df[!, :ncalls] = fill(0, n)
+    df[!, :n_cuts_applied] = (mode == "oa" && hasproperty(df, :n_cuts_applied)) ? df.n_cuts_applied : fill(0, n)
+    df[!, :n_sdp_iters] = (mode == "bnb" && hasproperty(df, :n_sdp_iters)) ? coalesce.(df.n_sdp_iters, 0) : fill(0, n)
+    return df
+end
+
+function combined_table_agc(corr::Bool, connected::Bool)
+    dfs = DataFrame[]
+    for solver in SCIPSOLVERS
+        df = if solver == "Boscia"
+            load_and_normalize_boscia_agc(corr, connected)
+        elseif solver == "SCIPSDP_oa"
+            load_and_normalize_scipsdp_agc("oa", corr, connected)
+        else
+            load_and_normalize_scipsdp_agc("bnb", corr, connected)
+        end
+        df === nothing && continue
+        push!(dfs, df)
+    end
+    isempty(dfs) && return nothing
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    available = [n for n in common if all(hasproperty(d, n) for d in dfs)]
+    return vcat([df[:, available] for df in dfs]...)
+end
+
 function aggregate_by(df::DataFrame, group_col::Symbol)
     g = groupby(df, [:solver, group_col])
     rows = []
@@ -254,10 +318,50 @@ function run_aggregation(; out_dir=nothing, smoothing=false, verbose=true)
     end
 end
 
+function run_aggregation_agc(; out_dir=nothing, verbose=true)
+    out_dir = something(out_dir, joinpath(CSV_BASE, "aggregated"))
+    mkpath(out_dir)
+    if verbose
+        println("Aggregating AGC results (Boscia + SCIPSDP) by dimension.")
+        println("Output directory: $out_dir")
+    end
+    # Only two AGC setups are used: correlated_connected and independent_disconnected
+    setups = [
+        (true,  true,  "correlated_connected"),
+        (false, false, "independent_disconnected"),
+    ]
+    for (corr, connected, tag) in setups
+        df = combined_table_agc(corr, connected)
+        if df === nothing
+            verbose && println("No AGC data for $tag, skipping.")
+            continue
+        end
+        if verbose
+            println("\n--- agc_$tag ---")
+            println("  Combined rows: $(nrow(df)), solvers: $(unique(df.solver))")
+        end
+        by_dim = aggregate_by(df, :dimension)
+        out_dim = joinpath(out_dir, "agc_$(tag)_by_dimension.csv")
+        CSV.write(out_dim, by_dim)
+        if verbose
+            println("  Wrote $out_dim ($(nrow(by_dim)) rows)")
+        end
+    end
+    if verbose
+        println("\nDone. Outputs: agc_*_by_dimension.csv")
+    end
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     smoothing = "--smoothing" in ARGS
+    agc = "--agc" in ARGS
     if smoothing
         filter!(x -> x != "--smoothing", ARGS)
     end
-    run_aggregation(; smoothing)
+    if agc
+        filter!(x -> x != "--agc", ARGS)
+        run_aggregation_agc()
+    else
+        run_aggregation(; smoothing)
+    end
 end

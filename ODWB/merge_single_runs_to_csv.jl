@@ -5,11 +5,13 @@ Merge single-run CSVs into one CSV per group (solver + mode + data type + correl
 - E-optimal / SCIP: 75 runs per group (dimensions 50, 80, 100, 120, 150 × 5 seeds × 3 N values).
 - Boscia smoothing: 36 runs per group (dimensions 50, 100, 150, 200 × 3 seeds × 3 N values);
   four regimes: large_mu (decay=1, μ_min<0.001), small_mu (decay=1, μ_min≥0.001), decay_0.9, decay_0.7.
+- AGC (algebraic graph connectivity): 25 runs per group (dimensions 50, 80, 100, 150, 200 × 5 seeds),
+  with a single (n, N) per dimension, inferred from filenames.
 - Missing instances get a placeholder row: time=3600, solution/scaled_solution=Inf, termination=ERROR,
   statistics = 0. Prints which instances are missing per group.
 
-Usage: julia merge_single_runs_to_csv.jl [Boscia] [SCIPSDP] [BosciaSmoothing]
-  No args = process all (Boscia, SCIPSDP, BosciaSmoothing).
+Usage: julia merge_single_runs_to_csv.jl [Boscia] [SCIPSDP] [BosciaSmoothing] [AGC]
+  No args = process all (Boscia, SCIPSDP, BosciaSmoothing, AGC).
 =#
 
 using CSV, DataFrames
@@ -21,6 +23,8 @@ const DIMENSIONS_M = [50, 80, 100, 120, 150]
 # Smoothing experiment: 4 dims × 3 seeds × 3 N = 36
 const DIMENSIONS_SMOOTHING = [50, 100, 150, 200]
 const SEEDS_SMOOTHING = 1:3
+# AGC: dimensions 80,100,150,200 (50 is ignored / unusable)
+const DIMENSIONS_AGC = [80, 100, 150, 200]
 
 # (m) -> (n, N_list); E-optimal n = floor(sqrt(m)), three N values: rank_deficient, one, log
 function expected_n_and_n_values(m::Int)
@@ -333,10 +337,168 @@ function merge_boscia_smoothing_group(regime::String, corr::Bool; verbose=true)
     return merged, missing_list
 end
 
+# ----- AGC (algebraic graph connectivity, Boscia + SCIPSDP) -----
+
+function infer_agc_nN()
+    mapping = Dict{Int,Tuple{Int,Int}}()  # m -> (n, N)
+    # Boscia filenames: boscia__AGC_optimality_type_conn_m_n_N_seed.csv
+    if isdir(BOSCIA_DIR)
+        for ent in readdir(BOSCIA_DIR; join=true)
+            isfile(ent) || continue
+            base = basename(ent)
+            m = match(r"^boscia__AGC_optimality_(correlated|independent)_(connected|disconnected)_(\d+)_(\d+)_(\d+)_(\d+)\.csv$", base)
+            m === nothing && continue
+            m_val = parse(Int, m.captures[3])
+            n_val = parse(Int, m.captures[4])
+            N_val = parse(Int, m.captures[5])
+            haskey(mapping, m_val) || (mapping[m_val] = (n_val, N_val))
+        end
+    end
+    # SCIPSDP filenames: scip_sdp_{oa|bnb}_AGC_optimality_type_conn_m_n_N_seed.csv
+    if isdir(SCIPSDP_DIR)
+        for ent in readdir(SCIPSDP_DIR; join=true)
+            isfile(ent) || continue
+            base = basename(ent)
+            m = match(r"^scip_sdp_(oa|bnb)_AGC_optimality_(correlated|independent)_(connected|disconnected)_(\d+)_(\d+)_(\d+)_(\d+)\.csv$", base)
+            m === nothing && continue
+            m_val = parse(Int, m.captures[4])
+            n_val = parse(Int, m.captures[5])
+            N_val = parse(Int, m.captures[6])
+            haskey(mapping, m_val) || (mapping[m_val] = (n_val, N_val))
+        end
+    end
+    for m in DIMENSIONS_AGC
+        haskey(mapping, m) || error("AGC: could not infer (n, N) for m = $m from existing CSVs")
+    end
+    return mapping
+end
+
+function all_instance_keys_agc()
+    dims_to_nN = infer_agc_nN()
+    keys_list = Tuple{Int,Int,Int,Int}[]  # (m, n, N, seed)
+    for m in DIMENSIONS_AGC
+        (n, N) = dims_to_nN[m]
+        for seed in SEEDS
+            push!(keys_list, (m, n, N, seed))
+        end
+    end
+    @assert length(keys_list) == length(DIMENSIONS_AGC) * length(SEEDS) "expected $(length(DIMENSIONS_AGC) * length(SEEDS)) AGC instances, got $(length(keys_list))"
+    return keys_list
+end
+
+const ALL_KEYS_AGC = all_instance_keys_agc()
+
+function boscia_agc_single_filename(corr::Bool, connected::Bool, m::Int, n::Int, N::Int, seed::Int)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    return "boscia__AGC_optimality_$(type)_$(conn)_$(m)_$(n)_$(N)_$(seed).csv"
+end
+
+function boscia_agc_merged_filename(corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    return "boscia_AGC_optimality_$(type)_$(conn)_merged.csv"
+end
+
+function merge_boscia_agc_group(connected::Bool, corr::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    conn_str = connected ? "connected" : "disconnected"
+    group_name = "Boscia AGC $type_str $conn_str"
+    if verbose
+        println("\n--- $group_name ---")
+    end
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    for (m, n, N, seed) in ALL_KEYS_AGC
+        fname = boscia_agc_single_filename(corr, connected, m, n, N, seed)
+        path = joinpath(BOSCIA_DIR, fname)
+        df = read_boscia_single(path)
+        if df !== nothing
+            key_to_row[(m, n, N, seed)] = df
+        else
+            push!(missing_list, (m, n, N, seed))
+            key_to_row[(m, n, N, seed)] = boscia_placeholder_row(m, n, N, seed)
+        end
+    end
+    n_expected = length(ALL_KEYS_AGC)
+    n_found = n_expected - length(missing_list)
+    if verbose
+        println("Found $n_found/$n_expected runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    end
+    if !isempty(missing_list) && verbose
+        println("Missing instances:")
+        for (m, n, N, seed) in sort!(missing_list)
+            println("  m=$m n=$n N=$N seed=$seed")
+        end
+    end
+    rows = [key_to_row[k] for k in ALL_KEYS_AGC]
+    merged = vcat(rows...)
+    out_path = joinpath(BOSCIA_DIR, boscia_agc_merged_filename(corr, connected))
+    CSV.write(out_path, merged; delim=BOSCIA_DELIM)
+    if verbose
+        println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    end
+    return merged, missing_list
+end
+
+function scipsdp_agc_single_filename(mode::String, corr::Bool, connected::Bool, m::Int, n::Int, N::Int, seed::Int)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    prefix = mode == "oa" ? "scip_sdp_oa" : "scip_sdp_bnb"
+    return "$(prefix)_AGC_optimality_$(type)_$(conn)_$(m)_$(n)_$(N)_$(seed).csv"
+end
+
+function scipsdp_agc_merged_filename(mode::String, corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    return "scip_sdp_$(mode)_AGC_optimality_$(type)_$(conn)_merged.csv"
+end
+
+function merge_scipsdp_agc_group(mode::String, connected::Bool, corr::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    conn_str = connected ? "connected" : "disconnected"
+    group_name = "SCIPSDP $mode AGC $type_str $conn_str"
+    if verbose
+        println("\n--- $group_name ---")
+    end
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    for (m, n, N, seed) in ALL_KEYS_AGC
+        fname = scipsdp_agc_single_filename(mode, corr, connected, m, n, N, seed)
+        path = joinpath(SCIPSDP_DIR, fname)
+        df = read_scipsdp_single(path)
+        if df !== nothing
+            key_to_row[(m, n, N, seed)] = df
+        else
+            push!(missing_list, (m, n, N, seed))
+            key_to_row[(m, n, N, seed)] = scipsdp_placeholder_row(m, n, N, seed)
+        end
+    end
+    n_expected = length(ALL_KEYS_AGC)
+    n_found = n_expected - length(missing_list)
+    if verbose
+        println("Found $n_found/$n_expected runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    end
+    if !isempty(missing_list) && verbose
+        println("Missing instances:")
+        for (m, n, N, seed) in sort!(missing_list)
+            println("  m=$m n=$n N=$N seed=$seed")
+        end
+    end
+    rows = [key_to_row[k] for k in ALL_KEYS_AGC]
+    merged = vcat(rows...)
+    out_path = joinpath(SCIPSDP_DIR, scipsdp_agc_merged_filename(mode, corr, connected))
+    CSV.write(out_path, merged; delim=SCIPSDP_DELIM)
+    if verbose
+        println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    end
+    return merged, missing_list
+end
+
 # ----- Main -----
 function run_merge(; solvers=nothing, verbose=true)
     if solvers === nothing
-        solvers = ["Boscia", "SCIPSDP", "BosciaSmoothing"]
+        solvers = ["Boscia", "SCIPSDP", "BosciaSmoothing", "AGC"]
     end
     println("Merging single-run CSVs. Base: $CSV_BASE")
     println("Solvers: $(join(solvers, ", "))")
@@ -360,6 +522,19 @@ function run_merge(; solvers=nothing, verbose=true)
                 merge_boscia_smoothing_group(regime, true; verbose)
                 merge_boscia_smoothing_group(regime, false; verbose)
             end
+        elseif s == "AGC"
+            isdir(BOSCIA_DIR) || (println("Skip AGC (Boscia): $BOSCIA_DIR not found");)
+            isdir(SCIPSDP_DIR) || (println("Skip AGC (SCIPSDP): $SCIPSDP_DIR not found");)
+            println("(20 instances per group, AGC correlated_connected + independent_disconnected)")
+            # Only two AGC setups are used:
+            # - correlated_connected
+            # - independent_disconnected
+            merge_boscia_agc_group(true,  true;  verbose)  # correlated,  connected
+            merge_scipsdp_agc_group("oa",  true,  true;  verbose)
+            merge_scipsdp_agc_group("bnb", true,  true;  verbose)
+            merge_boscia_agc_group(false, false; verbose)  # independent, disconnected
+            merge_scipsdp_agc_group("oa",  false, false; verbose)
+            merge_scipsdp_agc_group("bnb", false, false; verbose)
         else
             println("Unknown solver: $s")
         end

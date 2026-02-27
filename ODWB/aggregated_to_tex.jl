@@ -10,8 +10,9 @@ Hideable column names: pct_solved, time_geom_mean, time_std_wrt_geom,
   avg_cuts, avg_sdp_iters.
 
 Usage:
-  julia aggregated_to_tex.jl [--hide COL1 COL2 ...] [--data independent|correlated|both] [--out DIR] [--smoothing]
+  julia aggregated_to_tex.jl [--hide COL1 COL2 ...] [--data independent|correlated|both] [--out DIR] [--smoothing] [--agc]
   julia aggregated_to_tex.jl --smoothing   # Boscia smoothing regimes (4) → smoothing_*.tex
+  julia aggregated_to_tex.jl --agc         # AGC setups (2) → agc_*.tex
   julia aggregated_to_tex.jl --hide avg_nodes time_std_wrt_geom
 
 All arguments after --hide (until the next --) are treated as column names to hide; commas are optional.
@@ -183,28 +184,47 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
     println(io, "\\end{tabular}")
 end
 
-function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false)
+function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false, agc=false)
     hide_list = String.(parse_hide(hide))
     out = something(out_dir, TEX_OUT_DIR)
     mkpath(out)
-    prefix = smoothing ? "smoothing_" : ""
-    solvers = smoothing ? SMOOTHING_REGIMES : SOLVERS
-    solver_labels = smoothing ? SMOOTHING_LABELS : SOLVER_LABELS
-    data_types = data_type == "both" ? ["independent", "correlated"] : [data_type]
-    for dtype in data_types
-        for (row_col, suffix, title_suffix) in [
-            (:dimension, "dimension", "by dimension"),
-            (:N_construction, "N_construction", "by N construction"),
+    if agc
+        # AGC: two setups, by dimension only
+        setups = [
+            ("correlated_connected", "AGC correlated connected"),
+            ("independent_disconnected", "AGC independent disconnected"),
         ]
-            path = joinpath(AGG_DIR, "$(prefix)$(dtype)_by_$(suffix).csv")
+        for (tag, title) in setups
+            path = joinpath(AGG_DIR, "agc_$(tag)_by_dimension.csv")
             isfile(path) || continue
             df = CSV.read(path, DataFrame)
-            row_vals, metrics, rows = pivot_aggregated(df, row_col, hide_list, solvers)
-            tex_path = joinpath(out, "$(prefix)$(dtype)_by_$(suffix).tex")
+            row_vals, metrics, rows = pivot_aggregated(df, :dimension, hide_list, SOLVERS)
+            tex_path = joinpath(out, "agc_$(tag)_by_dimension.tex")
             open(tex_path, "w") do io
-                write_tex_table(io, row_vals, metrics, rows, row_col, "$(title_suffix) ($(dtype))"; solvers=solvers, solver_labels=solver_labels)
+                write_tex_table(io, row_vals, metrics, rows, :dimension, title; solvers=SOLVERS, solver_labels=SOLVER_LABELS)
             end
             println("Wrote ", tex_path)
+        end
+    else
+        prefix = smoothing ? "smoothing_" : ""
+        solvers = smoothing ? SMOOTHING_REGIMES : SOLVERS
+        solver_labels = smoothing ? SMOOTHING_LABELS : SOLVER_LABELS
+        data_types = data_type == "both" ? ["independent", "correlated"] : [data_type]
+        for dtype in data_types
+            for (row_col, suffix, title_suffix) in [
+                (:dimension, "dimension", "by dimension"),
+                (:N_construction, "N_construction", "by N construction"),
+            ]
+                path = joinpath(AGG_DIR, "$(prefix)$(dtype)_by_$(suffix).csv")
+                isfile(path) || continue
+                df = CSV.read(path, DataFrame)
+                row_vals, metrics, rows = pivot_aggregated(df, row_col, hide_list, solvers)
+                tex_path = joinpath(out, "$(prefix)$(dtype)_by_$(suffix).tex")
+                open(tex_path, "w") do io
+                    write_tex_table(io, row_vals, metrics, rows, row_col, "$(title_suffix) ($(dtype))"; solvers=solvers, solver_labels=solver_labels)
+                end
+                println("Wrote ", tex_path)
+            end
         end
     end
     println("\n--- Required LaTeX preamble ---")
@@ -231,6 +251,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
         data_type_arg = "both"
         out_dir_arg = nothing
         smoothing_arg = false
+        agc_arg = false
         idx = 1
         while idx <= length(args)
             if args[idx] == "--hide"
@@ -250,11 +271,14 @@ if abspath(PROGRAM_FILE) == @__FILE__
             elseif args[idx] == "--smoothing"
                 smoothing_arg = true
                 idx += 1
+            elseif args[idx] == "--agc"
+                agc_arg = true
+                idx += 1
             else
                 idx += 1
             end
         end
-        return (; data_type=data_type_arg, hide=hide_arg, out_dir=out_dir_arg, smoothing=smoothing_arg)
+        return (; data_type=data_type_arg, hide=hide_arg, out_dir=out_dir_arg, smoothing=smoothing_arg, agc=agc_arg)
     end
     opts = parse_args(ARGS)
     main(; opts...)
