@@ -264,22 +264,22 @@ function solve_opt(
                         u[i] = 0.0
                     end
                 end
-                x = node.active_set.x 
-                X = A' * diagm(x) * A
-                λ, V = eigen(X)
+                y = copy(node.active_set.x/N) 
+                Y = A' * diagm(y) * A
+                λ, V = eigen(Y)
                 if !isreal(λ[1])
                     return
                 end
                 λ_min = minimum(λ)
                 tolerance = max(1e-10 * abs(λ_min), 1e-10)
                 mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
-                fx = -f(x)
+                fx = -f(y)
                 W = Symmetric(sum(V[:, j] * V[:, j]' for j in 1:mult)) #+ I(n)
                 W -= n/2 * minimum(eigvals(W)) * I(n)
                 W = 1/LinearAlgebra.tr(W) * W 
         
                 UB = N * maximum(A[j,:]' * W * A[j,:] for j in 1:m)
-                _, fixed_indices = model_exclusion(A, m, n, UB, fx, N, u=u, x=x)
+                _, fixed_indices = model_exclusion(A, m, n, UB, fx, 1.0, u=u, x=y)
         
                 for i in fixed_indices
                     node.local_bounds.upper_bounds[i] = 0.0
