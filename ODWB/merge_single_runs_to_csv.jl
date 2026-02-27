@@ -99,15 +99,14 @@ function parse_smoothing_filename(basename::String)::Union{Tuple{Bool,Int,Int,In
     return (corr, m_val, n_val, N_val, seed_val)
 end
 
-# ----- Boscia -----
+# ----- Boscia (standard E-optimality: no folder prefix; from opt_design_boscia.jl when folder="") -----
 const BOSCIA_DIR = joinpath(CSV_BASE, "Boscia")
-const BOSCIA_PREFIX = "boscia__E_optimality_"
-const BOSCIA_SUFFIX = "_cont__"
+# Single-run: boscia__E_optimality_<type>__m_n_N_seed.csv (connection empty for E-opt)
 const BOSCIA_DELIM = ';'
 
 function boscia_single_filename(corr::Bool, m::Int, n::Int, N::Int, seed::Int)
     type = corr ? "correlated" : "independent"
-    return "boscia__E_optimality_$(type)_cont__$(m)_$(n)_$(N)_$(seed).csv"
+    return "boscia__E_optimality_$(type)__$(m)_$(n)_$(N)_$(seed).csv"
 end
 
 function boscia_merged_filename(corr::Bool)

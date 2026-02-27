@@ -5,16 +5,16 @@ using Test
 using DataFrames
 using CSV
 
-#=
+
 # For debugging
 ENV["MODE"] = "Boscia"
 ENV["CRITERION"] = "AGC"
 ENV["TYPE"] = "IND"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "baseline"
-ENV["N"] = "log"
-ENV["DIMENSION"] = "50"
-=#
+ENV["OPTION"] = "exclusion_criterion"
+ENV["N"] = "one"
+ENV["DIMENSION"] = "80"
+
 
 """
 DON'T FORGET TO ADD e AGAIN ONCE YOU ARE DONE DEBUGGING!!

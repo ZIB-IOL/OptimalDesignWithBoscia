@@ -82,10 +82,10 @@ Missing instances:
 
 #### E-optimal design (EOPT)
 
-- **Boscia single-run CSVs** (semicolon-delimited):
+- **Boscia single-run CSVs** (semicolon-delimited; standard mode, no prefix; from `opt_design_boscia.jl` when `folder=""`):
 
   ```text
-  csv/Boscia/boscia__E_optimality_{independent|correlated}_cont__m_n_N_seed.csv
+  csv/Boscia/boscia__E_optimality_{independent|correlated}__m_n_N_seed.csv
   ```
 
 - **SCIP-SDP single-run CSVs** (comma-delimited):
@@ -544,10 +544,10 @@ Directory: /path/to/ODWB/csv/Boscia
 ============================================================
 
 Found 26 CSV files
-  boscia_E_optimality_independent_cont__50_7_1.csv -> continuous
-  boscia_E_optimality_independent_cont__50_7_2.csv -> continuous
+  boscia__E_optimality_independent__50_7_10_1.csv -> continuous
+  boscia__E_optimality_independent__50_7_10_2.csv -> continuous
   ...
-  boscia_E_optimality_independent_int__50_7_3.csv -> integer
+  (other naming patterns -> integer or other groups)
 
 File groups identified:
   continuous: 25 files
