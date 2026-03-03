@@ -361,7 +361,7 @@ end
 """
 Build the E-criterion and its smoothed version.
 """
-function build_e_criterion(A; L=nothing)
+function build_e_criterion(A; L=nothing, tightened=false, N=Inf)
     m, n = size(A)
     function inf_matrix(x)
         return L === nothing ? Symmetric(A' * diagm(x) * A) : Symmetric(L + A' * diagm(x) * A)
@@ -393,15 +393,17 @@ function build_e_criterion(A; L=nothing)
         function f_mu(x)
             X = inf_matrix(x)
             λ = eigvals(X)
+            add_on = tightened ? μ/(n - N + 1) * sum(x[i] * norm(A[i, :], 2)^2 for i in 1:m) : 0.0
             #return μ * log(sum(exp.(-λ ./ μ))) - μ * log(n) # logsumexp(X)
-            return μ * LogExpFunctions.logsumexp(-λ ./ μ) - μ * log(n)
+            return μ * LogExpFunctions.logsumexp(-λ ./ μ) - μ * log(n) + add_on
         end
 
         function grad_mu!(storage, x)
             X = inf_matrix(x)
             λ, V = eigen(X)
             frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
-            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,j]).^2 , -λ[j]/ μ)  for j in 1:n)
+            add_on = tightened ? μ/(n - N + 1) * norm.(eachrow(A), 2).^2 : 0.0
+            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,j]).^2 , -λ[j]/ μ)  for j in 1:n) .+ add_on
             return storage
         end
         return f_mu, grad_mu!

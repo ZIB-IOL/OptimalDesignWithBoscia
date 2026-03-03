@@ -1,7 +1,7 @@
 # SCIP SDP: Use SCIP-SDP when possible via CBF round-trip (avoids checkVarsLocks assertion).
 # Fallback: Pajarito (HiGHS+Hypatia) when use_scip_sdp=false.
 
-function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true)
+function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true, tightened=false)
     if criterion == "EF" 
         A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "AGC"
@@ -35,6 +35,9 @@ function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, 
             for i in 1:n, j in 1:n
         ]
         @constraint(model, info_matrix in JuMP.PSDCone())
+    end
+    if tightened
+        @constraint(model, t * (n - N + 1) <= sum(x[i] * norm(A[i, :], 2)^2 for i in 1:m))
     end
     @objective(model, Max, t)
     return model, x, t, m
@@ -130,7 +133,8 @@ function solve_opt_scip_sdp(
     N=-Inf, 
     scip_sdp_mode=:oa, 
     return_diagnostics=false,
-    connected=true
+    connected=true,
+    tightened=false
     )
     if !(criterion in ["E", "EF", "AGC"])
         error("SCIP SDP can currently only handle E-optimal and EF-optimal and AGC problems")
@@ -138,7 +142,7 @@ function solve_opt_scip_sdp(
 
     @assert SCIP.have_scip_sdp "SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP."
     # CBF round-trip: avoids checkVarsLocks assertion when vars appear in SDP + linear constraints
-    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected)
+    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened)
     cbf_path = joinpath(mktempdir(), "eopt_scip_sdp_$(getpid()).cbf")
     
     _export_model_to_cbf(model, cbf_path)
@@ -189,14 +193,15 @@ function solve_opt_scip_sdp(
         run_mode = scip_sdp_mode == :oa ? "oa" : "bnb"
         df = DataFrame(
             seed=seed, numberOfExperiments=m, numberOfParameters=n, time=t, N=N,
-            solution=solution, dual_bound=dual_bound, rel_gap=rel_gap,
+            solution=solution, dual_bound=dual_bound, rel_gap=rel_gap, tightened=tightened,
             scaled_solution=scaled_solution, termination=status, feasible=feasible,
             n_nodes=diagnostics.n_nodes,
             n_cuts_found=diagnostics.n_cuts_found, n_cuts_applied=diagnostics.n_cuts_applied,
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
         )
         connection = criterion == "AGC" ? connected ? "connected" : "disconnected" : ""
-        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")_$(connection)_$(m)_$(n)_$(N)_$(seed).csv")
+        tighten = tightened ? "_tightened_" : ""
+        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")_$(connection)$(tighten)_$(m)_$(n)_$(N)_$(seed).csv")
         isfile(file_name) ? CSV.write(file_name, df, append=false) : CSV.write(file_name, df, writeheader=true)
     end
     return_diagnostics ? (y, diagnostics) : y
