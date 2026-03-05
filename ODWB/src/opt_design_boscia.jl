@@ -284,6 +284,8 @@ function solve_opt(
         
                 UB = N * maximum(A[j,:]' * W * A[j,:] for j in 1:m)
                 _, fixed_indices = model_exclusion(A, m, n, UB, fx, 1.0, u=u, x=y)
+
+                @show fixed_indices
         
                 for i in fixed_indices
                     node.local_bounds.upper_bounds[i] = 0.0

@@ -7,6 +7,7 @@ using CSV
 
 
 # For debugging
+#=
 ENV["MODE"] = "Boscia"
 ENV["CRITERION"] = "AGC"
 ENV["TYPE"] = "IND"
@@ -14,7 +15,7 @@ ENV["SEED"] = "1"
 ENV["OPTION"] = "exclusion_criterion"
 ENV["N"] = "one"
 ENV["DIMENSION"] = "80"
-
+=#
 
 """
 DON'T FORGET TO ADD e AGAIN ONCE YOU ARE DONE DEBUGGING!!
