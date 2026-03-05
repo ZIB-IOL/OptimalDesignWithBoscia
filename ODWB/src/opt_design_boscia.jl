@@ -82,7 +82,8 @@ function solve_opt(
     branch_all=false,
     connected=true,
     mu_testing=false,
-    tightened=false
+    tightened=false,
+    scale = Inf,
 )
     type = corr ? "correlated" : "independent"
     
@@ -101,6 +102,8 @@ function solve_opt(
     else
         A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
     end
+
+    A = isfinite(scale) ? scale * A : A
 
     # parameter tunning
     if !options_run
@@ -450,7 +453,7 @@ function solve_opt(
     else
         f_check = f
     end
-    scaled_solution = x !== nothing ? f_check(x) : Inf
+    scaled_solution = x !== nothing ? isfinite(scale) ? f_check(x) / scale^2 : f_check(x) : Inf
     @show scaled_solution
     @show result[:solution_source]
 
@@ -535,7 +538,7 @@ function solve_opt(
         idx = findfirst(x -> x == result[:primal_objective], ub_list)
         optimal_time = result[:list_time][idx]
         # CSV file for the results of all instances.
-        scaled_solution = result[:primal_objective]*m
+        scaled_solution = isfinite(scale) ? result[:primal_objective] /scale^2 : result[:primal_objective]
         df = DataFrame(
             seed=seed, 
             numberOfExperiments=m, 
