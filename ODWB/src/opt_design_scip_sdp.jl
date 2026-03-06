@@ -1,7 +1,7 @@
 # SCIP SDP: Use SCIP-SDP when possible via CBF round-trip (avoids checkVarsLocks assertion).
 # Fallback: Pajarito (HiGHS+Hypatia) when use_scip_sdp=false.
 
-function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true, tightened=false)
+function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true, tightened=false, scale=Inf)
     if criterion == "EF" 
         A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "AGC"
@@ -16,6 +16,7 @@ function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, 
         A, _, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
         C = nothing
     end
+    A = isfinite(scale) ? scale * A : A
     model = Model()
     @variable(model, x[1:m])
     JuMP.set_integer.(x)
@@ -134,7 +135,10 @@ function solve_opt_scip_sdp(
     scip_sdp_mode=:oa, 
     return_diagnostics=false,
     connected=true,
-    tightened=false
+    tightened=false,
+    gap=1e-6,
+    rel_gap=1e-2,
+    scale=Inf,
     )
     if !(criterion in ["E", "EF", "AGC"])
         error("SCIP SDP can currently only handle E-optimal and EF-optimal and AGC problems")
@@ -142,14 +146,15 @@ function solve_opt_scip_sdp(
 
     @assert SCIP.have_scip_sdp "SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP."
     # CBF round-trip: avoids checkVarsLocks assertion when vars appear in SDP + linear constraints
-    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened)
+    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scale)
     cbf_path = joinpath(mktempdir(), "eopt_scip_sdp_$(getpid()).cbf")
     
     _export_model_to_cbf(model, cbf_path)
     # Precompile: 10s run to trigger JIT and avoid large first-run compile (same pattern as other solvers)
-    SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit=10, gap=1e-2, verbose=false, sdp_mode=scip_sdp_mode)
+    gap = N < n ? 1e-4 : gap
+    SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit=10, gap=rel_gap, absgap=gap, verbose=false, sdp_mode=scip_sdp_mode)
     # Actual run
-    result = SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit, gap=1e-2, verbose, sdp_mode=scip_sdp_mode)
+    result = SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit, gap=rel_gap, absgap=gap, verbose=verbose, sdp_mode=scip_sdp_mode)
     status = get(_SCIP_STATUS_TO_MOI, result.status, MOI.OTHER_ERROR)
     solution = result.obj_val
     t = result.solve_time
@@ -177,7 +182,7 @@ function solve_opt_scip_sdp(
     else
         A, C, N, ub, _ =  build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
-    f_check, _ = build_e_criterion(A, L=C)
+    f_check, _ = build_e_criterion(A, L=C, tightened=tightened)
     feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
     scaled_solution = feasible ? f_check(y) : Inf
     @show feasible, scaled_solution
@@ -200,8 +205,9 @@ function solve_opt_scip_sdp(
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
         )
         connection = criterion == "AGC" ? connected ? "connected" : "disconnected" : ""
+        scaled = isfinite(scale) ? "_scaled_$(scale)_" : ""
         tighten = tightened ? "_tightened_" : ""
-        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)_optimality_$(corr ? "correlated" : "independent")_$(connection)$(tighten)_$(m)_$(n)_$(N)_$(seed).csv")
+        file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)$(scaled)_optimality_$(corr ? "correlated" : "independent")_$(connection)$(tighten)_$(m)_$(n)_$(N)_$(seed).csv")
         isfile(file_name) ? CSV.write(file_name, df, append=false) : CSV.write(file_name, df, writeheader=true)
     end
     return_diagnostics ? (y, diagnostics) : y
