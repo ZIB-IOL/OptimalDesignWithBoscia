@@ -349,7 +349,7 @@ function solve_opt(
         settings.branch_and_bound[:branching_strategy] = branching_strategy
 
         settings.tolerances[:rel_dual_gap] = 1e-2
-        settings.tolerances[:dual_gap] = 1e-6
+        settings.tolerances[:dual_gap] = N < n ? 1e-4 : 1e-6
 
         settings.smoothing[:generate_smoothing_objective] = generate_smoothing_function
         settings.smoothing[:smoothing_start] = smoothing_start
@@ -522,6 +522,7 @@ function solve_opt(
         if criterion in ["GTI","GTIF"]
             criterion = criterion * "_" * string(Int64(p*100))
         end
+        scaled = isfinite(scale) ? "_scaled_$(scale)_" : ""
 
         if full_callback
             lb_list = result[:list_lb]
@@ -533,7 +534,7 @@ function solve_opt(
             list_local_tightening = result[:local_tightenings]
             list_global_tightening = result[:global_tightenings]
             df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
-            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
+            file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" * folder * "_" * criterion * scaled * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
             CSV.write(file_name, df, append=false)
         end
 
@@ -553,11 +554,11 @@ function solve_opt(
             rel_dual_gap=result[:rel_dual_gap], 
             ncalls=result[:lmo_calls], 
             num_nodes=result[:number_nodes],
-            termination=status, 
+            termination=status,
             optimal_time=optimal_time, 
             optimal_iteration=idx, 
             solution_source=String(result[:solution_source]))
-        file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
+        file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * scaled * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=false, writeheader=true, delim=";")
         else 
