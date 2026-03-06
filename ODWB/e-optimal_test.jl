@@ -2,7 +2,7 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-criterion = "AGC"
+criterion = "E"
 seed = 5 # 4
 connected = true
 if criterion == "AGC"
@@ -15,13 +15,25 @@ if criterion == "AGC"
 else
     m = 50
     n = Int(floor(sqrt(m)))
-    N = Int(floor(1.5 * n * log(n)))
+    #N = Int(floor(1.5 * n * log(n)))
+    N = Int(floor(3n/4))
 end
 corr = false
 
 #ENV["JULIA_DEBUG"] = "Boscia"
 
 zero_one = true
+scale = Inf
+
+start = isfinite(scale) ? 1e-2/(2 *log(n)) : m/50
+min = isfinite(scale) ? 1e-6/(2 * log(n)) : exp10(-10/m) 
+
+start = m/10
+min = exp10(-100/m)
+
+scale = Inf
+
+@show start, min
 
 x, result = ODWB.solve_opt(
     seed, 
@@ -36,19 +48,21 @@ x, result = ODWB.solve_opt(
     verbose=true, 
     use_scip=false,
     zero_one=zero_one, 
-    fw_verbose=false, 
+    fw_verbose=false,
     ls_secant=false, 
     N=N, 
-    use_tightening=true,
+    use_tightening=false,
     use_sub_grad_info=true,
-    smoothing_start=m/25,
-    smoothing_min=1e-1,
+    smoothing_start=start,
+    smoothing_min=min,
+    tightened=true,
+    scale=scale,
 )
 
 @show x
 @show findall(x-> x == 0, x) 
 
-x_e, result_e = ODWB.solve_opt(
+#= x_e, result_e = ODWB.solve_opt(
     seed, 
     m, 
     n, 
@@ -68,7 +82,7 @@ x_e, result_e = ODWB.solve_opt(
     use_heuristics=true,
     use_exclusion_criterion=true,
     use_sub_grad_info=true,
-) 
+)  =#
 
 println("SCIP SDP")
 
@@ -76,7 +90,7 @@ y_bnb = ODWB.solve_opt_scip_sdp(
     seed, 
     m, 
     n, 
-    300, 
+    120, 
     criterion, 
     corr, 
     write=false, 
@@ -84,13 +98,15 @@ y_bnb = ODWB.solve_opt_scip_sdp(
     scip_sdp_mode=:bnb,
     zero_one=zero_one, 
     N=N,
+    tightened=true,
+    scale=scale,
     )
 
 y_oa = ODWB.solve_opt_scip_sdp(
     seed, 
     m, 
     n, 
-    300, 
+    120, 
     criterion, 
     corr, 
     write=false, 
@@ -98,7 +114,10 @@ y_oa = ODWB.solve_opt_scip_sdp(
     scip_sdp_mode=:oa,
     zero_one=zero_one, 
     N=N,
+    tightened=true,
+    scale=scale,
     )
+    
 #@show findall(y-> y == 0, y)
 
 #if !any(isnan.(y))
