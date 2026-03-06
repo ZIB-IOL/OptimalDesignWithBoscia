@@ -112,9 +112,16 @@ for k in ratio_para
                         error("SCIP OA does not work with the $(criterion)-optimal problems!")
                         end
                         ODWB.solve_opt_scip(seed, m, n, time_limit, criterion, corr, N=N)
-                    elseif mode == "SCIPSDP"
+                    elseif mode in ["SCIPSDP", "SCIPSDP_oa", "SCIPSDP_bnb"]
                         if criterion in ["A", "D", "AF", "DF"]
                         error("SCIP SDP does not work with the $(criterion)-optimal problems!")
+                        end
+                        solving_mode = if mode  in ["SCIPSDP", "SCIPSDP_bnb"]
+                            :bnb
+                        elseif mode == "SCIPSDP_oa"
+                            :oa
+                        else
+                            error("Invalid mode!")
                         end
                         ODWB.solve_opt_scip_sdp(
                             seed, 
@@ -124,8 +131,10 @@ for k in ratio_para
                             criterion, 
                             corr, 
                             N=N, 
-                            scip_sdp_mode=option == "oa" ? :oa : :bnb,
-                            connected = criterion == "AGC" ? corr : true) #scip_sdp_mode=option == "oa" ? :oa : :bnb
+                            scip_sdp_mode=solving_mode,
+                            connected = criterion == "AGC" ? corr : true,
+                            tightened = option == "tightened",
+                            scale = option == "tightened_scaled" ? 0.5 : Inf) #scip_sdp_mode=option == "oa" ? :oa : :bnb
                     elseif mode == "Pajarito"
                         ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
                     elseif mode == "Custom"
