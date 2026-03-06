@@ -45,8 +45,8 @@ elseif criterion == "AGC"
     starts = [m/200]
     decays = corr ? [0.7] : [0.9]
 else
-    starts = [m/10] 
-    decays = N_construct == "log" ? [0.9] : [0.8]
+    starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
+    decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
 end
 
 
@@ -80,7 +80,8 @@ for k in ratio_para
                 if decay != 1.0 && start == exp10(-200/m)
                     continue
                 end
-                @show m, n, N, seed, decay, start
+                min = criterion == "AGC" ? exp10(-400/m) : N_construct == "rank_deficient" ? exp10(-100/m) : exp10(-20/m)
+                @show m, n, N, seed, decay, start, min
                 try
                     if mode == "Boscia"
                         ODWB.solve_opt(
@@ -93,7 +94,7 @@ for k in ratio_para
                             N=N, 
                             smoothing_start=start,
                             smoothing_decay=decay,
-                            smoothing_min= criterion == "AGC" ? exp10(-400/m) : exp10(-20/m),#exp10(-200/m), exp10(-400/m) for AGC
+                            smoothing_min=min,#exp10(-200/m), exp10(-400/m) for AGC
                             use_exclusion_criterion=option == "exclusion_criterion", 
                             use_heuristics=option == "all_heuristics", 
                             use_follow_subgradient_heu=option == "follow_subgradient", 
