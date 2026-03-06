@@ -24,8 +24,13 @@ using CSV, DataFrames, Printf
 
 const AGG_DIR = joinpath(@__DIR__, "csv", "aggregated")
 const TEX_OUT_DIR = "/Users/deborah/Documents/research_projects/Smoothing-in-Boscia/paper"
-const SOLVERS = ["Boscia", "SCIPSDP_oa", "SCIPSDP_bnb"]
-const SOLVER_LABELS = Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP (OA)", "SCIPSDP_bnb" => "SCIPSDP (B\\&B)")
+const SOLVERS = ["Boscia", "Boscia (excl.)", "SCIPSDP_oa", "SCIPSDP_bnb"]
+const SOLVER_LABELS = Dict(
+    "Boscia" => "Boscia",
+    "Boscia (excl.)" => "Boscia (excl.)",
+    "SCIPSDP_oa" => "SCIPSDP (OA)",
+    "SCIPSDP_bnb" => "SCIPSDP (B\\&B)",
+)
 const SMOOTHING_REGIMES = ["large_mu", "small_mu", "decay_0.9", "decay_0.7"]
 const SMOOTHING_LABELS = Dict(
     "large_mu" => "Large \$\\mu\$ (decay=1)",
@@ -198,16 +203,16 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
             path = joinpath(AGG_DIR, "agc_$(tag)_by_dimension.csv")
             isfile(path) || continue
             df = CSV.read(path, DataFrame)
-            row_vals, metrics, rows = pivot_aggregated(df, :dimension, hide_list, SOLVERS)
+            solvers = [s for s in SOLVERS if s in unique(df.solver)]
+            row_vals, metrics, rows = pivot_aggregated(df, :dimension, hide_list, solvers)
             tex_path = joinpath(out, "agc_$(tag)_by_dimension.tex")
             open(tex_path, "w") do io
-                write_tex_table(io, row_vals, metrics, rows, :dimension, title; solvers=SOLVERS, solver_labels=SOLVER_LABELS)
+                write_tex_table(io, row_vals, metrics, rows, :dimension, title; solvers=solvers, solver_labels=SOLVER_LABELS)
             end
             println("Wrote ", tex_path)
         end
     else
         prefix = smoothing ? "smoothing_" : ""
-        solvers = smoothing ? SMOOTHING_REGIMES : SOLVERS
         solver_labels = smoothing ? SMOOTHING_LABELS : SOLVER_LABELS
         data_types = data_type == "both" ? ["independent", "correlated"] : [data_type]
         for dtype in data_types
@@ -218,6 +223,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
                 path = joinpath(AGG_DIR, "$(prefix)$(dtype)_by_$(suffix).csv")
                 isfile(path) || continue
                 df = CSV.read(path, DataFrame)
+                # Use only solvers that appear in the data (preserve SOLVERS order)
+                solvers = smoothing ? SMOOTHING_REGIMES : [s for s in SOLVERS if s in unique(df.solver)]
                 row_vals, metrics, rows = pivot_aggregated(df, row_col, hide_list, solvers)
                 tex_path = joinpath(out, "$(prefix)$(dtype)_by_$(suffix).tex")
                 open(tex_path, "w") do io

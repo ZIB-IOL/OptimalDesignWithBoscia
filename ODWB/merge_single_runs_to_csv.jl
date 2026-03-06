@@ -10,8 +10,8 @@ Merge single-run CSVs into one CSV per group (solver + mode + data type + correl
 - Missing instances get a placeholder row: time=3600, solution/scaled_solution=Inf, termination=ERROR,
   statistics = 0. Prints which instances are missing per group.
 
-Usage: julia merge_single_runs_to_csv.jl [Boscia] [SCIPSDP] [BosciaSmoothing] [AGC]
-  No args = process all (Boscia, SCIPSDP, BosciaSmoothing, AGC).
+Usage: julia merge_single_runs_to_csv.jl [Boscia] [BosciaExclusion] [SCIPSDP] [BosciaSmoothing] [AGC]
+  No args = process all (Boscia, BosciaExclusion, SCIPSDP, BosciaSmoothing, AGC).
 =#
 
 using CSV, DataFrames
@@ -112,6 +112,56 @@ end
 function boscia_merged_filename(corr::Bool)
     type = corr ? "correlated" : "independent"
     return "boscia_E_optimality_$(type)_cont_merged.csv"
+end
+
+# ----- Boscia exclusion criterion (E-optimality, same 75 instances) -----
+function boscia_exclusion_single_filename(corr::Bool, m::Int, n::Int, N::Int, seed::Int)
+    type = corr ? "correlated" : "independent"
+    return "boscia_exclusion_criterion_E_optimality_$(type)__$(m)_$(n)_$(N)_$(seed).csv"
+end
+
+function boscia_exclusion_merged_filename(corr::Bool)
+    type = corr ? "correlated" : "independent"
+    return "boscia_exclusion_criterion_E_optimality_$(type)_merged.csv"
+end
+
+function merge_boscia_exclusion_group(corr::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    group_name = "Boscia E (exclusion criterion) $type_str"
+    if verbose
+        println("\n--- $group_name ---")
+    end
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    for (m, n, N, seed) in ALL_KEYS
+        fname = boscia_exclusion_single_filename(corr, m, n, N, seed)
+        path = joinpath(BOSCIA_DIR, fname)
+        df = read_boscia_single(path)
+        if df !== nothing
+            key_to_row[(m, n, N, seed)] = df
+        else
+            push!(missing_list, (m, n, N, seed))
+            key_to_row[(m, n, N, seed)] = boscia_placeholder_row(m, n, N, seed)
+        end
+    end
+    n_found = 75 - length(missing_list)
+    if verbose
+        println("Found $n_found/75 runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    end
+    if !isempty(missing_list) && verbose
+        println("Missing instances:")
+        for (m, n, N, seed) in sort!(missing_list)
+            println("  m=$m n=$n N=$N seed=$seed")
+        end
+    end
+    rows = [key_to_row[k] for k in ALL_KEYS]
+    merged = vcat(rows...)
+    out_path = joinpath(BOSCIA_DIR, boscia_exclusion_merged_filename(corr))
+    CSV.write(out_path, merged; delim=BOSCIA_DELIM)
+    if verbose
+        println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    end
+    return merged, missing_list
 end
 
 function read_boscia_single(path::String)::Union{DataFrame,Nothing}
@@ -340,12 +390,15 @@ end
 
 function infer_agc_nN()
     mapping = Dict{Int,Tuple{Int,Int}}()  # m -> (n, N)
-    # Boscia filenames: boscia__AGC_optimality_type_conn_m_n_N_seed.csv
+    # Boscia filenames: boscia__AGC_optimality_... or boscia_exclusion_criterion_AGC_optimality_...
     if isdir(BOSCIA_DIR)
         for ent in readdir(BOSCIA_DIR; join=true)
             isfile(ent) || continue
             base = basename(ent)
             m = match(r"^boscia__AGC_optimality_(correlated|independent)_(connected|disconnected)_(\d+)_(\d+)_(\d+)_(\d+)\.csv$", base)
+            if m === nothing
+                m = match(r"^boscia_exclusion_criterion_AGC_optimality_(correlated|independent)_(connected|disconnected)_(\d+)_(\d+)_(\d+)_(\d+)\.csv$", base)
+            end
             m === nothing && continue
             m_val = parse(Int, m.captures[3])
             n_val = parse(Int, m.captures[4])
@@ -397,6 +450,60 @@ function boscia_agc_merged_filename(corr::Bool, connected::Bool)
     type = corr ? "correlated" : "independent"
     conn = connected ? "connected" : "disconnected"
     return "boscia_AGC_optimality_$(type)_$(conn)_merged.csv"
+end
+
+# Boscia AGC with exclusion criterion (same instance set as standard AGC)
+function boscia_agc_exclusion_single_filename(corr::Bool, connected::Bool, m::Int, n::Int, N::Int, seed::Int)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    return "boscia_exclusion_criterion_AGC_optimality_$(type)_$(conn)_$(m)_$(n)_$(N)_$(seed).csv"
+end
+
+function boscia_agc_exclusion_merged_filename(corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    return "boscia_exclusion_criterion_AGC_optimality_$(type)_$(conn)_merged.csv"
+end
+
+function merge_boscia_agc_exclusion_group(corr::Bool, connected::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    conn_str = connected ? "connected" : "disconnected"
+    group_name = "Boscia AGC (exclusion criterion) $type_str $conn_str"
+    if verbose
+        println("\n--- $group_name ---")
+    end
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    for (m, n, N, seed) in ALL_KEYS_AGC
+        fname = boscia_agc_exclusion_single_filename(corr, connected, m, n, N, seed)
+        path = joinpath(BOSCIA_DIR, fname)
+        df = read_boscia_single(path)
+        if df !== nothing
+            key_to_row[(m, n, N, seed)] = df
+        else
+            push!(missing_list, (m, n, N, seed))
+            key_to_row[(m, n, N, seed)] = boscia_placeholder_row(m, n, N, seed)
+        end
+    end
+    n_expected = length(ALL_KEYS_AGC)
+    n_found = n_expected - length(missing_list)
+    if verbose
+        println("Found $n_found/$n_expected runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    end
+    if !isempty(missing_list) && verbose
+        println("Missing instances:")
+        for (m, n, N, seed) in sort!(missing_list)
+            println("  m=$m n=$n N=$N seed=$seed")
+        end
+    end
+    rows = [key_to_row[k] for k in ALL_KEYS_AGC]
+    merged = vcat(rows...)
+    out_path = joinpath(BOSCIA_DIR, boscia_agc_exclusion_merged_filename(corr, connected))
+    CSV.write(out_path, merged; delim=BOSCIA_DELIM)
+    if verbose
+        println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    end
+    return merged, missing_list
 end
 
 function merge_boscia_agc_group(connected::Bool, corr::Bool; verbose=true)
@@ -497,7 +604,7 @@ end
 # ----- Main -----
 function run_merge(; solvers=nothing, verbose=true)
     if solvers === nothing
-        solvers = ["Boscia", "SCIPSDP", "BosciaSmoothing", "AGC"]
+        solvers = ["Boscia", "BosciaExclusion", "SCIPSDP", "BosciaSmoothing", "AGC"]
     end
     println("Merging single-run CSVs. Base: $CSV_BASE")
     println("Solvers: $(join(solvers, ", "))")
@@ -507,6 +614,11 @@ function run_merge(; solvers=nothing, verbose=true)
             println("(75 instances per group)")
             merge_boscia_group(true; verbose)
             merge_boscia_group(false; verbose)
+        elseif s == "BosciaExclusion"
+            isdir(BOSCIA_DIR) || (println("Skip BosciaExclusion: $BOSCIA_DIR not found"); continue)
+            println("(75 instances per group, exclusion criterion)")
+            merge_boscia_exclusion_group(true; verbose)
+            merge_boscia_exclusion_group(false; verbose)
         elseif s == "SCIPSDP"
             isdir(SCIPSDP_DIR) || (println("Skip SCIPSDP: $SCIPSDP_DIR not found"); continue)
             println("(75 instances per group)")
@@ -529,9 +641,11 @@ function run_merge(; solvers=nothing, verbose=true)
             # - correlated_connected
             # - independent_disconnected
             merge_boscia_agc_group(true,  true;  verbose)  # correlated,  connected
+            merge_boscia_agc_exclusion_group(true,  true;  verbose)
             merge_scipsdp_agc_group("oa",  true,  true;  verbose)
             merge_scipsdp_agc_group("bnb", true,  true;  verbose)
             merge_boscia_agc_group(false, false; verbose)  # independent, disconnected
+            merge_boscia_agc_exclusion_group(false, false; verbose)
             merge_scipsdp_agc_group("oa",  false, false; verbose)
             merge_scipsdp_agc_group("bnb", false, false; verbose)
         else

@@ -90,6 +90,25 @@ function load_and_normalize_boscia(corr::Bool)
     return df
 end
 
+function load_and_normalize_boscia_exclusion(corr::Bool)
+    type = corr ? "correlated" : "independent"
+    path = joinpath(BOSCIA_DIR, "boscia_exclusion_criterion_E_optimality_$(type)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("Boscia (excl.)", n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = coalesce.(df.rel_dual_gap, Inf)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    df[!, :N_construction] = [n_construction_label(row.numberOfParameters, row.N) for row in eachrow(df)]
+    df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
+    df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
+    df[!, :n_cuts_applied] = fill(0, n)
+    df[!, :n_sdp_iters] = fill(0, n)
+    return df
+end
+
 const SMOOTHING_REGIMES = ["large_mu", "small_mu", "decay_0.9", "decay_0.7"]
 
 function load_and_normalize_boscia_smoothing(regime::String, corr::Bool)
@@ -137,6 +156,7 @@ function combined_table(corr::Bool)
     dfs = DataFrame[]
     for (label, loader) in [
         ("Boscia", () -> load_and_normalize_boscia(corr)),
+        ("Boscia (excl.)", () -> load_and_normalize_boscia_exclusion(corr)),
         ("SCIPSDP_oa", () -> load_and_normalize_scipsdp("oa", corr)),
         ("SCIPSDP_bnb", () -> load_and_normalize_scipsdp("bnb", corr)),
     ]
@@ -184,6 +204,26 @@ function load_and_normalize_boscia_agc(corr::Bool, connected::Bool)
     return df
 end
 
+function load_and_normalize_boscia_agc_exclusion(corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    path = joinpath(BOSCIA_DIR, "boscia_exclusion_criterion_AGC_optimality_$(type)_$(conn)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("Boscia (excl.)", n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = hasproperty(df, :rel_dual_gap) ? coalesce.(df.rel_dual_gap, Inf) : fill(Inf, n)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    df[!, :N_construction] = fill("other", n)
+    df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
+    df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
+    df[!, :n_cuts_applied] = fill(0, n)
+    df[!, :n_sdp_iters] = fill(0, n)
+    return df
+end
+
 function load_and_normalize_scipsdp_agc(mode::String, corr::Bool, connected::Bool)
     type = corr ? "correlated" : "independent"
     conn = connected ? "connected" : "disconnected"
@@ -206,14 +246,13 @@ end
 
 function combined_table_agc(corr::Bool, connected::Bool)
     dfs = DataFrame[]
-    for solver in SCIPSOLVERS
-        df = if solver == "Boscia"
-            load_and_normalize_boscia_agc(corr, connected)
-        elseif solver == "SCIPSDP_oa"
-            load_and_normalize_scipsdp_agc("oa", corr, connected)
-        else
-            load_and_normalize_scipsdp_agc("bnb", corr, connected)
-        end
+    for (label, loader) in [
+        ("Boscia", () -> load_and_normalize_boscia_agc(corr, connected)),
+        ("Boscia (excl.)", () -> load_and_normalize_boscia_agc_exclusion(corr, connected)),
+        ("SCIPSDP_oa", () -> load_and_normalize_scipsdp_agc("oa", corr, connected)),
+        ("SCIPSDP_bnb", () -> load_and_normalize_scipsdp_agc("bnb", corr, connected)),
+    ]
+        df = loader()
         df === nothing && continue
         push!(dfs, df)
     end
@@ -244,7 +283,7 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
         # Averages over solved instances only; 0 when not applicable for that solver
         solved_idx = findall(solved)
         n_sol = length(solved_idx)
-        is_boscia_like = solver == "Boscia" || solver in SMOOTHING_REGIMES
+        is_boscia_like = solver == "Boscia" || solver == "Boscia (excl.)" || solver in SMOOTHING_REGIMES
         avg_lmo_calls = (is_boscia_like && n_sol > 0) ? round(sum(sdf.ncalls[solved_idx]) / n_sol; digits=2) : 0.0
         avg_nodes = n_sol > 0 ? round(sum(sdf.nodes[solved_idx]) / n_sol; digits=2) : 0.0
         avg_cuts = (solver == "SCIPSDP_oa" && n_sol > 0) ? round(sum(skipmissing(sdf.n_cuts_applied[solved_idx])) / n_sol; digits=2) : 0.0

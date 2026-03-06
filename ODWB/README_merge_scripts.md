@@ -104,6 +104,22 @@ Missing instances:
 
 Each merged file has exactly **75 rows**, one per expected (m,n,N,seed) quadruple.
 
+#### Boscia exclusion criterion (EOPT)
+
+Single-run CSVs from `opt_design_boscia.jl` with `use_exclusion_criterion=true` (same 75 instances as standard Boscia):
+
+```text
+csv/Boscia/boscia_exclusion_criterion_E_optimality_{independent|correlated}__m_n_N_seed.csv
+```
+
+Merged files:
+
+```text
+csv/Boscia/boscia_exclusion_criterion_E_optimality_{independent|correlated}_merged.csv
+```
+
+If these merged files exist, `aggregate_merged_by_group.jl` includes **Boscia (excl.)** in the default E-opt comparison (with Boscia, SCIPSDP OA/B&B). The resulting aggregated CSVs and LaTeX tables then compare default Boscia vs exclusion-criterion Boscia.
+
 #### Boscia smoothing (EOPT)
 
 Four regimes are inferred from the filename prefix `boscia_<mu0>_<decay>_<mu_min>_E_optimality_…`:
@@ -150,6 +166,13 @@ csv/Boscia/boscia_AGC_optimality_{independent|correlated}_{connected|disconnecte
 csv/SCIPSDP/scip_sdp_{oa|bnb}_AGC_optimality_{independent|correlated}_{connected|disconnected}_merged.csv
 ```
 
+**Boscia AGC with exclusion criterion** (same instance set; from `opt_design_boscia.jl` with `use_exclusion_criterion=true`):
+
+- Single-run: `csv/Boscia/boscia_exclusion_criterion_AGC_optimality_{independent|correlated}_{connected|disconnected}_m_n_N_seed.csv`
+- Merged: `csv/Boscia/boscia_exclusion_criterion_AGC_optimality_{independent|correlated}_{connected|disconnected}_merged.csv`
+
+When you run `julia merge_single_runs_to_csv.jl AGC`, both standard and exclusion-criterion Boscia AGC runs are merged. If the exclusion-criterion merged files exist, `aggregate_merged_by_group.jl --agc` includes **Boscia (excl.)** in the AGC comparison tables.
+
 Each merged AGC file has **25 rows** (5 m × 5 seeds).
 
 ### Usage
@@ -160,6 +183,7 @@ From `ODWB/`:
 # E-optimal design (Boscia + SCIPSDP)
 julia merge_single_runs_to_csv.jl
 julia merge_single_runs_to_csv.jl Boscia
+julia merge_single_runs_to_csv.jl BosciaExclusion
 julia merge_single_runs_to_csv.jl SCIPSDP
 
 # Boscia smoothing experiments (4 regimes)
@@ -169,7 +193,7 @@ julia merge_single_runs_to_csv.jl BosciaSmoothing
 julia merge_single_runs_to_csv.jl AGC
 ```
 
-If no arguments are provided, the script runs all relevant groups (`Boscia`, `SCIPSDP`, `BosciaSmoothing`).
+If no arguments are provided, the script runs all relevant groups (`Boscia`, `BosciaExclusion`, `SCIPSDP`, `BosciaSmoothing`, `AGC`).
 
 ---
 
@@ -249,13 +273,14 @@ The script has three logical modes, controlled by flags:
      csv/aggregated/smoothing_correlated_by_N_construction.csv
      ```
 
-3. **AGC mode: AGC Boscia + SCIPSDP**
+3. **AGC mode: AGC Boscia + Boscia (excl.) + SCIPSDP**
 
    - Enabled with `--agc`.
-   - Reads merged AGC CSVs:
+   - Reads merged AGC CSVs (Boscia and Boscia exclusion-criterion when present, plus SCIP-SDP):
 
      ```text
      csv/Boscia/boscia_AGC_optimality_{independent|correlated}_{connected|disconnected}_merged.csv
+     csv/Boscia/boscia_exclusion_criterion_AGC_optimality_{independent|correlated}_{connected|disconnected}_merged.csv
      csv/SCIPSDP/scip_sdp_{oa|bnb}_AGC_optimality_{independent|correlated}_{connected|disconnected}_merged.csv
      ```
 
