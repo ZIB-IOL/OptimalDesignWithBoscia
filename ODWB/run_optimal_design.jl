@@ -103,7 +103,10 @@ for k in ratio_para
                             use_fedorov_heu=option == "fedorov", 
                             options_run=option != "baseline", 
                             mu_testing=option == "mu_testing",
-                            connected = criterion == "AGC" ? corr : true)
+                            connected = criterion == "AGC" ? corr : true,
+                            tightened = option in ["tightened", "tightened_scaled"],
+                            scale = option == "tightened_scaled" ? 0.5 : Inf,
+                            fw_verbose = false)
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
                         error("SCIP OA does not work with the $(criterion)-optimal problems!")
