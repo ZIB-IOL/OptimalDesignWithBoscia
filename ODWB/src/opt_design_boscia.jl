@@ -78,7 +78,7 @@ function solve_opt(
     N=-Inf,
     M=5,
     use_exclusion_criterion=false,
-    use_sub_grad_info=false,
+    use_sub_grad_info=true,
     branch_all=false,
     connected=true,
     mu_testing=false,
