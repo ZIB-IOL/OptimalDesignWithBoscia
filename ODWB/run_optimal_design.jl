@@ -43,7 +43,7 @@ if option == "mu_testing"
     decays = [1.0, 0.9, 0.7]
 elseif criterion == "AGC"
     starts = [m/200]
-    decays = corr ? [0.7] : [0.9]
+    decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -80,7 +80,11 @@ for k in ratio_para
                 if decay != 1.0 && start == exp10(-200/m)
                     continue
                 end
-                min = criterion == "AGC" ? exp10(-400/m) : N_construct == "rank_deficient" ? exp10(-100/m) : exp10(-20/m)
+                min = if criterion == "AGC"
+                   N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
+                else
+                   exp10(-20/m)
+                end
                 @show m, n, N, seed, decay, start, min
                 try
                     if mode == "Boscia"

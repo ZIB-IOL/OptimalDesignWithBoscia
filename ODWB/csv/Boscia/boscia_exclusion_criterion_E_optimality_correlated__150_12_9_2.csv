@@ -1,0 +1,2 @@
+seed;numberOfExperiments;numberOfParameters;N;time;solution;scaled_solution;dual_gap;rel_dual_gap;ncalls;num_nodes;termination;optimal_time;optimal_iteration;solution_source
+2;150;12;9;3603.425;-7.450580251424939e-13;-1.1175870377137409e-10;88.2330110120976;1.1842434821801008e14;4059812;1267;TIME_LIMIT;1.127823e6;220;vertex
