@@ -4,7 +4,7 @@
 #SBATCH --chdir=/home/htc/dhendryc/SCRATCH/research_projects/OptimalDesignWithBoscia/ODWB # Navigate to the working directory where your script lies
 #SBATCH --partition=big  # Specify the desired partition, e.g. gpu, cpu or big (GPU is reserved for ML stuff)
 ## We want to run on htc-cmp[501-532], exclude all others. Must match partition Nodes exactly (partition has 123-139,141-148 not 123-148).
-#SBATCH --exclude=htc-cmp[004-008,011-022,024-025,101-121,123-139,141-148]
+#SBATCH --exclude=htc-cmp[007-008,011-013,024-025,101-121,123-139,141-148]
 ## for the exclusive run: SBATCH --exclusive
 #SBATCH --mail-user=dhendryc@zib.de
 #SBATCH --mail-type=FAIL
