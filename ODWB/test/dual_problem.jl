@@ -16,6 +16,7 @@ N = 10
 
 A, _, _, ub, _ = ODWB.build_data(seed, m, n, false, corr, N=N)
 
+######################### Unit knapsack constraint ########################
 
 ### Primal model ###
 # SDP solver
@@ -190,11 +191,15 @@ println("\n\nSolution of dual of manual dual SDP model (D-SDP)")
 println("Z matrix:")
 println(Z_val)
 
+@testset "Unit knapsack constraint" begin
+    @test isapprox(p_solution, m_d_solution, atol=1e-6)
+    @test isapprox(p_solution, m_d_s_solution, atol=1e-6)
+    @test isapprox(a_d_solution, m_d_solution, atol=1e-6)
+    @test isapprox(a_d_solution, m_d_s_solution, atol=1e-6)
+end
 
-@test isapprox(p_solution, m_d_solution, atol=1e-6)
-@test isapprox(p_solution, m_d_s_solution, atol=1e-6)
-@test isapprox(a_d_solution, m_d_solution, atol=1e-6)
-@test isapprox(a_d_solution, m_d_s_solution, atol=1e-6)
+
+######################### Scaled knapsack constraint ########################
 
 ### Primal model ###
 # SDP solver
@@ -291,10 +296,22 @@ dual_sdp_model = Model(opt)
 JuMP.@variable(dual_sdp_model, λ)
 # Z: n×n positive semidefinite matrix
 JuMP.@variable(dual_sdp_model, Z[1:n, 1:n], PSD)
+# α: m-dim vector 
+JuMP.@variable(dual_sdp_model, α[1:m])
+# β: m-dim vector of non-negative variables
+JuMP.@variable(dual_sdp_model, β[1:m])
+
+
+JuMP.@constraint(dual_sdp_model, α >= 0)
+JuMP.@constraint(dual_sdp_model, β >= 0)
 
 # Constraint: Tr(Z) = 1
 # The trace is the sum of diagonal elements
 JuMP.@constraint(dual_sdp_model, sum(Z[i, i] for i in 1:n) == 1)
+
+for i in 1:m
+    JuMP.@constraint(dual_sdp_model, λ - A[i, :]' * Z * A[i, :] -  α[i] + β[i] == 0)
+end
 
 # Constraints: λ ≥ ⟨Z, v_i v_i^T⟩ for all i ∈ {1, ..., m}
 # The inner product ⟨Z, v_i v_i^T⟩ = Tr(Z * (v_i * v_i^T)) = v_i^T * Z * v_i
@@ -307,7 +324,7 @@ JuMP.@constraint(dual_sdp_model, sum(Z[i, i] for i in 1:n) == 1)
 #end
 
 # Objective: minimize λ
-@objective(dual_sdp_model, Min, λ*N + sum(ub[i] * max(0, sum(A[i, :]' * Z * A[i, :]) - λ) for i in 1:m))
+@objective(dual_sdp_model, Min, λ*N - α' * zeros(m) + β' * ub)
 
 # Solve
 optimize!(dual_sdp_model)
@@ -337,10 +354,21 @@ dual_sdp_s_model = Model(dual_optimizer(opt))
 JuMP.@variable(dual_sdp_s_model, λ)
 # Z: n×n positive semidefinite matrix
 JuMP.@variable(dual_sdp_s_model, Z[1:n, 1:n], PSD)
+# α: m-dim vector 
+JuMP.@variable(dual_sdp_s_model, α[1:m])
+# β: m-dim vector of non-negative variables
+JuMP.@variable(dual_sdp_s_model, β[1:m])
+
+JuMP.@constraint(dual_sdp_s_model, α >= 0)
+JuMP.@constraint(dual_sdp_s_model, β >= 0)
 
 # Constraint: Tr(Z) = 1
 # The trace is the sum of diagonal elements
 JuMP.@constraint(dual_sdp_s_model, sum(Z[i, i] for i in 1:n) == 1)
+
+for i in 1:m
+    JuMP.@constraint(dual_sdp_s_model, λ - A[i, :]' * Z * A[i, :] -  α[i] + β[i] == 0)
+end
 
 # Constraints: λ ≥ ⟨Z, v_i v_i^T⟩ for all i ∈ {1, ..., m}
 # The inner product ⟨Z, v_i v_i^T⟩ = Tr(Z * (v_i * v_i^T)) = v_i^T * Z * v_i
@@ -349,11 +377,11 @@ JuMP.@constraint(dual_sdp_s_model, sum(Z[i, i] for i in 1:n) == 1)
 #    v_i = A[i, :]  # i-th row of A
     # Compute v_i^T * Z * v_i as a quadratic expression
 #    inner_product = sum(v_i[j] * Z[j, k] * v_i[k] for j in 1:n for k in 1:n)
-#    JuMP.@constraint(dual_sdp_s_model, λ >= inner_product)
+#    JuMP.@constraint(dual_sdp_model, λ >= inner_product)
 #end
 
 # Objective: minimize λ
-@objective(dual_sdp_s_model, Min, λ*N + sum(ub[i] * max(0, sum(A[i, :]' * Z * A[i, :]) - λ) for i in 1:m))
+@objective(dual_sdp_s_model, Min, λ*N - α' * zeros(m) + β' * ub)
 
 # Solve
 optimize!(dual_sdp_s_model)
@@ -371,8 +399,9 @@ println("\n\nSolution of dual of manual dual SDP model (D-SDP)")
 println("Z matrix:")
 println(Z_val)
 
-
-@test isapprox(p_solution, m_d_solution, atol=1e-6)
-@test isapprox(p_solution, m_d_s_solution, atol=1e-6)
-@test isapprox(a_d_solution, m_d_solution, atol=1e-6)
-@test isapprox(a_d_solution, m_d_s_solution, atol=1e-6)
+@testset "Scaled knapsack constraint" begin
+    @test isapprox(p_solution, m_d_solution, atol=1e-6)
+    @test isapprox(p_solution, m_d_s_solution, atol=1e-6)
+    @test isapprox(a_d_solution, m_d_solution, atol=1e-6)
+    @test isapprox(a_d_solution, m_d_s_solution, atol=1e-6)
+end
