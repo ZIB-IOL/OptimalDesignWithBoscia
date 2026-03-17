@@ -2,11 +2,11 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-criterion = "E"
+criterion = "AGC"
 seed = 5 # 4
 connected = true
 if criterion == "AGC"
-    n = 50
+    n = 80
     m = 2 * n
     N = Int(floor(m/2))
     edges, potential_edges = ODWB.build_graph_connectivity_data(n, 2 * m, m, seed=seed, connected=connected)
@@ -15,8 +15,8 @@ if criterion == "AGC"
 else
     m = 50
     n = Int(floor(sqrt(m)))
-    #N = Int(floor(1.5 * n * log(n)))
-    N = Int(floor(3n/4))
+    N = Int(floor(1.5 * n * log(n)))
+    #N = Int(floor(3n/4))
 end
 corr = false
 
@@ -28,8 +28,8 @@ scale = Inf
 start = isfinite(scale) ? 1e-2/(2 *log(n)) : m/50
 min = isfinite(scale) ? 1e-6/(2 * log(n)) : exp10(-10/m) 
 
-start = m/10
-min = exp10(-100/m)
+#start =m/50 # m/10
+#min = exp10(-200/m) #exp10(-100/m)
 
 scale = Inf
 
@@ -55,12 +55,13 @@ x, result = ODWB.solve_opt(
     use_sub_grad_info=true,
     smoothing_start=start,
     smoothing_min=min,
-    tightened=true,
+    tightened=false,
     scale=scale,
+    use_exclusion_criterion=true,
 )
 
 @show x
-@show findall(x-> x == 0, x) 
+@show findall(x-> x == 1, x) 
 
 #= x_e, result_e = ODWB.solve_opt(
     seed, 
@@ -98,11 +99,14 @@ y_bnb = ODWB.solve_opt_scip_sdp(
     scip_sdp_mode=:bnb,
     zero_one=zero_one, 
     N=N,
-    tightened=true,
+    tightened=false,
     scale=scale,
+    rel_gap = 0.0,
     )
 
-y_oa = ODWB.solve_opt_scip_sdp(
+    @show findall(y-> y == 1, y_bnb)
+
+#=y_oa = ODWB.solve_opt_scip_sdp(
     seed, 
     m, 
     n, 
@@ -117,7 +121,9 @@ y_oa = ODWB.solve_opt_scip_sdp(
     tightened=true,
     scale=scale,
     )
-    
+
+    @show findall(y-> y == 1, y_oa)
+    =#
 #@show findall(y-> y == 0, y)
 
 #if !any(isnan.(y))
