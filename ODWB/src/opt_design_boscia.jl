@@ -250,51 +250,15 @@ function solve_opt(
     end
 
     if use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
-        function build_bnb_callback(A, N, f, sub_grad!)
-            return function bnb_callback(tree,
-                node;
-                worse_than_incumbent=false,
-                node_infeasible=false,
-                lb_update=false,)
-                m, n = size(A)
-                if node.depth > m/10
-                    return
-                end
-                u = fill(1.0, m)
-                for i in tree.root.problem.integer_variables
-                    local_ub = get(node.local_bounds.upper_bounds, i, Inf)
-                    local_lb = get(node.local_bounds.lower_bounds, i, -Inf)
-                    if local_ub == 0.0 || local_lb == 1.0
-                        u[i] = 0.0
-                    end
-                end
-                y = copy(node.active_set.x/N) 
-                Y = A' * diagm(y) * A
-                λ, V = eigen(Y)
-                if !isreal(λ[1])
-                    return
-                end
-                λ_min = minimum(λ)
-                tolerance = max(1e-10 * abs(λ_min), 1e-10)
-                mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
-                fx = -f(y)
-                W = Symmetric(sum(V[:, j] * V[:, j]' for j in 1:mult)) #+ I(n)
-                W -= n/2 * minimum(eigvals(W)) * I(n)
-                W = 1/LinearAlgebra.tr(W) * W 
-        
-                UB = N * maximum(A[j,:]' * W * A[j,:] for j in 1:m)
-                _, fixed_indices = model_exclusion(A, m, n, UB, fx, 1.0, u=u, x=y)
-
-                @show fixed_indices
-        
-                for i in fixed_indices
-                    node.local_bounds.upper_bounds[i] = 0.0
-                end
-            end
-        end
-        tree_callback = build_bnb_callback(A, N, f, sub_grad!)
+        #branch_callback = build_exclusion_branch_callback(A, N, f, sub_grad!)
+        branch_callback = build_tightened_branch_callback(A, N, f, sub_grad!; L=L)
     else
-        tree_callback = nothing
+        branch_callback = nothing
+    end
+
+    function bnb_callback(tree, node; worse_than_incumbent=false, node_infeasible=false, lb_update=false)
+        #@show node.local_bounds.lower_bounds    
+        #@show node.local_bounds.upper_bounds
     end
 
     fw_variant = use_BPCG ? Boscia.BlendedPairwiseConditionalGradient() : Boscia.DecompositionInvariantConditionalGradient()
@@ -331,8 +295,8 @@ function solve_opt(
         settings.heuristic[:probability_rounding_prob] = probability_rounding_prob
         settings.heuristic[:rounding_prob] = rounding_prob
         settings.heuristic[:custom_heuristics] = custom_heu
-        if tree_callback !== nothing
-            settings.branch_and_bound[:bnb_callback] = tree_callback
+        if branch_callback !== nothing
+            settings.branch_and_bound[:branch_callback] = branch_callback
         end
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
         
@@ -377,8 +341,9 @@ function solve_opt(
         settings.heuristic[:rounding_prob] = rounding_prob
         settings.heuristic[:custom_heuristics] = custom_heu
 
-        if tree_callback !== nothing
-            settings.branch_and_bound[:bnb_callback] = tree_callback
+        if branch_callback !== nothing
+            settings.branch_and_bound[:branch_callback] = branch_callback
+            settings.branch_and_bound[:bnb_callback] = bnb_callback
         end
         println("PRECOMPILE RUN")
         x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
@@ -418,8 +383,8 @@ function solve_opt(
         settings.domain[:domain_oracle] = domain_oracle
         settings.domain[:active_set] = active_set
         settings.domain[:find_domain_point] = domain_point
-        if tree_callback !== nothing
-            settings.branch_and_bound[:bnb_callback] = tree_callback
+        if branch_callback !== nothing
+            settings.branch_and_bound[:branch_callback] = branch_callback
         end
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
         
