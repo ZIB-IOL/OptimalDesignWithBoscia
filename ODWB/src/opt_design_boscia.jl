@@ -467,7 +467,11 @@ function solve_opt(
             ""
         end =#
 
-        folder = if use_exclusion_criterion
+        folder = if use_exclusion_criterion && n_random > 0
+            "exclusion_criterion_random"
+        elseif use_exclusion_criterion && start_epsilon == 1e-4 && min_epsilon == 1e-7
+            "exclusion_criterion_tighter_tol"
+        elseif use_exclusion_criterion 
             "exclusion_criterion"
         elseif mu_testing
             string(smoothing_start) * "_" * string(smoothing_decay) * "_" * string(smoothing_min)
