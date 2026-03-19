@@ -251,7 +251,7 @@ function solve_opt(
 
     if use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
         #branch_callback = build_exclusion_branch_callback(A, N, f, sub_grad!)
-        branch_callback = build_tightened_branch_callback(A, N, f, sub_grad!; L=L)
+        branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L)
     else
         branch_callback = nothing
     end
