@@ -17,7 +17,7 @@ data_types = ["IND", "CORR"]
 solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
 seeds = [0] #[1,2,3,4,5]
 options = ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
-N_construct = ["log", "rank_deficient"] #["one", "log", "rank_deficient"] 
+N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
 
 # Connectivity 
 #=
