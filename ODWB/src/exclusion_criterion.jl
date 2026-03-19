@@ -484,3 +484,123 @@ function build_tightened_branch_callback_mem(
         return prune_left, prune_right
     end
 end
+
+function build_dual_branch_callback(A, N, f, sub_grad!; L=nothing)
+    m, n = size(A)
+    T = eltype(A)
+
+    l = zeros(T, m)
+    u = ones(T, m)
+    fixed_mask = falses(m)
+
+    fixed_to_zero = Vector{Int}(undef, m)
+    fixed_to_one = Vector{Int}(undef, m)
+    return function branch_callback(tree, node, vdix)
+        if node.depth > n
+            return false, false
+        end
+
+        fill!(l, zero(T))
+        fill!(u, one(T))
+        fill!(fixed_mask, false)
+        N_star = Int(N)
+
+        # collecting current fixings
+        int_vars = tree.root.problem.integer_variables
+        for i in int_vars
+            local_ub = get(node.local_bounds.upper_bounds, i, Inf)
+            local_lb = get(node.local_bounds.lower_bounds, i, -Inf)
+            l[i] = isfinite(local_lb) ? local_lb : zero(T)
+            u[i] = isfinite(local_ub) ? local_ub : one(T)
+            if isfinite(local_lb) || isfinite(local_ub)
+                fixed_mask[i] = true
+            end
+            N_star = isfinite(local_lb) ? (N_star - 1) : N_star
+        end
+
+        y = node.active_set.x
+        Y = L === nothing ? (A' * Diagonal(y) * A) : (L + A' * Diagonal(y) * A)
+        λ, V = eigen(Y)
+        if !isreal(λ[1])
+            return false, false
+        end
+        λ_min = minimum(λ)
+
+        # create dual problem
+        opt = optimizer_with_attributes(Mosek.Optimizer, 
+            MOI.Silent() => true, #!verbose,
+        )
+        dual_sdp_model = Model(opt)
+
+        # Variables
+        # λ: scalar variable
+        JuMP.@variable(dual_sdp_model, λ)
+        # Z: n×n positive semidefinite matrix
+        JuMP.@variable(dual_sdp_model, Z[1:n, 1:n], PSD)
+        # α: m-dim vector 
+        JuMP.@variable(dual_sdp_model, α[1:m])
+        # β: m-dim vector of non-negative variables
+        JuMP.@variable(dual_sdp_model, β[1:m])
+
+
+        JuMP.@constraint(dual_sdp_model, α >= 0)
+        JuMP.@constraint(dual_sdp_model, β >= 0)
+
+        # Constraint: Tr(Z) = 1
+        # The trace is the sum of diagonal elements
+        JuMP.@constraint(dual_sdp_model, sum(Z[i, i] for i in 1:n) == 1)
+
+        for i in 1:m
+            JuMP.@constraint(dual_sdp_model, λ - A[i, :]' * Z * A[i, :] -  α[i] + β[i] == 0)
+        end
+
+        # Objective: minimize λ
+        if L === nothing
+            @objective(dual_sdp_model, Min, λ*N - α' * l + β' * u)
+        else
+            @objective(dual_sdp_model, Min, λ*N - α' * l + β' * u + LinearAlgebra.dot(Z, L))
+        end
+
+        # solve dual problem
+        optimize!(dual_sdp_model)
+
+        # query solution
+        status = termination_status(dual_sdp_model)
+        UB = objective_value(dual_sdp_model)
+        α_val = value.(α)
+        β_val = value.(β)
+        @assert UB > λ_min " UB: $(UB) λ_min: $(λ_min)"
+
+        if UB < -tree.incumbent
+            return false, false
+        end
+
+        zc = 0
+        oc = 0
+        for i in int_vars
+            if fixed_mask[i] || i == vdix
+                continue
+            end
+            right_bound = UB - α_val[i]
+            left_bound = UB - β_val[i]
+            if right_bound <= -tree.incumbent
+                push!(node.local_bounds.upper_bounds, (i => 0.0))
+                zc += 1
+                fixed_to_zero[zc] = i
+            elseif left_bound <= -tree.incumbent
+                push!(node.local_bounds.lower_bounds, (i => 1.0))
+                oc += 1
+                fixed_to_one[oc] = i
+            end
+        end
+
+        if (zc > 0 || oc > 0)
+            fixed_to_zero_view = view(fixed_to_zero, 1:zc)
+            fixed_to_one_view = view(fixed_to_one, 1:oc)
+            @show fixed_to_zero_view
+            @show fixed_to_one_view
+        end
+
+        return false, false
+    end
+end
