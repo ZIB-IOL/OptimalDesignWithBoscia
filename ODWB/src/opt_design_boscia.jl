@@ -78,6 +78,7 @@ function solve_opt(
     N=-Inf,
     M=5,
     use_exclusion_criterion=false,
+    use_dual_exclusion_criterion=false,
     use_sub_grad_info=true,
     branch_all=false,
     connected=true,
@@ -252,9 +253,13 @@ function solve_opt(
         end
     end
 
-    if use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
+    if (use_exclusion_criterion || use_dual_exclusion_criterion) && criterion in ["E", "EF", "AGC"]
         #branch_callback = build_exclusion_branch_callback(A, N, f, sub_grad!)
-        branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L, n_random=n_random)
+        if use_dual_exclusion_criterion
+            branch_callback = build_dual_branch_callback(A, N, f, sub_grad!, L=L)
+        else
+            branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L, n_random=n_random)
+        end
     else
         branch_callback = nothing
     end
@@ -467,7 +472,9 @@ function solve_opt(
             ""
         end =#
 
-        folder = if use_exclusion_criterion && n_random > 0
+        folder = if use_dual_exclusion_criterion
+            "dual_exclusion_criterion"
+        elseif use_exclusion_criterion && n_random > 0
             "exclusion_criterion_random"
         elseif use_exclusion_criterion && start_epsilon == 1e-4 && min_epsilon == 1e-7
             "exclusion_criterion_tighter_tol"
