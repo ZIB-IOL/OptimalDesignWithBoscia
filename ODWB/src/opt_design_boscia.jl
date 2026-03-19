@@ -86,6 +86,7 @@ function solve_opt(
     scale = Inf,
     start_epsilon=1e-2,
     min_epsilon=1e-6,
+    n_random=10,
 )
     type = corr ? "correlated" : "independent"
     
@@ -253,7 +254,7 @@ function solve_opt(
 
     if use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
         #branch_callback = build_exclusion_branch_callback(A, N, f, sub_grad!)
-        branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L)
+        branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L, n_random=n_random)
     else
         branch_callback = nothing
     end

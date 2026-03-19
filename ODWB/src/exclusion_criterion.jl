@@ -391,20 +391,23 @@ function build_tightened_branch_callback_mem(
         tolerance = max(1e-10 * abs(λ_min), 1e-10)
         mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
 
-        Zsym, t = pick_Z_minimizing_t(A, V[:, 1:mult], fixed_mask, N_star; n_random=n_random)
-
-        # Z = sum_{j=1}^{mult} V[:,j] * V[:,j]' , normalized to tr(Z)=1
-        #=fill!(Zmat, zero(T))
-        @inbounds for j in 1:mult
-            vj = view(V, :, j)
-            LinearAlgebra.BLAS.ger!(one(T), vj, vj, Zmat)
+        if n_random > 0
+            Zsym, _ = pick_Z_minimizing_t(A, V[:, 1:mult], fixed_mask, N_star; n_random=n_random)
+            Zsym = Symmetric(Zsym)
+        else
+             #Z = sum_{j=1}^{mult} V[:,j] * V[:,j]' , normalized to tr(Z)=1
+            fill!(Zmat, zero(T))
+            @inbounds for j in 1:mult
+                vj = view(V, :, j)
+                LinearAlgebra.BLAS.ger!(one(T), vj, vj, Zmat)
+            end
+            trZ = zero(T)
+            @inbounds for i in 1:n
+                trZ += Zmat[i, i]
+            end
+            Zmat ./= trZ
+            Zsym = Symmetric(Zmat)
         end
-        trZ = zero(T)
-        @inbounds for i in 1:n
-            trZ += Zmat[i, i]
-        end
-        Zmat ./= trZ
-        Zsym = Symmetric(Zmat) =#
 
         # compute v_i = a_i' Z a_i for all i, and collect free ones for selecting t
         free_count = 0
