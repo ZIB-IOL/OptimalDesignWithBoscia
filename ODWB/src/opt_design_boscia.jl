@@ -84,6 +84,8 @@ function solve_opt(
     mu_testing=false,
     tightened=false,
     scale = Inf,
+    start_epsilon=1e-2,
+    min_epsilon=1e-6,
 )
     type = corr ? "correlated" : "independent"
     
@@ -314,6 +316,8 @@ function solve_opt(
 
         settings.tolerances[:rel_dual_gap] = 1e-2
         settings.tolerances[:dual_gap] = N < n ? 1e-4 : 1e-6
+        settings.tolerances[:fw_epsilon] = start_epsilon
+        settings.tolerances[:min_node_fw_epsilon] = min_epsilon
 
         settings.smoothing[:generate_smoothing_objective] = generate_smoothing_function
         settings.smoothing[:smoothing_start] = smoothing_start
