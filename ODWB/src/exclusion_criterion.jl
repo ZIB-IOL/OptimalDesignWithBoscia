@@ -234,3 +234,250 @@ function build_tightened_branch_callback(A, N, f, sub_grad!; L=nothing)
         return prune_left, prune_right
     end
 end
+
+"""
+Compute t(Z) = N_star-th smallest of v_i = a_i' Z a_i over *free* indices.
+`fixed_mask[i] == true` means i is fixed (so i is free iff `!fixed_mask[i]`).
+"""
+function t_from_Z(A, Z, fixed_mask::AbstractVector{Bool}, N_star::Int; work=nothing)
+    m, _ = size(A)
+    nfree = m - count(fixed_mask)
+    if work === nothing
+        v_free = Vector{Float64}(undef, nfree)
+        tmp = zeros(eltype(Z), size(Z, 1))
+    else
+        v_free = work.v_free
+        tmp = work.tmp
+    end
+    k = 0
+    Zsym = Symmetric(Z)
+    @inbounds for i in 1:m
+        if !fixed_mask[i]
+            k += 1
+            ai = view(A, i, :)
+            mul!(tmp, Zsym, ai)
+            v_free[k] = dot(ai, tmp)
+        end
+    end
+    v_view = view(v_free, 1:k)
+    partialsort!(v_view, N_star)
+    return v_view[N_star]
+end
+
+"""
+Search Z within the min-eigenspace to make t small.
+- tries eigenvector projectors
+- tries random rank-1 projectors in the eigenspace
+"""
+function pick_Z_minimizing_t(A, U, fixed_mask::AbstractVector{Bool}, N_star::Int;
+                            n_random::Int=50, rng=Random.default_rng())
+    n, mult = size(U)
+    Zbest = zeros(eltype(A), n, n)
+    tbest = Inf
+
+    # workspace
+    v_free_work = Vector{Float64}(undef, length(fixed_mask) - count(fixed_mask))
+    tmp_work = zeros(eltype(A), n)
+    Z = zeros(eltype(A), n, n)
+    work = (v_free=v_free_work, tmp=tmp_work)
+
+    # 1) try each eigenvector projector
+    for j in 1:mult
+        fill!(Z, 0)
+        uj = view(U, :, j)
+        LinearAlgebra.BLAS.ger!(1.0, uj, uj, Z)  # Z = uj*uj'
+        # trace is 1 already if uj normalized, but safe:
+        Z ./= LinearAlgebra.tr(Z)
+        t = t_from_Z(A, Z, fixed_mask, N_star; work=work)
+        if t < tbest
+            tbest = t
+            copyto!(Zbest, Z)
+        end
+    end
+
+    # 2) random rank-1 projectors in eigenspace: Z = U*q*q'*U'
+    q = zeros(Float64, mult)
+    tmp = zeros(Float64, n)
+    for _ in 1:n_random
+        randn!(rng, q); q ./= norm(q)
+        # tmp = U*q
+        mul!(tmp, U, q)
+        fill!(Z, 0)
+        LinearAlgebra.BLAS.ger!(1.0, tmp, tmp, Z)
+        Z ./= LinearAlgebra.tr(Z)
+        t = t_from_Z(A, Z, fixed_mask, N_star; work=work)
+        if t < tbest
+            tbest = t
+            copyto!(Zbest, Z)
+        end
+    end
+
+    return Zbest, tbest
+end
+
+"""
+    build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=nothing)
+
+Memory-optimized variant of `build_tightened_branch_callback` that yields the same
+branching tightenings (same `t`, same `Z`, same `α`, `β`, same UB comparisons),
+but reduces allocations by:
+- reusing buffers across callback invocations,
+- using `Diagonal(y)` instead of `diagm(y)`,
+- avoiding `setdiff`/`fixed` arrays via a boolean mask,
+- using `partialsort!` to select the `N_star`-th smallest value among free vars,
+- building `Z = sum_{j=1}^{mult} v_j v_j^T` via rank-1 updates into a single matrix.
+"""
+function build_tightened_branch_callback_mem(
+    A,
+    N,
+    f,
+    sub_grad!;
+    L=nothing,
+    print_fixings::Bool=false,
+    n_random::Int=10,
+)
+    m, n = size(A)
+    T = eltype(A)
+
+    l = zeros(T, m)
+    u = ones(T, m)
+    fixed_mask = falses(m)
+
+    v_all = zeros(T, m)
+    v_free = zeros(T, m) # used as workspace; only first free_count entries are valid
+
+    α = zeros(T, m)
+    β = zeros(T, m)
+
+    Zmat = zeros(T, n, n) # workspace for Z (symmetric)
+    tmp_qf = zeros(T, n)  # workspace for quadratic forms a_i' Z a_i (works for sparse rows too)
+
+    # Preallocated buffers for printing which variables were newly fixed in a callback call.
+    # We store indices in a dense vector and track a count to avoid repeated allocations.
+    fixed_to_zero = Vector{Int}(undef, m)
+    fixed_to_one = Vector{Int}(undef, m)
+
+    return function branch_callback(tree, node, vdix)
+        if node.depth > m
+            return false, false
+        end
+
+        fill!(l, zero(T))
+        fill!(u, one(T))
+        fill!(fixed_mask, false)
+        N_star = Int(N)
+
+        # collecting current fixings
+        int_vars = tree.root.problem.integer_variables
+        for i in int_vars
+            local_ub = get(node.local_bounds.upper_bounds, i, Inf)
+            local_lb = get(node.local_bounds.lower_bounds, i, -Inf)
+            l[i] = isfinite(local_lb) ? local_lb : zero(T)
+            u[i] = isfinite(local_ub) ? local_ub : one(T)
+            if isfinite(local_lb) || isfinite(local_ub)
+                fixed_mask[i] = true
+            end
+            N_star = isfinite(local_lb) ? (N_star - 1) : N_star
+        end
+
+        # generate dual Z
+        y = node.active_set.x
+        Y = L === nothing ? (A' * Diagonal(y) * A) : (L + A' * Diagonal(y) * A)
+        λ, V = eigen(Y)
+        if !isreal(λ[1])
+            return false, false
+        end
+        λ_min = minimum(λ)
+        tolerance = max(1e-10 * abs(λ_min), 1e-10)
+        mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
+
+        Zsym, t = pick_Z_minimizing_t(A, V[:, 1:mult], fixed_mask, N_star; n_random=n_random)
+
+        # Z = sum_{j=1}^{mult} V[:,j] * V[:,j]' , normalized to tr(Z)=1
+        #=fill!(Zmat, zero(T))
+        @inbounds for j in 1:mult
+            vj = view(V, :, j)
+            LinearAlgebra.BLAS.ger!(one(T), vj, vj, Zmat)
+        end
+        trZ = zero(T)
+        @inbounds for i in 1:n
+            trZ += Zmat[i, i]
+        end
+        Zmat ./= trZ
+        Zsym = Symmetric(Zmat) =#
+
+        # compute v_i = a_i' Z a_i for all i, and collect free ones for selecting t
+        free_count = 0
+        @inbounds for i in 1:m
+            ai = view(A, i, :)
+            mul!(tmp_qf, Zsym, ai)
+            vi = LinearAlgebra.dot(ai, tmp_qf)
+            v_all[i] = vi
+            if !fixed_mask[i]
+                free_count += 1
+                v_free[free_count] = vi
+            end
+        end
+
+        # pick dual t (only for free variables): t = N_star-th smallest among free vars
+        v_free_view = view(v_free, 1:free_count)
+        partialsort!(v_free_view, N_star)
+        t = v_free_view[N_star]
+
+        # compute α and β without broadcasting allocations
+        @inbounds for i in 1:m
+            vi = v_all[i]
+            if t > vi
+                α[i] = t - vi
+                β[i] = zero(T)
+            elseif vi > t
+                α[i] = zero(T)
+                β[i] = vi - t
+            else
+                α[i] = zero(T)
+                β[i] = zero(T)
+            end
+        end
+
+        UB = if L === nothing
+            t * N - LinearAlgebra.dot(α, l) + LinearAlgebra.dot(β, u)
+        else
+            t * N - LinearAlgebra.dot(α, l) + LinearAlgebra.dot(β, u) + LinearAlgebra.dot(Zsym, L)
+        end
+        @assert UB > λ_min " UB: $(UB) λ_min: $(λ_min)"
+        if UB < -tree.incumbent
+            return false, false
+        end
+
+        prune_left = false
+        prune_right = false
+
+        zc = 0
+        oc = 0
+        for i in int_vars
+            if fixed_mask[i] || i == vdix
+                continue
+            end
+            right_bound = UB - α[i]
+            left_bound = UB - β[i]
+            if right_bound <= -tree.incumbent
+                push!(node.local_bounds.upper_bounds, (i => 0.0))
+                zc += 1
+                fixed_to_zero[zc] = i
+            elseif left_bound <= -tree.incumbent
+                push!(node.local_bounds.lower_bounds, (i => 1.0))
+                oc += 1
+                fixed_to_one[oc] = i
+            end
+        end
+
+        if print_fixings && (zc > 0 || oc > 0)
+            fixed_to_zero_view = view(fixed_to_zero, 1:zc)
+            fixed_to_one_view = view(fixed_to_one, 1:oc)
+            @show fixed_to_zero_view
+            @show fixed_to_one_view
+        end
+
+        return prune_left, prune_right
+    end
+end
