@@ -99,7 +99,7 @@ for k in ratio_para
                             smoothing_start=start,
                             smoothing_decay=decay,
                             smoothing_min=min,#exp10(-200/m), exp10(-400/m) for AGC
-                            use_exclusion_criterion=option == "exclusion_criterion", 
+                            use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol"], 
                             use_heuristics=option == "all_heuristics", 
                             use_follow_subgradient_heu=option == "follow_subgradient", 
                             use_pipage_heu=option == "pipage_rounding", 
@@ -110,7 +110,10 @@ for k in ratio_para
                             connected = criterion == "AGC" ? corr : true,
                             tightened = option in ["tightened", "tightened_scaled"],
                             scale = option == "tightened_scaled" ? 0.5 : Inf,
-                            fw_verbose = false)
+                            fw_verbose = false,
+                            n_random = option == "exclusion_criterion_random" ? 10 : 0,
+                            start_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-4 : 1e-2,
+                            min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6)
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
                         error("SCIP OA does not work with the $(criterion)-optimal problems!")
