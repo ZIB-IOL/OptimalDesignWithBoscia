@@ -79,6 +79,7 @@ function solve_opt(
     M=5,
     use_exclusion_criterion=false,
     use_dual_exclusion_criterion=false,
+    use_dual_tightening=false,
     use_sub_grad_info=true,
     branch_all=false,
     connected=true,
@@ -252,11 +253,23 @@ function solve_opt(
             FrankWolfe.Adaptive()
         end
     end
-
+    fixed_to_one = Dict{Int, Int}()
+    fixed_to_zero = Dict{Int, Int}()
+    processed_tightening_nodes = Ref(0)
     if (use_exclusion_criterion || use_dual_exclusion_criterion) && criterion in ["E", "EF", "AGC"]
         #branch_callback = build_exclusion_branch_callback(A, N, f, sub_grad!)
         if use_dual_exclusion_criterion
-            branch_callback = build_dual_branch_callback(A, N, f, sub_grad!, L=L)
+            branch_callback = build_dual_branch_callback(
+                A,
+                N,
+                f,
+                sub_grad!,
+                L=L,
+                tightened=use_dual_tightening,
+                tighted_to_one=fixed_to_one,
+                tighted_to_zero=fixed_to_zero,
+                processed_tightening_nodes=processed_tightening_nodes,
+            )
         else
             branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L, n_random=n_random)
         end
@@ -434,6 +447,11 @@ function solve_opt(
     scaled_solution = x !== nothing ? isfinite(scale) ? f_check(x) / scale^2 : f_check(x) : Inf
     @show scaled_solution
     @show result[:solution_source]
+    nodes_with_tightening = processed_tightening_nodes[]
+    total_fixed_to_one = sum(values(fixed_to_one))
+    total_fixed_to_zero = sum(values(fixed_to_zero))
+    avg_fixed_to_one = nodes_with_tightening > 0 ? total_fixed_to_one / nodes_with_tightening : 0.0
+    avg_fixed_to_zero = nodes_with_tightening > 0 ? total_fixed_to_zero / nodes_with_tightening : 0.0
 
     if write
         #=folder = if long_runs
@@ -539,7 +557,10 @@ function solve_opt(
             termination=status,
             optimal_time=optimal_time, 
             optimal_iteration=idx, 
-            solution_source=String(result[:solution_source]))
+            solution_source=String(result[:solution_source]),
+            avg_fixed_to_one=avg_fixed_to_one,
+            avg_fixed_to_zero=avg_fixed_to_zero,
+        )
         file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * scaled * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 
             CSV.write(file_name, df, append=false, writeheader=true, delim=";")
