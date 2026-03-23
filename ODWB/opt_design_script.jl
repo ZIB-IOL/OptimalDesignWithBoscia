@@ -25,8 +25,8 @@ num_experiments = [80, 100, 150, 200]
 criteria = ["AGC"]
 data_types = ["IND"]
 solvers = ["Boscia"]
-seeds = [1,2,3,4,5]
-options = ["exclusion_criterion"]
+seeds = [0]
+options = ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol"]
 N_construct = ["one"] 
 =#
 # create instances
