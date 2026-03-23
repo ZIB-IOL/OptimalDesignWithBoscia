@@ -485,7 +485,17 @@ function build_tightened_branch_callback_mem(
     end
 end
 
-function build_dual_branch_callback(A, N, f, sub_grad!; L=nothing)
+function build_dual_branch_callback(
+    A,
+    N,
+    f,
+    sub_grad!;
+    L=nothing,
+    tightened=true,
+    tighted_to_one=Dict{Int, Int}(),
+    tighted_to_zero=Dict{Int, Int}(),
+    processed_tightening_nodes=Ref(0),
+)
     m, n = size(A)
     T = eltype(A)
 
@@ -496,9 +506,10 @@ function build_dual_branch_callback(A, N, f, sub_grad!; L=nothing)
     fixed_to_zero = Vector{Int}(undef, m)
     fixed_to_one = Vector{Int}(undef, m)
     return function branch_callback(tree, node, vdix)
-        if node.depth > n
+        if node.depth > N
             return false, false
         end
+        processed_tightening_nodes[] += 1
 
         fill!(l, zero(T))
         fill!(u, one(T))
@@ -530,7 +541,8 @@ function build_dual_branch_callback(A, N, f, sub_grad!; L=nothing)
         opt = optimizer_with_attributes(Mosek.Optimizer, 
             MOI.Silent() => true, #!verbose,
         )
-        dual_sdp_model = Model(opt)
+        #dual_sdp_model = Model(opt)
+        dual_sdp_model = Model(dual_optimizer(opt))
 
         # Variables
         # λ: scalar variable
@@ -545,6 +557,12 @@ function build_dual_branch_callback(A, N, f, sub_grad!; L=nothing)
 
         JuMP.@constraint(dual_sdp_model, α >= 0)
         JuMP.@constraint(dual_sdp_model, β >= 0)
+
+        if tightened
+            ind_non_zero = findall(x -> x > 1e-8, min.(1 .- y, y))
+            JuMP.@constraint(dual_sdp_model, α[ind_non_zero] == 0)
+            JuMP.@constraint(dual_sdp_model, β[ind_non_zero] == 0)
+        end
 
         # Constraint: Tr(Z) = 1
         # The trace is the sum of diagonal elements
@@ -600,6 +618,8 @@ function build_dual_branch_callback(A, N, f, sub_grad!; L=nothing)
             @show fixed_to_zero_view
             @show fixed_to_one_view
         end
+        zc > 0 ? push!(tighted_to_zero, node.id => zc) : nothing
+        oc > 0 ? push!(tighted_to_one, node.id => oc) : nothing
 
         return false, false
     end

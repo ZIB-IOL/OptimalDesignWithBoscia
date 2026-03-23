@@ -101,6 +101,7 @@ for k in ratio_para
                             smoothing_min=min,#exp10(-200/m), exp10(-400/m) for AGC
                             use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol", "dual_exclusion_criterion"], 
                             use_dual_exclusion_criterion=option == "dual_exclusion_criterion",
+                            use_dual_tightening=option == "dual_exclusion_criterion",
                             use_heuristics=option == "all_heuristics", 
                             use_follow_subgradient_heu=option == "follow_subgradient", 
                             use_pipage_heu=option == "pipage_rounding", 

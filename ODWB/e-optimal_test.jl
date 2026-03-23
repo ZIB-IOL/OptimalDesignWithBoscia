@@ -2,7 +2,7 @@ using ODWB
 using Boscia
 using FrankWolfe
 
-criterion = "AGC"
+criterion = "E"
 seed = 5 # 4
 connected = true
 if criterion == "AGC"
@@ -58,6 +58,8 @@ x, result = ODWB.solve_opt(
     tightened=false,
     scale=scale,
     use_exclusion_criterion=true,
+    use_dual_exclusion_criterion=true,
+    use_dual_tightening=false,
     start_epsilon=1e-4,
     min_epsilon=1e-7,
 )
