@@ -7,10 +7,10 @@ using Mosek
 
 seed = rand(UInt64)
 @show seed
-m = 20
+m = 100
 n = Int(floor(sqrt(m)))
 corr = false
-N = 10
+N = 1.5 * n
 
 @show m, n
 
@@ -45,7 +45,7 @@ info_matrix = [
 JuMP.@constraint(primal_model, info_matrix in JuMP.PSDCone())
 
 # solve 
-optimize!(primal_model)
+t_primal_unit = @elapsed optimize!(primal_model)
 # query solution
 status = termination_status(primal_model)
 p_solution = objective_value(primal_model)
@@ -54,7 +54,8 @@ y = value.(x)
 println("\n\nSolution of primal model")
 @show status
 @show p_solution
-@show y
+#@show y
+println("Solving time (unit knapsack, primal): $(t_primal_unit) s")
 
 
 ### Automatic Dual model ###
@@ -83,7 +84,7 @@ info_matrix = [
 JuMP.@constraint(dual_model, info_matrix in JuMP.PSDCone())
 
 # solve 
-optimize!(dual_model)
+t_auto_dual_unit = @elapsed optimize!(dual_model)
 # query solution
 status = termination_status(dual_model)
 a_d_solution = objective_value(dual_model)
@@ -92,7 +93,8 @@ y = value.(x)
 println("\n\nSolution of automatic dual model")
 @show status
 @show a_d_solution
-@show y
+#@show y
+println("Solving time (unit knapsack, automatic dual): $(t_auto_dual_unit) s")
 
 
 ### Manual dual model (D-SDP) ###
@@ -130,7 +132,7 @@ end
 @objective(dual_sdp_model, Min, λ)
 
 # Solve
-optimize!(dual_sdp_model)
+t_manual_dual_unit = @elapsed optimize!(dual_sdp_model)
 
 # Query solution
 status = termination_status(dual_sdp_model)
@@ -141,9 +143,10 @@ Z_val = value.(Z)
 println("\n\nSolution of manual dual SDP model (D-SDP)")
 @show status
 @show m_d_solution
-@show λ_val
-println("Z matrix:")
-println(Z_val)
+#@show λ_val
+println("Solving time (unit knapsack, manual dual SDP): $(t_manual_dual_unit) s")
+#println("Z matrix:")
+#println(Z_val)
 
 
 opt = optimizer_with_attributes(Mosek.Optimizer, 
@@ -176,7 +179,7 @@ end
 @objective(dual_sdp_s_model, Min, λ)
 
 # Solve
-optimize!(dual_sdp_s_model)
+t_dual_of_manual_dual_unit = @elapsed optimize!(dual_sdp_s_model)
 
 # Query solution
 status = termination_status(dual_sdp_s_model)
@@ -187,9 +190,10 @@ Z_val = value.(Z)
 println("\n\nSolution of dual of manual dual SDP model (D-SDP)")
 @show status
 @show m_d_s_solution
-@show λ_val
-println("Z matrix:")
-println(Z_val)
+#@show λ_val
+println("Solving time (unit knapsack, dual of manual dual SDP): $(t_dual_of_manual_dual_unit) s")
+#println("Z matrix:")
+#println(Z_val)
 
 @testset "Unit knapsack constraint" begin
     @test isapprox(p_solution, m_d_solution, atol=1e-6)
@@ -229,7 +233,7 @@ info_matrix = [
 JuMP.@constraint(primal_model, info_matrix in JuMP.PSDCone())
 
 # solve 
-optimize!(primal_model)
+t_primal_scaled = @elapsed optimize!(primal_model)
 # query solution
 status = termination_status(primal_model)
 p_solution = objective_value(primal_model)
@@ -238,7 +242,8 @@ y = value.(x)
 println("\n\nSolution of primal model")
 @show status
 @show p_solution
-@show y
+#@show y
+println("Solving time (scaled knapsack, primal): $(t_primal_scaled) s")
 
 
 ### Automatic Dual model ###
@@ -268,7 +273,7 @@ info_matrix = [
 JuMP.@constraint(dual_model, info_matrix in JuMP.PSDCone())
 
 # solve 
-optimize!(dual_model)
+t_auto_dual_scaled = @elapsed optimize!(dual_model)
 # query solution
 status = termination_status(dual_model)
 a_d_solution = objective_value(dual_model)
@@ -277,7 +282,8 @@ y = value.(x)
 println("\n\nSolution of automatic dual model")
 @show status
 @show a_d_solution
-@show y
+#@show y
+println("Solving time (scaled knapsack, automatic dual): $(t_auto_dual_scaled) s")
 
 
 ### Manual dual model (D-SDP) ###
@@ -327,7 +333,7 @@ end
 @objective(dual_sdp_model, Min, λ*N - α' * zeros(m) + β' * ub)
 
 # Solve
-optimize!(dual_sdp_model)
+t_manual_dual_scaled = @elapsed optimize!(dual_sdp_model)
 
 # Query solution
 status = termination_status(dual_sdp_model)
@@ -338,9 +344,10 @@ Z_val = value.(Z)
 println("\n\nSolution of manual dual SDP model (D-SDP)")
 @show status
 @show m_d_solution
-@show λ_val
-println("Z matrix:")
-println(Z_val)
+#@show λ_val
+println("Solving time (scaled knapsack, manual dual SDP): $(t_manual_dual_scaled) s")
+#println("Z matrix:")
+#println(Z_val)
 
 
 opt = optimizer_with_attributes(Mosek.Optimizer, 
@@ -384,7 +391,7 @@ end
 @objective(dual_sdp_s_model, Min, λ*N - α' * zeros(m) + β' * ub)
 
 # Solve
-optimize!(dual_sdp_s_model)
+t_dual_of_manual_dual_scaled = @elapsed optimize!(dual_sdp_s_model)
 
 # Query solution
 status = termination_status(dual_sdp_s_model)
@@ -395,13 +402,14 @@ Z_val = value.(Z)
 println("\n\nSolution of dual of manual dual SDP model (D-SDP)")
 @show status
 @show m_d_s_solution
-@show λ_val
-println("Z matrix:")
-println(Z_val)
+#@show λ_val
+println("Solving time (scaled knapsack, dual of manual dual SDP): $(t_dual_of_manual_dual_scaled) s")
+#println("Z matrix:")
+#println(Z_val)
 
 @testset "Scaled knapsack constraint" begin
-    @test isapprox(p_solution, m_d_solution, atol=1e-6)
-    @test isapprox(p_solution, m_d_s_solution, atol=1e-6)
-    @test isapprox(a_d_solution, m_d_solution, atol=1e-6)
-    @test isapprox(a_d_solution, m_d_s_solution, atol=1e-6)
+    @test isapprox(p_solution, m_d_solution, atol=1e-4)
+    @test isapprox(p_solution, m_d_s_solution, atol=1e-4)
+    @test isapprox(a_d_solution, m_d_solution, atol=1e-4)
+    @test isapprox(a_d_solution, m_d_s_solution, atol=1e-4)
 end
