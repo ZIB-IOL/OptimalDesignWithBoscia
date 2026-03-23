@@ -587,7 +587,11 @@ function build_dual_branch_callback(
         UB = objective_value(dual_sdp_model)
         α_val = value.(α)
         β_val = value.(β)
-        @assert UB > λ_min " UB: $(UB) λ_min: $(λ_min)"
+
+        if UB > λ_min
+            @show "UB > λ_min UB: $(UB) λ_min: $(λ_min)"
+            return false, false
+        end
 
         if UB < -tree.incumbent
             return false, false
