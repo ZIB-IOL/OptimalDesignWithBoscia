@@ -28,6 +28,7 @@ using LogExpFunctions
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 using StableRNGs
+using Dualization
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances
