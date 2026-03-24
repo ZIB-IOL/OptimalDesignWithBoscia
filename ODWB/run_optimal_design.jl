@@ -34,7 +34,7 @@ end
 seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
-ratio_para = criterion in ["E", "EF", "AGC"] ? [1] : [4,10]
+ratio_para = criterion in ["E", "EF", "AGC", "ACST"] ? [1] : [4,10]
 time_limit = 3600 # one hour time limit
 seeds = seed == 0 ? collect(1:5) : [seed]
 
@@ -46,7 +46,7 @@ elseif criterion == "AGC"
     decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
 elseif criterion == "ACST"
     starts = [m/100]
-    decays = corr ? n in [8, 9] : [0.7] : [0.9] : [0.9]
+    decays = corr ? n in [8, 9] ? [0.7] : [0.9] : [0.9]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -66,7 +66,7 @@ for k in ratio_para
     end
     if criterion == "ACST"
         n = m 
-        m = Int(n^2) 
+        global m = Int(n^2) 
     end
     N = if criterion == "AGC"
         Int(floor(m/2))
