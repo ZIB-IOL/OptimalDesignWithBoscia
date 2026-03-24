@@ -3,6 +3,7 @@ using Boscia
 using FrankWolfe
 using Bonobo
 using CombinatorialLinearOracles
+const CO = CombinatorialLinearOracles
 using Random
 using SCIP
 using JuMP
@@ -31,6 +32,7 @@ const MOIU = MOI.Utilities
 using StableRNGs
 using Dualization
 using JSON
+using Graphs
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances
