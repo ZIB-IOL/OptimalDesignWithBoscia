@@ -41,7 +41,7 @@ function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, 
         @constraint(model, t * (n - N + 1) <= sum(x[i] * norm(A[i, :], 2)^2 for i in 1:m))
     end
     @objective(model, Max, t)
-    return model, x, t, m
+    return model
 end
 
 function _export_model_to_cbf(model, filename)
@@ -139,14 +139,20 @@ function solve_opt_scip_sdp(
     gap=1e-6,
     rel_gap=1e-2,
     scale=Inf,
+    augment_budget=-1,
+    use_base_graph=false,
     )
-    if !(criterion in ["E", "EF", "AGC"])
-        error("SCIP SDP can currently only handle E-optimal and EF-optimal and AGC problems")
+    if !(criterion in ["E", "EF", "AGC","ACST"])
+        error("SCIP SDP can currently only handle E-optimal, EF-optimal, AGC and ACST problems")
     end
 
     @assert SCIP.have_scip_sdp "SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP."
     # CBF round-trip: avoids checkVarsLocks assertion when vars appear in SDP + linear constraints
-    model, x_ref, t_ref, m_dim = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scale)
+    model = if criterion in ["E", "EF", "AGC"] 
+        _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scale) 
+    else 
+        algebraic_connectivity_model(seed, m, n, build_spanning_tree=true, use_base_graph=use_base_graph, augment_budget=augment_budget) 
+    end
     cbf_path = joinpath(mktempdir(), "eopt_scip_sdp_$(getpid()).cbf")
     
     _export_model_to_cbf(model, cbf_path)

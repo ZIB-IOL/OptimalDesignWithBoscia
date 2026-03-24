@@ -89,6 +89,8 @@ function solve_opt(
     start_epsilon=1e-2,
     min_epsilon=1e-6,
     n_random=10,
+    augment_budget=-1,
+    use_base_graph=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -104,6 +106,11 @@ function solve_opt(
         A = potential_edges_incidence_matrix(n, potential_edges)
         ub = fill(1.0, m)
         N = !isfinite(N) ? Int(floor(m/2)) : N
+    elseif criterion == "ACST"
+        A, L = data_ACST(n, seed, use_base_graph=use_base_graph)
+        L += ones(n, n)
+        ub = fill(1.0, m)
+        N = augment_budget == -1 ? n-1 : augment_budget
     else
         A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
     end
@@ -113,7 +120,7 @@ function solve_opt(
     # parameter tunning
     if !options_run
         use_heuristics = true
-        if criterion in ["E","EF","AGC"]
+        if criterion in ["E","EF","AGC","ACST"]
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
@@ -150,7 +157,12 @@ function solve_opt(
         rounding_prob =0.3
         custom_heu = []
     else
-        lmo = build_blmo(m, N, ub)
+        graph = Graphs.complete_graph(n)
+        lmo = if criterion in ["ACST"] 
+            Boscia.ManagedLMO(CO.SpanningTreeLMO(graph), fill(0.0, m), fill(1.0, m), collect(1:m), m)
+        else 
+            build_blmo(m, N, ub) 
+        end
         custom_heu = []
         
         if use_follow_subgradient_heu || use_pipage_heu || use_sr_rounding_heu || use_fedorov_heu
@@ -324,7 +336,7 @@ function solve_opt(
         # Actual Run
         settings.branch_and_bound[:time_limit] = time_limit
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
-    elseif criterion in ["E", "EF", "AGC"]
+    elseif criterion in ["E", "EF", "AGC", "ACST"]
         line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
         # Precompile run
         settings = Boscia.create_default_settings(mode=Boscia.SMOOTHING_MODE)

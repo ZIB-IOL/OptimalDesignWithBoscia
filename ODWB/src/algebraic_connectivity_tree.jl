@@ -1,26 +1,41 @@
-import LaplacianOpt as LOpt
-using JuMP
-using LinearAlgebra
+# Instance JSON files: copy `examples/instances/` from the LaplacianOpt repo into
+# `ODWB/data/laplacianopt_instances/`, or set env var `LAPLACIANOPT_INSTANCES_ROOT` to that folder.
 
 # possible values for number of nodes
 # 5 8 9 10 12 15 25 40 60 100
 function data_I(num_nodes::Int, instance::Int)
-    # Data format has to be as given in this JSON file
-    file_path =
-    joinpath(dirname(pathof(LOpt)), "../examples/instances/$(num_nodes)_nodes/$(num_nodes)_$(instance).json")
-    data_dict = LOpt.parse_file(file_path)
+    file_path = laplacianopt_instance_file(num_nodes, instance)
+    data_dict = parse_laplacianopt_json(file_path)
     augment_budget = (num_nodes - 1) # spanning tree constraint
     return data_dict, augment_budget
 end
 
-data_dict, augment_budget = data_I(8, 1)
-
+function data_ACST(num_nodes::Int, instance::Int; use_base_graph=false)
+    file_path = laplacianopt_instance_file(num_nodes, instance)
+    data_dict = parse_laplacianopt_json(file_path)
+    W = data_dict["adjacency_augment_graph"]
+    L = if use_base_graph data_dict["adjacency_base_graph"] else zeros(Float64, num_nodes, num_nodes) end
+    num_present_edges = sum(Diagonal(L)) / 2
+    A = zeros(Float64, num_nodes, num_nodes)
+    for i in 1:num_nodes
+        for j in i:num_nodes
+            if W[i,j] > 0
+                A[i,i] += W[i,j]
+                A[j,j] += W[i,j]
+                A[i,j] -= W[i,j]
+                A[j,i] -= W[i,j]
+            end
+        end
+    end
+    return A, L, num_present_edges
+end
 
 """
 Builds the model maximizing the algebraic connectivity of a graph.
 If `base_graph` is true, then consider that some indices are already set to one and augment the budget accordingly
 """
-function algebraic_connectivity_model(data_dict, build_spanning_tree::Bool=true; use_base_graph=false, augment_budget::Int=-1)
+function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true, use_base_graph=false, augment_budget::Int=-1)
+    data_dict, _ = data_I(n, seed)
     n = data_dict["num_nodes"]
     W = data_dict["adjacency_augment_graph"]
     if build_spanning_tree

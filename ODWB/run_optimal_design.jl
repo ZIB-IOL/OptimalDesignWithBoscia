@@ -44,6 +44,9 @@ if option == "mu_testing"
 elseif criterion == "AGC"
     starts = [m/200]
     decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
+elseif criterion == "ACST"
+    starts = [m/100]
+    decays = corr ? n in [8, 9] : [0.7] : [0.9] : [0.9]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -52,7 +55,7 @@ end
 
 @show criterion, mode, corr
 
-if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC"])
+if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC", "ACST"])
     error("Invalid criterion!")
 end
 for k in ratio_para
@@ -61,8 +64,14 @@ for k in ratio_para
     else
         k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
     end
+    if criterion == "ACST"
+        n = m 
+        m = Int(n^2) 
+    end
     N = if criterion == "AGC"
         Int(floor(m/2))
+    elseif criterion == "ACST"
+        option == "use_base_graph" ? -Inf : n-1
     elseif N_construct == "one"
         Int(floor(1.5 * n))
     elseif N_construct == "log"
@@ -82,6 +91,8 @@ for k in ratio_para
                 end
                 min = if criterion == "AGC"
                    N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
+                elseif criterion == "ACST"
+                    exp10(-200/m)
                 else
                    exp10(-20/m)
                 end
@@ -115,7 +126,8 @@ for k in ratio_para
                             fw_verbose = false,
                             n_random = option == "exclusion_criterion_random" ? 10 : 0,
                             start_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-4 : 1e-2,
-                            min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6)
+                            min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6,
+                            use_base_graph = criterion == "ACST" ? option == "use_base_graph" : false)
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
                         error("SCIP OA does not work with the $(criterion)-optimal problems!")

@@ -7,6 +7,7 @@ authors = ["Deborah Hendrych <hendrych@zib.de>"]
 Bonobo = "f7b14807-3d4d-461a-888a-05dd4bca8bc3"
 Boscia = "36b166db-dac5-4d05-b36a-e6c4cef071c9"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CombinatorialLinearOracles = "0002e35e-4a6a-41c8-a2f5-6940c7e5949f"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -17,7 +18,7 @@ FrankWolfe = "f55ce6ea-fdc5-4628-88c5-0087fe54bd30"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 Hypatia = "b99e6be6-89ff-11e8-14f8-45c827f4f8f2"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
-LaplacianOpt = "bb20392f-64fb-4001-92e8-14b3aedd5a9e"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LogExpFunctions = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
@@ -35,14 +36,15 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
 Boscia = {rev = "smoothing-mode", url = "https://github.com/ZIB-IOL/Boscia.jl.git"}
+CombinatorialLinearOracles = {rev = "span-tree-blmo", url = "https://github.com/ZIB-IOL/CombinatorialLinearOracles.jl.git"}
 SCIP = {rev = "sdp-interface", url = "https://github.com/dhendryc/SCIP.jl"}
 
 [compat]
 Boscia = "0.2"
+CombinatorialLinearOracles = "0.1.5"
 DoubleFloats = "1.4.3"
 Dualization = "0.7.1"
 FrankWolfe = "0.6"
-LaplacianOpt = "0.7.2"
 LogExpFunctions = "0.3.29"
 Mosek = "10.2.0"
 MosekTools = "0.15.10"

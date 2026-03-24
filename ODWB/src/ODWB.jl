@@ -2,6 +2,7 @@ module ODWB
 using Boscia
 using FrankWolfe
 using Bonobo
+using CombinatorialLinearOracles
 using Random
 using SCIP
 using JuMP
@@ -29,6 +30,7 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 using StableRNGs
 using Dualization
+using JSON
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances
@@ -36,7 +38,9 @@ const MOD = MathOptSetDistances
 using Mosek # path /Users/deborah/mosek/mosek/11.0/tools/platform/osxaarch64/bin
 using MosekTools
 
+include("laplacianopt_json.jl")
 include("utilities.jl")
+include("algebraic_connectivity_tree.jl")
 include("heuristics.jl")
 include("exclusion_criterion.jl")
 include("opt_design_boscia.jl")
