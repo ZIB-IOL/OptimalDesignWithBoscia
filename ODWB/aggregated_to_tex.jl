@@ -24,10 +24,21 @@ using CSV, DataFrames, Printf
 
 const AGG_DIR = joinpath(@__DIR__, "csv", "aggregated")
 const TEX_OUT_DIR = "/Users/deborah/Documents/research_projects/Smoothing-in-Boscia/paper"
-const SOLVERS = ["Boscia", "Boscia (excl.)", "SCIPSDP_oa", "SCIPSDP_bnb"]
+const SOLVERS = [
+    "Boscia",
+    "Boscia (excl.)",
+    "Boscia (excl. random)",
+    "Boscia (excl. tighter tol)",
+    "Boscia (dual excl.)",
+    "SCIPSDP_oa",
+    "SCIPSDP_bnb",
+]
 const SOLVER_LABELS = Dict(
     "Boscia" => "Boscia",
     "Boscia (excl.)" => "Boscia (excl.)",
+    "Boscia (excl. random)" => "Boscia (excl. random)",
+    "Boscia (excl. tighter tol)" => "Boscia (excl. tighter tol)",
+    "Boscia (dual excl.)" => "Boscia (dual excl.)",
     "SCIPSDP_oa" => "SCIPSDP (OA)",
     "SCIPSDP_bnb" => "SCIPSDP (B\\&B)",
 )

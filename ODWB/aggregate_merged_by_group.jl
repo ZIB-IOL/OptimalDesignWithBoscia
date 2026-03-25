@@ -23,6 +23,15 @@ const SCIPSDP_DELIM = ','
 
 const SCIPSOLVERS = ["Boscia", "SCIPSDP_oa", "SCIPSDP_bnb"]
 
+# Boscia exclusion-criterion variants (folder names) and their display labels.
+# These must match the merged CSV filenames produced by `merge_single_runs_to_csv.jl`.
+const BOSCIA_EXCLUSION_VARIANTS = [
+    ("exclusion_criterion", "Boscia (excl.)"),
+    ("exclusion_criterion_random", "Boscia (excl. random)"),
+    ("exclusion_criterion_tighter_tol", "Boscia (excl. tighter tol)"),
+    ("dual_exclusion_criterion", "Boscia (dual excl.)"),
+]
+
 # Solved = reached optimal (or gap limit) within time
 function is_solved(termination, time)
     t = termination isa String ? termination : string(termination)
@@ -90,13 +99,21 @@ function load_and_normalize_boscia(corr::Bool)
     return df
 end
 
-function load_and_normalize_boscia_exclusion(corr::Bool)
+function load_and_normalize_boscia_exclusion_variant(exclusion_folder::String, corr::Bool)
     type = corr ? "correlated" : "independent"
-    path = joinpath(BOSCIA_DIR, "boscia_exclusion_criterion_E_optimality_$(type)_merged.csv")
+    solver_label = "Boscia (excl.)"
+    for (f, lab) in BOSCIA_EXCLUSION_VARIANTS
+        if f == exclusion_folder
+            solver_label = lab
+            break
+        end
+    end
+
+    path = joinpath(BOSCIA_DIR, "boscia_$(exclusion_folder)_E_optimality_$(type)_merged.csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
     n = nrow(df)
-    df[!, :solver] = fill("Boscia (excl.)", n)
+    df[!, :solver] = fill(solver_label, n)
     df[!, :dimension] = df.numberOfExperiments
     df[!, :rel_gap] = coalesce.(df.rel_dual_gap, Inf)
     df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
@@ -156,7 +173,10 @@ function combined_table(corr::Bool)
     dfs = DataFrame[]
     for (label, loader) in [
         ("Boscia", () -> load_and_normalize_boscia(corr)),
-        ("Boscia (excl.)", () -> load_and_normalize_boscia_exclusion(corr)),
+        ("Boscia (excl.)", () -> load_and_normalize_boscia_exclusion_variant("exclusion_criterion", corr)),
+        ("Boscia (excl. random)", () -> load_and_normalize_boscia_exclusion_variant("exclusion_criterion_random", corr)),
+        ("Boscia (excl. tighter tol)", () -> load_and_normalize_boscia_exclusion_variant("exclusion_criterion_tighter_tol", corr)),
+        ("Boscia (dual excl.)", () -> load_and_normalize_boscia_exclusion_variant("dual_exclusion_criterion", corr)),
         ("SCIPSDP_oa", () -> load_and_normalize_scipsdp("oa", corr)),
         ("SCIPSDP_bnb", () -> load_and_normalize_scipsdp("bnb", corr)),
     ]
@@ -204,14 +224,21 @@ function load_and_normalize_boscia_agc(corr::Bool, connected::Bool)
     return df
 end
 
-function load_and_normalize_boscia_agc_exclusion(corr::Bool, connected::Bool)
+function load_and_normalize_boscia_agc_exclusion_variant(exclusion_folder::String, corr::Bool, connected::Bool)
     type = corr ? "correlated" : "independent"
     conn = connected ? "connected" : "disconnected"
-    path = joinpath(BOSCIA_DIR, "boscia_exclusion_criterion_AGC_optimality_$(type)_$(conn)_merged.csv")
+    solver_label = "Boscia (excl.)"
+    for (f, lab) in BOSCIA_EXCLUSION_VARIANTS
+        if f == exclusion_folder
+            solver_label = lab
+            break
+        end
+    end
+    path = joinpath(BOSCIA_DIR, "boscia_$(exclusion_folder)_AGC_optimality_$(type)_$(conn)_merged.csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
     n = nrow(df)
-    df[!, :solver] = fill("Boscia (excl.)", n)
+    df[!, :solver] = fill(solver_label, n)
     df[!, :dimension] = df.numberOfExperiments
     df[!, :rel_gap] = hasproperty(df, :rel_dual_gap) ? coalesce.(df.rel_dual_gap, Inf) : fill(Inf, n)
     df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
@@ -222,6 +249,10 @@ function load_and_normalize_boscia_agc_exclusion(corr::Bool, connected::Bool)
     df[!, :n_cuts_applied] = fill(0, n)
     df[!, :n_sdp_iters] = fill(0, n)
     return df
+end
+
+function load_and_normalize_boscia_agc_exclusion(corr::Bool, connected::Bool)
+    return load_and_normalize_boscia_agc_exclusion_variant("exclusion_criterion", corr, connected)
 end
 
 function load_and_normalize_scipsdp_agc(mode::String, corr::Bool, connected::Bool)
@@ -248,7 +279,10 @@ function combined_table_agc(corr::Bool, connected::Bool)
     dfs = DataFrame[]
     for (label, loader) in [
         ("Boscia", () -> load_and_normalize_boscia_agc(corr, connected)),
-        ("Boscia (excl.)", () -> load_and_normalize_boscia_agc_exclusion(corr, connected)),
+        ("Boscia (excl.)", () -> load_and_normalize_boscia_agc_exclusion_variant("exclusion_criterion", corr, connected)),
+        ("Boscia (excl. random)", () -> load_and_normalize_boscia_agc_exclusion_variant("exclusion_criterion_random", corr, connected)),
+        ("Boscia (excl. tighter tol)", () -> load_and_normalize_boscia_agc_exclusion_variant("exclusion_criterion_tighter_tol", corr, connected)),
+        ("Boscia (dual excl.)", () -> load_and_normalize_boscia_agc_exclusion_variant("dual_exclusion_criterion", corr, connected)),
         ("SCIPSDP_oa", () -> load_and_normalize_scipsdp_agc("oa", corr, connected)),
         ("SCIPSDP_bnb", () -> load_and_normalize_scipsdp_agc("bnb", corr, connected)),
     ]
@@ -283,7 +317,7 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
         # Averages over solved instances only; 0 when not applicable for that solver
         solved_idx = findall(solved)
         n_sol = length(solved_idx)
-        is_boscia_like = solver == "Boscia" || solver == "Boscia (excl.)" || solver in SMOOTHING_REGIMES
+        is_boscia_like = startswith(solver, "Boscia") || solver in SMOOTHING_REGIMES
         avg_lmo_calls = (is_boscia_like && n_sol > 0) ? round(sum(sdf.ncalls[solved_idx]) / n_sol; digits=2) : 0.0
         avg_nodes = n_sol > 0 ? round(sum(sdf.nodes[solved_idx]) / n_sol; digits=2) : 0.0
         avg_cuts = (solver == "SCIPSDP_oa" && n_sol > 0) ? round(sum(skipmissing(sdf.n_cuts_applied[solved_idx])) / n_sol; digits=2) : 0.0
