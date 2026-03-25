@@ -128,7 +128,12 @@ for k in ratio_para
                             n_random = option == "exclusion_criterion_random" ? 10 : 0,
                             start_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-4 : 1e-2,
                             min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6,
-                            use_base_graph = criterion == "ACST" ? option == "use_base_graph" : false)
+                            use_base_graph = criterion == "ACST" ? option == "use_base_graph" : false,
+                            use_BPCG = false,
+                            ls_secant = false,
+                            best_sol_by_original = option == "best_sol",
+                            resolve_integer_solution = option == "resolve_integer",
+                            )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
                         error("SCIP OA does not work with the $(criterion)-optimal problems!")
