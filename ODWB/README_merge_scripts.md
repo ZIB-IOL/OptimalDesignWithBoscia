@@ -195,6 +195,25 @@ julia merge_single_runs_to_csv.jl AGC
 
 If no arguments are provided, the script runs all relevant groups (`Boscia`, `BosciaExclusion`, `SCIPSDP`, `BosciaSmoothing`, `AGC`).
 
+### Quick end-to-end pipeline
+
+From `ODWB/`, a typical workflow is:
+
+```bash
+# 1) Merge many single-run CSVs into *_merged.csv files
+julia merge_single_runs_to_csv.jl
+
+# 2) Aggregate merged CSVs into compact summary CSVs
+julia aggregate_merged_by_group.jl
+julia aggregate_merged_by_group.jl --smoothing
+julia aggregate_merged_by_group.jl --agc
+
+# 3) Convert aggregated CSVs into LaTeX .tex tables
+julia aggregated_to_tex.jl
+julia aggregated_to_tex.jl --smoothing
+julia aggregated_to_tex.jl --agc
+```
+
 ---
 
 ## 2. `aggregate_merged_by_group.jl`
