@@ -38,6 +38,7 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
     data_dict, _ = data_I(n, seed)
     n = data_dict["num_nodes"]
     W = data_dict["adjacency_augment_graph"]
+    #W /= maximum(abs.(W))
     if build_spanning_tree
         augment_budget = n-1
     else
