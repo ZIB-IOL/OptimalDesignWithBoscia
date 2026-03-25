@@ -44,9 +44,6 @@ if option == "mu_testing"
 elseif criterion == "AGC"
     starts = [m/200]
     decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
-elseif criterion == "ACST"
-    starts = [m/100]
-    decays = corr ? n in [8, 9] ? [0.7] : [0.9] : [0.9]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -65,8 +62,12 @@ for k in ratio_para
         k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
     end
     if criterion == "ACST"
-        n = m 
-        global m = Int(n^2) 
+        # ENV["DIMENSION"] is the number of nodes n; m (edge count) is fixed after this block.
+        # `solve_opt` recomputes m = size(A,1) from the instance; keep m = n*(n-1)÷2 here so LMO matches K_n.
+        n = m
+        global m = Int(n * (n - 1) / 2)
+        global starts = [m / 25]
+        global decays = [0.9]
     end
     N = if criterion == "AGC"
         Int(floor(m/2))
@@ -89,14 +90,14 @@ for k in ratio_para
                 if decay != 1.0 && start == exp10(-200/m)
                     continue
                 end
-                min = if criterion == "AGC"
+                smoothing_min = if criterion == "AGC"
                    N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
                 elseif criterion == "ACST"
-                    exp10(-200/m)
+                    max(1e-4, exp10(-min(80, m) / max(m, 1)))
                 else
                    exp10(-20/m)
                 end
-                @show m, n, N, seed, decay, start, min
+                @show m, n, N, seed, decay, start, smoothing_min
                 try
                     if mode == "Boscia"
                         ODWB.solve_opt(
@@ -109,7 +110,7 @@ for k in ratio_para
                             N=N, 
                             smoothing_start=start,
                             smoothing_decay=decay,
-                            smoothing_min=min,#exp10(-200/m), exp10(-400/m) for AGC
+                            smoothing_min=smoothing_min,#exp10(-200/m), exp10(-400/m) for AGC
                             use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol", "dual_exclusion_criterion"], 
                             use_dual_exclusion_criterion=option == "dual_exclusion_criterion",
                             use_dual_tightening=option == "dual_exclusion_criterion",
