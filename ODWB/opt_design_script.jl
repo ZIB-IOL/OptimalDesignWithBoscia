@@ -16,8 +16,8 @@ criteria = ["E"] # "EF"
 data_types = ["IND", "CORR"]
 solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
 seeds = [0] #[1,2,3,4,5]
-options = ["dual_exclusion_criterion"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
-N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
+options = ["resolve_integer", "best_sol"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
+N_construct = ["rank_deficient", "one", "log"] #["one", "log", "rank_deficient"] 
 
 # Connectivity 
 #=
@@ -26,7 +26,7 @@ criteria = ["AGC"]
 data_types = ["IND"]
 solvers = ["Boscia"]
 seeds = [0]
-options = ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol"]
+options = ["resolve_integer", "best_sol"
 N_construct = ["one"] 
 =#
 # create instances
