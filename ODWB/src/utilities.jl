@@ -189,7 +189,7 @@ corresponds to a potential edge (i, j): row has a_i = 1, a_j = -1, and 0 elsewhe
 (the vector e_i - e_j). So adding a potential edge with weight x contributes
 x * (row' * row) to the graph Laplacian.
 """
-function potential_edges_incidence_matrix(n_nodes, potential_edges)
+function potential_edges_incidence_matrix(n_nodes, potential_edges; weights=ones(n_nodes, n_nodes))
     m = length(potential_edges)
     I = Int[]
     J = Int[]
@@ -200,7 +200,7 @@ function potential_edges_incidence_matrix(n_nodes, potential_edges)
     for (r, (i, j)) in enumerate(potential_edges)
         push!(I, r, r)
         push!(J, i, j)
-        push!(V, 1.0, -1.0)
+        push!(V, weights[i, j], -weights[i, j])
     end
     return SparseArrays.sparse(I, J, V, m, n_nodes)
 end
