@@ -363,8 +363,15 @@ Build the E-criterion and its smoothed version.
 """
 function build_e_criterion(A; L=nothing, tightened=false, N=Inf)
     m, n = size(A)
+    # FW line search may evaluate slightly outside [0,1]^m; that can make A'diag(x)A (and eigen) explode.
     function inf_matrix(x)
-        return L === nothing ? Symmetric(A' * diagm(x) * A) : Symmetric(L + A' * diagm(x) * A)
+        xv = Vector{Float64}(undef, m)
+        @inbounds for i in 1:m
+            t = x[i]
+            xv[i] = isfinite(t) ? clamp(t, 0.0, 1.0) : 0.0
+        end
+        D = LinearAlgebra.Diagonal(xv)
+        return L === nothing ? Symmetric(A' * D * A) : Symmetric(L + A' * D * A)
     end
 
     function f(x)
