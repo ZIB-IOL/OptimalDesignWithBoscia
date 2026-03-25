@@ -188,10 +188,25 @@ function solve_opt_scip_sdp(
     else
         A, C, N, ub, _ =  build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
-    f_check, _ = build_e_criterion(A, L=C, tightened=tightened)
-    feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
-    scaled_solution = feasible ? f_check(y) : Inf
+    if criterion == "ACST"
+        A, L, _ = data_ACST(n, seed, use_base_graph=use_base_graph)
+        m = size(A, 1)
+        n = size(A, 2)
+        L += ones(n, n)
+        ub = fill(1.0, m)
+        N = augment_budget == -1 ? n-1 : augment_budget
+        f_check, _ = build_e_criterion(A, L=L, tightened=tightened)
+        graph = Graphs.complete_graph(n)
+        lmo = Boscia.ManagedLMO(CO.SpanningTreeLMO(graph), fill(0.0, m), fill(1.0, m), collect(1:m), m)
+        feasible = Boscia.is_linear_feasible(lmo, y)
+        scaled_solution = feasible ? f_check(y) : Inf
+    else
+        f_check, _ = build_e_criterion(A, L=C, tightened=tightened)
+        feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
+        scaled_solution = feasible ? f_check(y) : Inf
+    end
     @show feasible, scaled_solution
+
 
     if boscia_solution !== nothing
         @show boscia_solution
