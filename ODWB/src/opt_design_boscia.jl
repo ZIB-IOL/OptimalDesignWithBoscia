@@ -107,7 +107,9 @@ function solve_opt(
         ub = fill(1.0, m)
         N = !isfinite(N) ? Int(floor(m/2)) : N
     elseif criterion == "ACST"
-        A, L = data_ACST(n, seed, use_base_graph=use_base_graph)
+        A, L, _ = data_ACST(n, seed, use_base_graph=use_base_graph)
+        m = size(A, 1)
+        n = size(A, 2)
         L += ones(n, n)
         ub = fill(1.0, m)
         N = augment_budget == -1 ? n-1 : augment_budget
@@ -157,12 +159,15 @@ function solve_opt(
         rounding_prob =0.3
         custom_heu = []
     else
+        @show n
         graph = Graphs.complete_graph(n)
         lmo = if criterion in ["ACST"] 
             Boscia.ManagedLMO(CO.SpanningTreeLMO(graph), fill(0.0, m), fill(1.0, m), collect(1:m), m)
         else 
             build_blmo(m, N, ub) 
         end
+        @show Boscia.check_feasibility(CO.SpanningTreeLMO(graph), fill(0.0, m),fill(1.0, m), collect(1:m), m)
+        @show Boscia.check_feasibility(lmo)
         custom_heu = []
         
         if use_follow_subgradient_heu || use_pipage_heu || use_sr_rounding_heu || use_fedorov_heu
@@ -240,7 +245,7 @@ function solve_opt(
         f, grad! = build_d_criterion(A, false, μ=1e-4, build_safe=false, long_run=long_runs)
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
-    elseif criterion in ["E","AGC"]
+    elseif criterion in ["E","AGC", "ACST"]
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N)
     elseif criterion == "EF"
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=C)
