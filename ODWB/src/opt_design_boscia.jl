@@ -168,8 +168,6 @@ function solve_opt(
         else 
             build_blmo(m, N, ub) 
         end
-        @show Boscia.check_feasibility(CO.SpanningTreeLMO(graph), fill(0.0, m),fill(1.0, m), collect(1:m), m)
-        @show Boscia.check_feasibility(lmo)
         custom_heu = []
         
         if use_follow_subgradient_heu || use_pipage_heu || use_sr_rounding_heu || use_fedorov_heu
