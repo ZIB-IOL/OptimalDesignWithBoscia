@@ -91,6 +91,8 @@ function solve_opt(
     n_random=10,
     augment_budget=-1,
     use_base_graph=false,
+    best_sol_by_original=false,
+    resolve_integer_solution=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -126,7 +128,7 @@ function solve_opt(
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
-            ls_secant = false
+            ls_secant = criterion == "ACST" ? ls_secant : false
         elseif !(criterion in ["D","DF"])
             use_shadow_set = true
         elseif !(criterion in ["A","AF"])
@@ -178,7 +180,7 @@ function solve_opt(
             probability_rounding_prob=0.0
             rounding_prob =0.0
         else
-            hyperplane_aware_rounding_prob = 0.8
+            hyperplane_aware_rounding_prob = criterion == "ACST" ? 0.0 : 0.8
             follow_gradient_prob=0.5
             follow_gradient_steps=n
             rounding_lmo_01_prob= criterion in ["E","EF","AGC"] ? 0.8 : 0.0
@@ -362,6 +364,8 @@ function solve_opt(
         settings.smoothing[:smoothing_decay] = smoothing_decay
         settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
+        settings.smoothing[:best_sol_by_original] = best_sol_by_original
+        settings.smoothing[:resolve_integer_solution] = resolve_integer_solution
 
         settings.frank_wolfe[:max_fw_iter] = 5000
         settings.frank_wolfe[:line_search] = line_search
@@ -509,6 +513,10 @@ function solve_opt(
 
         folder = if use_dual_exclusion_criterion
             "dual_exclusion_criterion"
+        elseif best_sol_by_original
+            "best_sol_by_original"
+        elseif resolve_integer_solution
+            "resolve_integer_solution"
         elseif use_exclusion_criterion && n_random > 0
             "exclusion_criterion_random"
         elseif use_exclusion_criterion && start_epsilon == 1e-4 && min_epsilon == 1e-7
