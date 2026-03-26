@@ -511,6 +511,10 @@ function solve_opt(
 
         folder = if use_dual_exclusion_criterion
             "dual_exclusion_criterion"
+        elseif !use_sub_grad_info
+            "no_sub_grad_info"
+        elseif best_sol_by_original && resolve_integer_solution
+            "best_sol_resolve_integer" 
         elseif best_sol_by_original
             "best_sol_by_original"
         elseif resolve_integer_solution
