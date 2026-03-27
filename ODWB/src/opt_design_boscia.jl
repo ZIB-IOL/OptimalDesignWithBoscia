@@ -513,6 +513,8 @@ function solve_opt(
             "dual_exclusion_criterion"
         elseif !use_sub_grad_info
             "no_sub_grad_info"
+        elseif use_sub_grad_info && !best_sol_by_original 
+            "sub_grad_info_no_best_sol"
         elseif best_sol_by_original && resolve_integer_solution
             "best_sol_resolve_integer" 
         elseif best_sol_by_original

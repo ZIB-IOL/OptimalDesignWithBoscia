@@ -132,7 +132,7 @@ for k in ratio_para
                             use_BPCG = false,
                             ls_secant = false,
                             best_sol_by_original = option in ["best_sol", "best_sol_resolve_integer"],
-                            resolve_integer_solution = option in ["resolve_integer", "best_sol_resolve_integer"],
+                            resolve_integer_solution = option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
                             use_sub_grad_info = option != "no_sub_grad_info",
                             )
                     elseif mode == "SCIP"
