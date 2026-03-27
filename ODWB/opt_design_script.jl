@@ -16,7 +16,7 @@ criteria = ["E"] # "EF"
 data_types = ["IND", "CORR"]
 solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
 seeds = [0] #[1,2,3,4,5]
-options = ["best_sol_resolve_integer", "no_sub_grad_info"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
+options = ["sub_grad_info_no_best_sol"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
 N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
 
 # Connectivity 
