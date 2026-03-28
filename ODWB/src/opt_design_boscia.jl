@@ -93,6 +93,7 @@ function solve_opt(
     use_base_graph=false,
     best_sol_by_original=false,
     resolve_integer_solution=false,
+    rank_based_pruning=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -128,7 +129,7 @@ function solve_opt(
             use_tightening = false
             use_shadow_set = false
             use_sub_grad_info = true
-            ls_secant = criterion == "ACST" ? ls_secant : false
+            ls_secant = ls_secant
         elseif !(criterion in ["D","DF"])
             use_shadow_set = true
         elseif !(criterion in ["A","AF"])
@@ -471,6 +472,8 @@ function solve_opt(
     total_fixed_to_zero = sum(values(fixed_to_zero))
     avg_fixed_to_one = nodes_with_tightening > 0 ? total_fixed_to_one / nodes_with_tightening : 0.0
     avg_fixed_to_zero = nodes_with_tightening > 0 ? total_fixed_to_zero / nodes_with_tightening : 0.0
+    total_pruned_nodes = sum(values(number_pruned_nodes))
+    avg_pruned_nodes = processed_pruning_nodes > 0 ? total_pruned_nodes / processed_pruning_nodes : 0.0
 
     if write
         #=folder = if long_runs
@@ -509,7 +512,9 @@ function solve_opt(
             ""
         end =#
 
-        folder = if use_dual_exclusion_criterion
+        folder = if rank_based_pruning
+        "rank_based_pruning"
+        elseif use_dual_exclusion_criterion
             "dual_exclusion_criterion"
         elseif !use_sub_grad_info
             "no_sub_grad_info"
@@ -589,6 +594,7 @@ function solve_opt(
             solution_source=String(result[:solution_source]),
             avg_fixed_to_one=avg_fixed_to_one,
             avg_fixed_to_zero=avg_fixed_to_zero,
+            avg_pruned_nodes=avg_pruned_nodes,
         )
         file_name = joinpath(@__DIR__, "../csv/Boscia/boscia_" * folder * "_" * criterion * scaled * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv" )
         if !isfile(file_name) 

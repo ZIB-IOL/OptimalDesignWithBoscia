@@ -111,7 +111,7 @@ for k in ratio_para
                             smoothing_start=start,
                             smoothing_decay=decay,
                             smoothing_min=smoothing_min,#exp10(-200/m), exp10(-400/m) for AGC
-                            use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol", "dual_exclusion_criterion"], 
+                            use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol", "dual_exclusion_criterion", "rank_based_pruning"], 
                             use_dual_exclusion_criterion=option == "dual_exclusion_criterion",
                             use_dual_tightening=option == "dual_exclusion_criterion",
                             use_heuristics=option == "all_heuristics", 
@@ -130,10 +130,11 @@ for k in ratio_para
                             min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6,
                             use_base_graph = criterion == "ACST" ? option == "use_base_graph" : false,
                             use_BPCG = false,
-                            ls_secant = false,
+                            ls_secant = criterion == "ACST" ? true : false,
                             best_sol_by_original = option in ["best_sol", "best_sol_resolve_integer"],
                             resolve_integer_solution = option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
                             use_sub_grad_info = option != "no_sub_grad_info",
+                            rank_based_pruning = option == "rank_based_pruning",
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
