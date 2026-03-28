@@ -273,26 +273,38 @@ function solve_opt(
     end
     fixed_to_one = Dict{Int, Int}()
     fixed_to_zero = Dict{Int, Int}()
-    processed_tightening_nodes = Ref(0)
-    if (use_exclusion_criterion || use_dual_exclusion_criterion) && criterion in ["E", "EF", "AGC"]
-        #branch_callback = build_exclusion_branch_callback(A, N, f, sub_grad!)
-        if use_dual_exclusion_criterion
-            branch_callback = build_dual_branch_callback(
-                A,
-                N,
-                f,
-                sub_grad!,
-                L=L,
-                tightened=use_dual_tightening,
-                tighted_to_one=fixed_to_one,
-                tighted_to_zero=fixed_to_zero,
-                processed_tightening_nodes=processed_tightening_nodes,
-            )
-        else
-            branch_callback = build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=L, n_random=n_random)
-        end
+    processed_tightening_nodes = 0
+    number_pruned_nodes = Dict{Int, Int}()
+    processed_pruning_nodes = 0
+    if use_dual_exclusion_criterion && criterion in ["E", "EF", "AGC"]
+        branch_callback = build_dual_branch_callback(
+            A,
+            N,
+            f,
+            sub_grad!,
+            L=L,
+            tightened=use_dual_tightening,
+            tighted_to_one=fixed_to_one,
+            tighted_to_zero=fixed_to_zero,
+            processed_tightening_nodes=processed_tightening_nodes,
+        )
     else
-        branch_callback = nothing
+        tightening = use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
+        branch_callback = build_branch_callback_mem(
+            A, 
+            N, 
+            f, 
+            sub_grad!; 
+            L=L, 
+            n_random=n_random, 
+            tightening=tightening, 
+            tighted_to_one=fixed_to_one, 
+            tighted_to_zero=fixed_to_zero, 
+            processed_tightening_nodes=processed_tightening_nodes,
+            number_pruned_nodes=number_pruned_nodes,
+            processed_pruning_nodes=processed_pruning_nodes,
+            rank_based_pruning=rank_based_pruning,
+        )
     end
 
     function bnb_callback(tree, node; worse_than_incumbent=false, node_infeasible=false, lb_update=false)

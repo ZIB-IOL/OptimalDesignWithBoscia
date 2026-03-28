@@ -315,34 +315,9 @@ function pick_Z_minimizing_t(A, U, fixed_mask::AbstractVector{Bool}, N_star::Int
     return Zbest, tbest
 end
 
-"""
-    build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=nothing)
-
-Memory-optimized variant of `build_tightened_branch_callback` that yields the same
-branching tightenings (same `t`, same `Z`, same `α`, `β`, same UB comparisons),
-but reduces allocations by:
-- reusing buffers across callback invocations,
-- using `Diagonal(y)` instead of `diagm(y)`,
-- avoiding `setdiff`/`fixed` arrays via a boolean mask,
-- using `partialsort!` to select the `N_star`-th smallest value among free vars,
-- building `Z = sum_{j=1}^{mult} v_j v_j^T` via rank-1 updates into a single matrix.
-"""
-function build_tightened_branch_callback_mem(
-    A,
-    N,
-    f,
-    sub_grad!;
-    L=nothing,
-    print_fixings::Bool=false,
-    n_random::Int=10,
-)
+function tightening_from_dual(tree, node, vdix, A, L, fixed_mask, N, N_star, l, u,n_random; tighted_to_one=Dict{Int, Int}(), tighted_to_zero=Dict{Int, Int}())
     m, n = size(A)
-    T = eltype(A)
-
-    l = zeros(T, m)
-    u = ones(T, m)
-    fixed_mask = falses(m)
-
+    T = eltype(A) 
     v_all = zeros(T, m)
     v_free = zeros(T, m) # used as workspace; only first free_count entries are valid
 
@@ -355,7 +330,142 @@ function build_tightened_branch_callback_mem(
     # Preallocated buffers for printing which variables were newly fixed in a callback call.
     # We store indices in a dense vector and track a count to avoid repeated allocations.
     fixed_to_zero = Vector{Int}(undef, m)
-    fixed_to_one = Vector{Int}(undef, m)
+    fixed_to_one = Vector{Int}(undef, m) 
+    # generate dual Z
+    y = node.active_set.x
+    Y = L === nothing ? (A' * Diagonal(y) * A) : (L + A' * Diagonal(y) * A)
+    λ, V = eigen(Y)
+    if !isreal(λ[1])
+        return 
+    end
+    λ_min = minimum(λ)
+    tolerance = max(1e-10 * abs(λ_min), 1e-10)
+    mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
+
+    if n_random > 0
+        Zsym, _ = pick_Z_minimizing_t(A, V[:, 1:mult], fixed_mask, N_star; n_random=n_random)
+        Zsym = Symmetric(Zsym)
+    else
+         #Z = sum_{j=1}^{mult} V[:,j] * V[:,j]' , normalized to tr(Z)=1
+        fill!(Zmat, zero(T))
+        @inbounds for j in 1:mult
+            vj = view(V, :, j)
+            LinearAlgebra.BLAS.ger!(one(T), vj, vj, Zmat)
+        end
+        trZ = zero(T)
+        @inbounds for i in 1:n
+            trZ += Zmat[i, i]
+        end
+        Zmat ./= trZ
+        Zsym = Symmetric(Zmat)
+    end
+
+    # compute v_i = a_i' Z a_i for all i, and collect free ones for selecting t
+    free_count = 0
+    @inbounds for i in 1:m
+        ai = view(A, i, :)
+        mul!(tmp_qf, Zsym, ai)
+        vi = LinearAlgebra.dot(ai, tmp_qf)
+        v_all[i] = vi
+        if !fixed_mask[i]
+            free_count += 1
+            v_free[free_count] = vi
+        end
+    end
+
+    # pick dual t (only for free variables): t = N_star-th smallest among free vars
+    v_free_view = view(v_free, 1:free_count)
+    partialsort!(v_free_view, N_star)
+    t = v_free_view[N_star]
+
+    # compute α and β without broadcasting allocations
+    @inbounds for i in 1:m
+        vi = v_all[i]
+        if t > vi
+            α[i] = t - vi
+            β[i] = zero(T)
+        elseif vi > t
+            α[i] = zero(T)
+            β[i] = vi - t
+        else
+            α[i] = zero(T)
+            β[i] = zero(T)
+        end
+    end
+
+    UB = if L === nothing
+        t * N - LinearAlgebra.dot(α, l) + LinearAlgebra.dot(β, u)
+    else
+        t * N - LinearAlgebra.dot(α, l) + LinearAlgebra.dot(β, u) + LinearAlgebra.dot(Zsym, L)
+    end
+    @assert UB > λ_min " UB: $(UB) λ_min: $(λ_min)"
+    if UB < -tree.incumbent
+        return 
+    end
+
+    zc = 0
+    oc = 0
+    for i in 1:m
+        if fixed_mask[i] || i == vdix
+            continue
+        end
+        right_bound = UB - α[i]
+        left_bound = UB - β[i]
+        if right_bound <= -tree.incumbent
+            push!(node.local_bounds.upper_bounds, (i => 0.0))
+            zc += 1
+            fixed_to_zero[zc] = i
+        elseif left_bound <= -tree.incumbent
+            push!(node.local_bounds.lower_bounds, (i => 1.0))
+            oc += 1
+            fixed_to_one[oc] = i
+        end
+    end
+
+    if zc > 0 || oc > 0
+        fixed_to_zero_view = view(fixed_to_zero, 1:zc)
+        fixed_to_one_view = view(fixed_to_one, 1:oc)
+        @show fixed_to_zero_view
+        @show fixed_to_one_view
+        zc > 0 ? push!(tighted_to_zero, node.id => zc) : nothing
+        oc > 0 ? push!(tighted_to_one, node.id => oc) : nothing
+    end
+end
+
+"""
+    build_tightened_branch_callback_mem(A, N, f, sub_grad!; L=nothing)
+
+Memory-optimized variant of `build_tightened_branch_callback` that yields the same
+branching tightenings (same `t`, same `Z`, same `α`, `β`, same UB comparisons),
+but reduces allocations by:
+- reusing buffers across callback invocations,
+- using `Diagonal(y)` instead of `diagm(y)`,
+- avoiding `setdiff`/`fixed` arrays via a boolean mask,
+- using `partialsort!` to select the `N_star`-th smallest value among free vars,
+- building `Z = sum_{j=1}^{mult} v_j v_j^T` via rank-1 updates into a single matrix.
+"""
+function build_branch_callback_mem(
+    A,
+    N,
+    f,
+    sub_grad!;
+    L=nothing,
+    print_fixings::Bool=false,
+    n_random::Int=10,
+    tightening=false,
+    tighted_to_one=Dict{Int, Int}(),
+    tighted_to_zero=Dict{Int, Int}(),
+    processed_tightening_nodes=0,
+    number_pruned_nodes=Dict{Int, Int}(),
+    processed_pruning_nodes=0,
+    rank_based_pruning=false,
+)
+    m, n = size(A)
+    T = eltype(A)
+
+    l = zeros(T, m)
+    u = ones(T, m)
+    fixed_mask = falses(m)
 
     return function branch_callback(tree, node, vdix)
         if node.depth > m
@@ -366,6 +476,7 @@ function build_tightened_branch_callback_mem(
         fill!(u, one(T))
         fill!(fixed_mask, false)
         N_star = Int(N)
+        M_0 = L === nothing ? zeros(T, n, n) : copy(L)
 
         # collecting current fixings
         int_vars = tree.root.problem.integer_variables
@@ -373,6 +484,9 @@ function build_tightened_branch_callback_mem(
             local_ub = get(node.local_bounds.upper_bounds, i, Inf)
             local_lb = get(node.local_bounds.lower_bounds, i, -Inf)
             l[i] = isfinite(local_lb) ? local_lb : zero(T)
+            if isfinite(local_lb)
+                M_0 += A[i, :] * l[i] * A[i, :]'
+            end
             u[i] = isfinite(local_ub) ? local_ub : one(T)
             if isfinite(local_lb) || isfinite(local_ub)
                 fixed_mask[i] = true
@@ -380,105 +494,26 @@ function build_tightened_branch_callback_mem(
             N_star = isfinite(local_lb) ? (N_star - 1) : N_star
         end
 
-        # generate dual Z
-        y = node.active_set.x
-        Y = L === nothing ? (A' * Diagonal(y) * A) : (L + A' * Diagonal(y) * A)
-        λ, V = eigen(Y)
-        if !isreal(λ[1])
-            return false, false
-        end
-        λ_min = minimum(λ)
-        tolerance = max(1e-10 * abs(λ_min), 1e-10)
-        mult = count(λ_i -> abs(λ_i - λ_min) <= tolerance, λ)
-
-        if n_random > 0
-            Zsym, _ = pick_Z_minimizing_t(A, V[:, 1:mult], fixed_mask, N_star; n_random=n_random)
-            Zsym = Symmetric(Zsym)
-        else
-             #Z = sum_{j=1}^{mult} V[:,j] * V[:,j]' , normalized to tr(Z)=1
-            fill!(Zmat, zero(T))
-            @inbounds for j in 1:mult
-                vj = view(V, :, j)
-                LinearAlgebra.BLAS.ger!(one(T), vj, vj, Zmat)
-            end
-            trZ = zero(T)
-            @inbounds for i in 1:n
-                trZ += Zmat[i, i]
-            end
-            Zmat ./= trZ
-            Zsym = Symmetric(Zmat)
-        end
-
-        # compute v_i = a_i' Z a_i for all i, and collect free ones for selecting t
-        free_count = 0
-        @inbounds for i in 1:m
-            ai = view(A, i, :)
-            mul!(tmp_qf, Zsym, ai)
-            vi = LinearAlgebra.dot(ai, tmp_qf)
-            v_all[i] = vi
-            if !fixed_mask[i]
-                free_count += 1
-                v_free[free_count] = vi
-            end
-        end
-
-        # pick dual t (only for free variables): t = N_star-th smallest among free vars
-        v_free_view = view(v_free, 1:free_count)
-        partialsort!(v_free_view, N_star)
-        t = v_free_view[N_star]
-
-        # compute α and β without broadcasting allocations
-        @inbounds for i in 1:m
-            vi = v_all[i]
-            if t > vi
-                α[i] = t - vi
-                β[i] = zero(T)
-            elseif vi > t
-                α[i] = zero(T)
-                β[i] = vi - t
-            else
-                α[i] = zero(T)
-                β[i] = zero(T)
-            end
-        end
-
-        UB = if L === nothing
-            t * N - LinearAlgebra.dot(α, l) + LinearAlgebra.dot(β, u)
-        else
-            t * N - LinearAlgebra.dot(α, l) + LinearAlgebra.dot(β, u) + LinearAlgebra.dot(Zsym, L)
-        end
-        @assert UB > λ_min " UB: $(UB) λ_min: $(λ_min)"
-        if UB < -tree.incumbent
-            return false, false
-        end
-
         prune_left = false
         prune_right = false
-
-        zc = 0
-        oc = 0
-        for i in int_vars
-            if fixed_mask[i] || i == vdix
-                continue
-            end
-            right_bound = UB - α[i]
-            left_bound = UB - β[i]
-            if right_bound <= -tree.incumbent
-                push!(node.local_bounds.upper_bounds, (i => 0.0))
-                zc += 1
-                fixed_to_zero[zc] = i
-            elseif left_bound <= -tree.incumbent
-                push!(node.local_bounds.lower_bounds, (i => 1.0))
-                oc += 1
-                fixed_to_one[oc] = i
+        if node.depth > Int(N) && rank_based_pruning
+            free_indices = findall(x -> x == false, fixed_mask)
+            V_i = A[vdix, :] * A[vdix, :]'
+            A_free = A[free_indices, :] * A[free_indices, :]'
+            local_rank_l = rank(M_0) + min(N_star, rank(A_free) - rank(V_i))
+            local_rank_u = rank(M_0) + min(N_star - 1, rank(A_free))
+            prune_left = local_rank_l < n
+            prune_right = local_rank_u < n
+            if prune_left || prune_right
+                @show n, rank(M_0), rank(A_free), N_star, local_rank_l, local_rank_u, prune_left, prune_right
+                push!(number_pruned_nodes, node.id => prune_left + prune_right)
+                processed_pruning_nodes += 1
             end
         end
 
-        if print_fixings && (zc > 0 || oc > 0)
-            fixed_to_zero_view = view(fixed_to_zero, 1:zc)
-            fixed_to_one_view = view(fixed_to_one, 1:oc)
-            @show fixed_to_zero_view
-            @show fixed_to_one_view
+        if node.depth < m
+            processed_tightening_nodes += 1
+            tightening_from_dual(tree, node, vdix, A, L, fixed_mask, N, N_star, l, u, n_random, tighted_to_one=tighted_to_one, tighted_to_zero=tighted_to_zero)
         end
 
         return prune_left, prune_right
