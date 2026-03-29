@@ -511,7 +511,7 @@ function build_branch_callback_mem(
             end
         end
 
-        if node.depth < m
+        if node.depth < m && tightening
             processed_tightening_nodes += 1
             tightening_from_dual(tree, node, vdix, A, L, fixed_mask, N, N_star, l, u, n_random, tighted_to_one=tighted_to_one, tighted_to_zero=tighted_to_zero)
         end
