@@ -66,7 +66,7 @@ for k in ratio_para
         # `solve_opt` recomputes m = size(A,1) from the instance; keep m = n*(n-1)÷2 here so LMO matches K_n.
         n = m
         global m = Int(n * (n - 1) / 2)
-        global starts = [m / 25]
+        global starts = [n / 25]
         global decays = [0.9]
     end
     N = if criterion == "AGC"
@@ -129,10 +129,10 @@ for k in ratio_para
                             start_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-4 : 1e-2,
                             min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6,
                             use_base_graph = criterion == "ACST" ? option == "use_base_graph" : false,
-                            use_BPCG = false,
+                            use_BPCG = criterion == "ACST" ? true : false,
                             ls_secant = criterion == "ACST" ? true : false,
                             best_sol_by_original = option in ["best_sol", "best_sol_resolve_integer"],
-                            resolve_integer_solution = option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
+                            resolve_integer_solution = true, #option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
                             use_sub_grad_info = option != "no_sub_grad_info",
                             rank_based_pruning = option == "rank_based_pruning",
                             )
@@ -163,7 +163,9 @@ for k in ratio_para
                             scip_sdp_mode=solving_mode,
                             connected = criterion == "AGC" ? corr : true,
                             tightened = option == "tightened",
-                            scale = option == "tightened_scaled" ? 0.5 : Inf) #scip_sdp_mode=option == "oa" ? :oa : :bnb
+                            scale = option == "tightened_scaled" ? 0.5 : Inf,
+                            presolve= criterion == "ACST" ? false : true,
+                            symmetry= criterion == "ACST" ? true : true) #scip_sdp_mode=option == "oa" ? :oa : :bnb
                     elseif mode == "Pajarito"
                         ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
                     elseif mode == "Custom"
