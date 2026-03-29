@@ -94,6 +94,7 @@ function solve_opt(
     best_sol_by_original=false,
     resolve_integer_solution=false,
     rank_based_pruning=false,
+    relative_gap_tolerance=1e-2,
 )
     type = corr ? "correlated" : "independent"
     
@@ -110,7 +111,7 @@ function solve_opt(
         ub = fill(1.0, m)
         N = !isfinite(N) ? Int(floor(m/2)) : N
     elseif criterion == "ACST"
-        A, L, _ = data_ACST(n, seed, use_base_graph=use_base_graph)
+        A, L, _, _ = data_ACST(n, seed, use_base_graph=use_base_graph)
         m = size(A, 1)
         n = size(A, 2)
         L += ones(n, n)
@@ -290,6 +291,7 @@ function solve_opt(
         )
     else
         tightening = use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
+        @show tightening
         branch_callback = build_branch_callback_mem(
             A, 
             N, 
@@ -363,7 +365,7 @@ function solve_opt(
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
 
-        settings.tolerances[:rel_dual_gap] = 1e-2
+        settings.tolerances[:rel_dual_gap] = relative_gap_tolerance
         settings.tolerances[:dual_gap] = N < n ? 1e-4 : 1e-6
         settings.tolerances[:fw_epsilon] = start_epsilon
         settings.tolerances[:min_node_fw_epsilon] = min_epsilon
@@ -528,16 +530,16 @@ function solve_opt(
         "rank_based_pruning"
         elseif use_dual_exclusion_criterion
             "dual_exclusion_criterion"
-        elseif !use_sub_grad_info
-            "no_sub_grad_info"
-        elseif use_sub_grad_info && !best_sol_by_original 
-            "sub_grad_info_no_best_sol"
-        elseif best_sol_by_original && resolve_integer_solution
-            "best_sol_resolve_integer" 
-        elseif best_sol_by_original
-            "best_sol_by_original"
-        elseif resolve_integer_solution
-            "resolve_integer_solution"
+        #elseif !use_sub_grad_info
+        #    "no_sub_grad_info"
+        #elseif use_sub_grad_info && !best_sol_by_original 
+         #   "sub_grad_info_no_best_sol"
+       # elseif best_sol_by_original && resolve_integer_solution
+       #     "best_sol_resolve_integer" 
+      #  elseif best_sol_by_original
+       #     "best_sol_by_original"
+       # elseif resolve_integer_solution
+       #     "resolve_integer_solution"
         elseif use_exclusion_criterion && n_random > 0
             "exclusion_criterion_random"
         elseif use_exclusion_criterion && start_epsilon == 1e-4 && min_epsilon == 1e-7
