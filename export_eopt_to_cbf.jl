@@ -159,7 +159,7 @@ function export_acst_cbfs(;
             continue
         end
         m_dummy = Int(n_nodes * (n_nodes - 1) / 2)
-        model = ODWB.algebraic_connectivity_model(
+        model, _, _ = ODWB.algebraic_connectivity_model(
             instance,
             m_dummy,
             n_nodes;
