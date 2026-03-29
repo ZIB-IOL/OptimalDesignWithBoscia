@@ -9,6 +9,12 @@ Build aggregated CSVs combining solvers per data type.
 - Metrics: geometric mean of time, std w.r.t. geom mean, n_solved, pct_solved, rel_gap geom (unsolved),
   failed_instances, avg_lmo_calls, avg_nodes, etc.
 
+E-optimality and AGC are minimizations on `scaled_solution`. After merging solvers on the same instance,
+if a solver reports OPTIMAL (or OPTIMALITY_PROVED) but its `scaled_solution` is strictly worse than the
+best finite value among all solvers on that instance (within a primal tolerance), we treat that run as not
+solved: `time` is set to TIME_LIMIT so geometric mean times are not skewed by a fast wrong certificate, and
+`solved` is recomputed from `(termination, time)`.
+
 Run after merge_single_runs_to_csv.jl. Reads merged CSVs from csv/Boscia and csv/SCIPSDP.
 =#
 
@@ -32,10 +38,57 @@ const BOSCIA_EXCLUSION_VARIANTS = [
     ("dual_exclusion_criterion", "Boscia (dual excl.)"),
 ]
 
+# Terminations that claim a globally optimal solution (used for cross-solver primal check)
+const OPTIMAL_CLAIM_TERMINATIONS = ("OPTIMAL", "OPTIMALITY_PROVED")
+
 # Solved = reached optimal (or gap limit) within time
 function is_solved(termination, time)
     t = termination isa String ? termination : string(termination)
     return t in ("OPTIMAL", "GAPLIMIT", "OPTIMALITY_PROVED") && (time isa Number && time < TIME_LIMIT)
+end
+
+function primal_scaled_tol(a, b)
+    max(1e-5, 1e-4 * max(abs(a), abs(b), 1e-12))
+end
+
+"""
+For minimization: among finite `scaled_solution` values on the same instance, `best` is the minimum.
+A row that claims OPTIMAL but has `scaled_solution > best + tol` is inconsistent with another solver's
+feasible point; set `time` to TIME_LIMIT and refresh `solved`.
+Returns the number of rows adjusted.
+"""
+function apply_cross_solver_primal_min_check!(df::DataFrame)::Int
+    hasproperty(df, :scaled_solution) || return 0
+    keys = [:seed, :dimension, :N, :numberOfParameters]
+    all(hasproperty(df, k) for k in keys) || return 0
+    n_adj = 0
+    g = groupby(df, keys)
+    for sub in g
+        pi = parentindices(sub)[1]::AbstractVector{<:Integer}
+        best = Inf
+        for idx in pi
+            v = df[idx, :scaled_solution]
+            if v isa Number && isfinite(v)
+                best = min(best, v)
+            end
+        end
+        best == Inf && continue
+        for idx in pi
+            term = string(df[idx, :termination])
+            term in OPTIMAL_CLAIM_TERMINATIONS || continue
+            v = df[idx, :scaled_solution]
+            (v isa Number && isfinite(v)) || continue
+            tol = primal_scaled_tol(best, v)
+            if v > best + tol
+                df[idx, :time] = Float64(TIME_LIMIT)
+                n_adj += 1
+            end
+        end
+    end
+    if n_adj > 0
+        df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    end
+    return n_adj
 end
 
 # Placeholder row from merge script (missing run)
@@ -169,7 +222,7 @@ function load_and_normalize_scipsdp(mode::String, corr::Bool)
     return df
 end
 
-function combined_table(corr::Bool)
+function combined_table(corr::Bool; verbose::Bool=false)
     dfs = DataFrame[]
     for (label, loader) in [
         ("Boscia", () -> load_and_normalize_boscia(corr)),
@@ -185,9 +238,17 @@ function combined_table(corr::Bool)
         push!(dfs, df)
     end
     isempty(dfs) && return nothing
-    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
     available = [n for n in common if all(hasproperty(d, n) for d in dfs)]
-    return vcat([df[:, available] for df in dfs]...)
+    df = vcat([df[:, available] for df in dfs]...)
+    nfix = apply_cross_solver_primal_min_check!(df)
+    if verbose && nfix > 0
+        println("  Cross-solver primal check (min scaled_solution): adjusted $nfix rows (time → $(TIME_LIMIT)s, solved recomputed).")
+    end
+    if hasproperty(df, :scaled_solution)
+        select!(df, Not(:scaled_solution))
+    end
+    return df
 end
 
 function combined_table_smoothing(corr::Bool)
@@ -275,7 +336,7 @@ function load_and_normalize_scipsdp_agc(mode::String, corr::Bool, connected::Boo
     return df
 end
 
-function combined_table_agc(corr::Bool, connected::Bool)
+function combined_table_agc(corr::Bool, connected::Bool; verbose::Bool=false)
     dfs = DataFrame[]
     for (label, loader) in [
         ("Boscia", () -> load_and_normalize_boscia_agc(corr, connected)),
@@ -291,9 +352,17 @@ function combined_table_agc(corr::Bool, connected::Bool)
         push!(dfs, df)
     end
     isempty(dfs) && return nothing
-    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
     available = [n for n in common if all(hasproperty(d, n) for d in dfs)]
-    return vcat([df[:, available] for df in dfs]...)
+    df = vcat([df[:, available] for df in dfs]...)
+    nfix = apply_cross_solver_primal_min_check!(df)
+    if verbose && nfix > 0
+        println("  Cross-solver primal check (min scaled_solution): adjusted $nfix rows (time → $(TIME_LIMIT)s, solved recomputed).")
+    end
+    if hasproperty(df, :scaled_solution)
+        select!(df, Not(:scaled_solution))
+    end
+    return df
 end
 
 function aggregate_by(df::DataFrame, group_col::Symbol)
@@ -362,13 +431,13 @@ function run_aggregation(; out_dir=nothing, smoothing=false, verbose=true)
     end
     for corr in (false, true)
         data_type = corr ? "correlated" : "independent"
-        df = smoothing ? combined_table_smoothing(corr) : combined_table(corr)
+        verbose && println("\n--- $(prefix)$data_type ---")
+        df = smoothing ? combined_table_smoothing(corr) : combined_table(corr; verbose)
         if df === nothing
-            verbose && println("No data for $(prefix)$data_type, skipping.")
+            verbose && println("  No data, skipping.")
             continue
         end
         if verbose
-            println("\n--- $(prefix)$data_type ---")
             println("  Combined rows: $(nrow(df)), solvers/regimes: $(unique(df.solver))")
         end
         by_dim = aggregate_by(df, :dimension)
@@ -404,13 +473,13 @@ function run_aggregation_agc(; out_dir=nothing, verbose=true)
         (false, false, "independent_disconnected"),
     ]
     for (corr, connected, tag) in setups
-        df = combined_table_agc(corr, connected)
+        verbose && println("\n--- agc_$tag ---")
+        df = combined_table_agc(corr, connected; verbose)
         if df === nothing
-            verbose && println("No AGC data for $tag, skipping.")
+            verbose && println("  No AGC data, skipping.")
             continue
         end
         if verbose
-            println("\n--- agc_$tag ---")
             println("  Combined rows: $(nrow(df)), solvers: $(unique(df.solver))")
         end
         by_dim = aggregate_by(df, :dimension)
