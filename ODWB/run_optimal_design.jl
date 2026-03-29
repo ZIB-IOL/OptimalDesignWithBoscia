@@ -135,6 +135,7 @@ for k in ratio_para
                             resolve_integer_solution = true, #option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
                             use_sub_grad_info = option != "no_sub_grad_info",
                             rank_based_pruning = option == "rank_based_pruning",
+                            relative_gap_tolerance = 5e-2,
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
@@ -164,6 +165,8 @@ for k in ratio_para
                             connected = criterion == "AGC" ? corr : true,
                             tightened = option == "tightened",
                             scale = option == "tightened_scaled" ? 0.5 : Inf,
+                            gap= N < n ? 1e-4 : 1e-6,
+                            rel_gap=5e-2,
                             presolve= criterion == "ACST" ? false : true,
                             symmetry= criterion == "ACST" ? true : true) #scip_sdp_mode=option == "oa" ? :oa : :bnb
                     elseif mode == "Pajarito"
