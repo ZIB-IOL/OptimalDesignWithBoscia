@@ -36,7 +36,7 @@ option = ENV["OPTION"]
 N_construct = ENV["N"]
 ratio_para = criterion in ["E", "EF", "AGC", "ACST"] ? [1] : [4,10]
 time_limit = 3600 # one hour time limit
-seeds = seed == 0 ? collect(1:5) : [seed]
+seeds = seed == 0 ? criterion == "ACST" ? collect(1:3) : collect(1:5) : [seed]
 
 if option == "mu_testing"
     starts = [m/50, exp10(-200/m)]
