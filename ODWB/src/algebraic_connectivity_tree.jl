@@ -27,7 +27,7 @@ function data_ACST(num_nodes::Int, instance::Int; use_base_graph=false)
     end
     A = potential_edges_incidence_matrix(num_nodes, potential_edges; weights=W)
     @show size(A), size(L), num_present_edges
-    return A, L, num_present_edges
+    return A, L, num_present_edges, potential_edges
 end
 
 """
@@ -46,6 +46,7 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
             error("Provide the augment_budget keyword to build a general graph")
         end
     end
+    @show augment_budget
     # we add the weight of the existing graph to the one to augment since the x_ij
     # of existing edges will be set to 1
     if use_base_graph
@@ -54,16 +55,16 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
     end
     @assert issymmetric(W)
     
-    m = Model()
-    @variable(m, gamma)
-    @variable(m, x[i=1:n,j=1:n], Bin)
-    @constraint(m, x .== x')
+    model = Model()
+    @variable(model, gamma)
+    @variable(model, x[i=1:n,j=1:n], Bin)
+    @constraint(model, x .== x')
     # W in the article, renamed here to avoid confusion with the weights
-    @variable(m, Y[1:n,1:n] in PSDCone())
-    @constraint(m, [i=1:n],
+    @variable(model, Y[1:n,1:n] in PSDCone())
+    @constraint(model, [i=1:n],
         Y[i,i] == dot(W[i,:], x[i,:]) - gamma * (n-1) / n
     )
-    @constraint(m, [i=1:n,j=1:n],
+    @constraint(model, [i=1:n,j=1:n],
         Y[i,j] == -W[i,j]*x[i,j] + gamma / n,
     )
     # spanning tree constraint
@@ -79,11 +80,17 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
                 end
             end
         end
-        @constraint(m, sum(x) == augment_budget + num_forced_edges)
+        @constraint(model, sum(x[i,j] for i in 1:n for j in i:n) == augment_budget + num_forced_edges)
     else
-        @constraint(m, sum(x) == augment_budget)
+        @constraint(model, sum(x[i,j] for i in 1:n for j in i:n) == augment_budget)
     end
-    @objective(m, Max, gamma)
-    return m
+    # each node must have at least one edge
+    #for i in 1:n 
+    #    @constraint(m, sum(x[i,:]) >= 1)
+    #end
+    #println("Built model")
+    #println(m)
+    @objective(model, Max, gamma)
+    return model, gamma, x
 end
 
