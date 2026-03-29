@@ -119,6 +119,8 @@ const _SCIP_STATUS_TO_MOI = Dict(
     SCIP.SCIP_STATUS_GAPLIMIT => MOI.OPTIMAL,
 )
 
+# SCIP SDP on mac: /Users/deborah/SCIP-SDP/build
+
 function solve_opt_scip_sdp(
     seed, 
     m, 
@@ -141,6 +143,8 @@ function solve_opt_scip_sdp(
     scale=Inf,
     augment_budget=-1,
     use_base_graph=false,
+    presolve=true,
+    symmetry=true,
     )
     if !(criterion in ["E", "EF", "AGC","ACST"])
         error("SCIP SDP can currently only handle E-optimal, EF-optimal, AGC and ACST problems")
@@ -158,9 +162,9 @@ function solve_opt_scip_sdp(
     _export_model_to_cbf(model, cbf_path)
     # Precompile: 10s run to trigger JIT and avoid large first-run compile (same pattern as other solvers)
     gap = N < n ? 1e-4 : gap
-    SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit=10, gap=rel_gap, absgap=gap, verbose=false, sdp_mode=scip_sdp_mode)
+    SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit=10, gap=rel_gap, absgap=gap, verbose=false, sdp_mode=scip_sdp_mode, presolving=presolve, symmetry=symmetry)
     # Actual run
-    result = SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit, gap=rel_gap, absgap=gap, verbose=verbose, sdp_mode=scip_sdp_mode)
+    result = SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit, gap=rel_gap, absgap=gap, verbose=verbose, sdp_mode=scip_sdp_mode, presolving=presolve, symmetry=symmetry)
     status = get(_SCIP_STATUS_TO_MOI, result.status, MOI.OTHER_ERROR)
     solution = result.obj_val
     t = result.solve_time
@@ -200,6 +204,7 @@ function solve_opt_scip_sdp(
         lmo = Boscia.ManagedLMO(CO.SpanningTreeLMO(graph), fill(0.0, m), fill(1.0, m), collect(1:m), m)
         feasible = Boscia.is_linear_feasible(lmo, y)
         scaled_solution = feasible ? f_check(y) : Inf
+        @show sum(y)
     else
         f_check, _ = build_e_criterion(A, L=C, tightened=tightened)
         feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
