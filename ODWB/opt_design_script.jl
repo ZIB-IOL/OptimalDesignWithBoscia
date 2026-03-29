@@ -16,8 +16,8 @@ criteria = ["E"] # "EF"
 data_types = ["IND", "CORR"]
 solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
 seeds = [0] #[1,2,3,4,5]
-options = ["sub_grad_info_no_best_sol"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
-N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
+options = ["baseline"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
+N_construct = ["rank_deficient", "one", "log"] #["one", "log", "rank_deficient"] 
 
 # Connectivity 
 #=
@@ -26,7 +26,18 @@ criteria = ["AGC"]
 data_types = ["IND","CORR"]
 solvers = ["Boscia"]
 seeds = [0]
-options = ["resolve_integer", "best_sol"]
+options = ["baseline"]
+N_construct = ["one"] 
+=#
+
+# Connectivity spanning trees
+#=
+num_experiments = [10, 12, 15, 25, 40, 60, 100]
+criteria = ["ACST"]
+data_types = ["IND"]
+solvers = ["Boscia"]
+seeds = [0]
+options = ["baseline"]
 N_construct = ["one"] 
 =#
 # create instances
