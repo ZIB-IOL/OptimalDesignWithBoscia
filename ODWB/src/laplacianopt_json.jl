@@ -50,10 +50,18 @@ function parse_laplacianopt_json(file_path::AbstractString)
 end
 
 function laplacianopt_instance_file(num_nodes::Integer, instance::Integer)
-    root = get(
-        ENV,
-        "LAPLACIANOPT_INSTANCES_ROOT",
-        joinpath(pkgdir(@__MODULE__), "data", "laplacianopt_instances"),
-    )
+    # Do not pass `joinpath(pkgdir(...), ...)` as the default to `get(ENV, ...)`: the default is
+    # evaluated eagerly, and `pkgdir(@__MODULE__)` is `nothing` when ODWB is loaded via `include`
+    # from a script (not as a package), which breaks `joinpath`.
+    root = if haskey(ENV, "LAPLACIANOPT_INSTANCES_ROOT") && !isempty(ENV["LAPLACIANOPT_INSTANCES_ROOT"])
+        ENV["LAPLACIANOPT_INSTANCES_ROOT"]
+    else
+        p = pkgdir(@__MODULE__)
+        p === nothing && error(
+            "Set environment variable LAPLACIANOPT_INSTANCES_ROOT to the directory that contains " *
+            "`{n}_nodes` subfolders (same layout as ODWB/data/laplacianopt_instances).",
+        )
+        joinpath(p, "data", "laplacianopt_instances")
+    end
     joinpath(root, "$(num_nodes)_nodes", "$(num_nodes)_$(instance).json")
 end

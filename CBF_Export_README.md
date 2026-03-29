@@ -4,7 +4,7 @@ This script exports E-optimal design models from the Pajarito formulation to CBF
 
 ## Overview
 
-The script `export_eopt_to_cbf.jl` generates E-optimal design models for various dimensions and random seeds, then exports them to CBF format. The generated files can be solved with any CBF-compatible conic optimization solver.
+The script `export_eopt_to_cbf.jl` exports JuMP models to CBF: by default **E-optimal** design instances; with argument `acst`, small **LaplacianOpt / ACST** instances; with `all`, both. The generated files can be solved with any CBF-compatible conic optimization solver.
 
 ## Features
 
@@ -19,7 +19,9 @@ The script `export_eopt_to_cbf.jl` generates E-optimal design models for various
 ### Basic Usage
 
 ```julia
-julia --project=ODWB export_eopt_to_cbf.jl
+julia --project=ODWB export_eopt_to_cbf.jl          # E-opt only (default)
+julia --project=ODWB export_eopt_to_cbf.jl acst
+julia --project=ODWB export_eopt_to_cbf.jl all
 ```
 
 This runs the script with default parameters, generating CBF files for:

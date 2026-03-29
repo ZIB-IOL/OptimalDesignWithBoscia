@@ -1,13 +1,30 @@
 #!/usr/bin/env julia
 
 """
-Script to export E-optimal design models from Pajarito to CBF (Conic Benchmark Format) files.
+Export JuMP models to CBF (Conic Benchmark Format) for external solvers (e.g. SCIP-SDP).
+show
+Two families:
+- **E-optimal design** (`eopt`): PSD information-matrix constraints from `build_data` / `build_integer_data`.
+- **ACST** (algebraic connectivity spanning tree): LaplacianOpt JSON instances via
+  `ODWB.algebraic_connectivity_model` (same as `solve_opt_scip_sdp` for criterion ACST).
 
-This script generates E-optimal design models for various dimensions and random seeds,
-then exports them to CBF format for solving with external solvers.
+Usage (from repo root):
 
-Usage: julia export_eopt_to_cbf.jl
+    julia --project=ODWB export_eopt_to_cbf.jl              # E-optimal only (default)
+    julia --project=ODWB export_eopt_to_cbf.jl eopt
+    julia --project=ODWB export_eopt_to_cbf.jl acst
+    julia --project=ODWB export_eopt_to_cbf.jl all         # eopt then acst
+
+E-opt output: `cbf_eopt_models/` (and `cbf_eopt_models/integer_data/`).
+ACST output: `ODWB/cbf_eopt_models/acst/`.
+
+When ODWB is loaded via `include` (not as a package), `LAPLACIANOPT_INSTANCES_ROOT` must be set
+for ACST; this script sets it to `ODWB/data/laplacianopt_instances` before loading ODWB.
 """
+
+# LaplacianOpt JSON path (must be set before `include` ODWB for ACST / `laplacianopt_instance_file`)
+const _LAP_INST_ROOT = joinpath(@__DIR__, "ODWB", "data", "laplacianopt_instances")
+ENV["LAPLACIANOPT_INSTANCES_ROOT"] = _LAP_INST_ROOT
 
 using JuMP
 using Pajarito
@@ -19,38 +36,11 @@ using Distributions
 using StableRNGs
 const MOI = MathOptInterface
 
-# Include the ODWB module functions
-include("ODWB/src/ODWB.jl")
+include(joinpath(@__DIR__, "ODWB", "src", "ODWB.jl"))
 using .ODWB
-# Import specific functions we need
 import .ODWB: build_data, build_integer_data
 
-"""
-    create_eopt_cbf_model(seed, m, n, criterion, corr; integer_data=false, zero_one=false, N=-Inf)
-
-Create an E-optimal design model suitable for CBF export.
-This function creates a model without solver-specific configurations.
-
-# Arguments
-- `seed`: Random seed for reproducibility
-- `m`: Number of experiments
-- `n`: Number of parameters  
-- `criterion`: "E" for standard E-optimal, "EF" for fusion E-optimal
-- `corr`: Boolean for correlated vs independent data
-- `integer_data`: Boolean for integer vs continuous data generation
-- `zero_one`: Boolean for 0-1 constraints
-- `N`: Number of experiments to run (if -Inf, uses default)
-
-# Returns
-- `model`: JuMP model ready for CBF export
-- `x`: Decision variables
-- `t`: Objective variable
-- `A`: Design matrix
-- `C`: Fusion matrix (if applicable)
-- `ub`: Upper bounds
-"""
 function create_eopt_cbf_model(seed, m, n, criterion, corr; integer_data=false, zero_one=false, N=-Inf)
-    # Generate data using ODWB utilities
     if criterion == "EF"
         A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     else
@@ -58,70 +48,44 @@ function create_eopt_cbf_model(seed, m, n, criterion, corr; integer_data=false, 
         C = nothing
     end
 
-    # Create model without solver (for CBF export)
     model = Model()
-    
-    # Add variables
     @variable(model, x[1:m])
     for i in 1:m
         set_integer(x[i])
     end
     @variable(model, t)
-    
-    # Add constraints - use inequalities for better CBF compatibility
     @constraint(model, sum(x) >= N)
     @constraint(model, sum(x) <= N)
     @constraint(model, x >= 0)
     @constraint(model, x <= ub)
-    
-    # Add E-optimal constraint: A' * diag(x) * A + t*I ⪰ 0
+
     if criterion == "E"
-        # Information matrix: A' * diag(x) * A + t*I
         info_matrix = [
-            @expression(model, 
+            @expression(model,
                 (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
             ) for i in 1:n, j in 1:n
         ]
-        # Add PSD constraint
         @constraint(model, info_matrix in PSDCone())
     elseif criterion == "EF"
-        # For fusion case, use C matrix as well
         info_matrix = [
-            @expression(model, 
+            @expression(model,
                 C[i, j] + (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
             ) for i in 1:n, j in 1:n
         ]
-        # Add PSD constraint  
         @constraint(model, info_matrix in PSDCone())
     end
-    
-    # Set objective (maximize t)
     @objective(model, Max, t)
 
     return model, x, t, A, C, N, ub
 end
 
-"""
-    export_model_to_cbf(model, filename)
-
-Export a JuMP model to CBF format.
-
-# Arguments
-- `model`: JuMP model to export
-- `filename`: Output CBF filename
-"""
-function export_model_to_cbf(model, filename)
+function export_model_to_cbf(model, filename; quiet_success::Bool=false)
     try
-        # Create a FileFormats model and copy the JuMP model to it
         cbf_model = MOI.FileFormats.Model(format = MOI.FileFormats.FORMAT_CBF)
-        
-        # Use bridges to handle unsupported constraints
         bridged_model = MOI.Bridges.full_bridge_optimizer(cbf_model, Float64)
         MOI.copy_to(bridged_model, backend(model))
-        
-        # Write to CBF file
         MOI.write_to_file(cbf_model, filename)
-        println("✓ Successfully exported model to: $filename")
+        quiet_success || println("✓ Successfully exported model to: $filename")
         return true
     catch e
         println("✗ Error exporting model to $filename: $e")
@@ -130,124 +94,145 @@ function export_model_to_cbf(model, filename)
     end
 end
 
-"""
-    generate_cbf_files(dimensions, seeds, criteria, correlations; output_dir="cbf_models", integer_data=false, zero_one=false)
-
-Generate CBF files for multiple combinations of parameters.
-
-# Arguments
-- `dimensions`: Vector of (m, n) tuples for different problem sizes
-- `seeds`: Vector of random seeds
-- `criteria`: Vector of criteria ("E", "EF")
-- `correlations`: Vector of correlation flags (true/false)
-- `output_dir`: Base directory for output files
-- `integer_data`: Use integer data generation
-- `zero_one`: Use 0-1 constraints
-"""
 function generate_cbf_files(dimensions, seeds, criteria, correlations; output_dir="cbf_models", integer_data=false, zero_one=false)
-    # Create base output directory
     mkpath(output_dir)
-    
     total_models = length(dimensions) * length(seeds) * length(criteria) * length(correlations)
     current_model = 0
-    
     println("Generating $total_models CBF models...")
     println("Output directory: $output_dir")
     println("="^60)
-    
+
     for (m, n) in dimensions
         for seed in seeds
             for criterion in criteria
                 for corr in correlations
                     current_model += 1
-                    
-                    # Create descriptive filename
                     corr_str = corr ? "corr" : "indep"
-                    data_str = integer_data ? "int" : "cont"
                     zero_one_str = zero_one ? "_01" : ""
-                    
-                    filename = @sprintf("eopt_%s_%s%s_m%d_n%d_seed%d.cbf", 
-                                      criterion, corr_str, zero_one_str, m, n, seed)
+                    filename = @sprintf("eopt_%s_%s%s_m%d_n%d_seed%d.cbf",
+                        criterion, corr_str, zero_one_str, m, n, seed)
                     filepath = joinpath(output_dir, filename)
-                    
                     println("[$current_model/$total_models] Generating: $filename")
-                    
                     try
-                        # Create model
                         model, x_vars, t_var, A, C, N, ub = create_eopt_cbf_model(
-                            seed, m, n, criterion, corr, 
+                            seed, m, n, criterion, corr,
                             integer_data=integer_data, zero_one=zero_one
                         )
-                        
-                        # Export to CBF
                         success = export_model_to_cbf(model, filepath)
-                        
                         if success
-                            # Print model info
                             println("  Parameters: m=$m, n=$n, N=$N, criterion=$criterion")
                             println("  Variables: $(num_variables(model))")
                             println("  Upper bounds range: [$(minimum(ub)), $(maximum(ub))]")
                         end
-                        
                     catch e
                         println("✗ Error creating model for $filename: $e")
                         continue
                     end
-                    
                     println()
                 end
             end
         end
     end
-    
     println("="^60)
     println("CBF file generation complete!")
     println("Files saved in: $output_dir")
 end
 
 """
-    main()
+    export_acst_cbfs(; output_dir, node_instance_pairs, use_base_graph=false)
 
-Main function to run the CBF export script.
+`node_instance_pairs`: `(n_nodes, instance_id)` matching
+`ODWB/data/laplacianopt_instances/{n}_nodes/{n}_{instance}.json`.
 """
-function main()
-    println("E-Optimal Design CBF Export Script")
-    println("="^40)
-    
-    # Configuration parameters
-    num_experiments = [50, 80, 100, 120, 150]
-    # Option 1: Create (m, n) pairs where n = floor(sqrt(m))
-    dimensions = [(m, Int(floor(sqrt(m)))) for m in num_experiments]
-    
-    seeds = [1, 2, 3, 4, 5]  # Multiple random seeds
-    criteria = ["E"] # "EF"  # Both standard and fusion E-optimal
-    correlations = [false, true]  # Both independent and correlated data
-    
-    # Output directory
-    output_dir = "cbf_eopt_models"
-    
-    # Generate CBF files
-    generate_cbf_files(
-        dimensions, seeds, criteria, correlations,
-        output_dir=output_dir,
-        integer_data=false,  # Use continuous data generation
-        zero_one=false       # Don't use 0-1 constraints
-    )
-    
-    # Also generate some integer data versions for comparison
-    println("\nGenerating integer data versions...")
-    generate_cbf_files(
-        dimensions[1:2], seeds[1:3], criteria, [false],  # Smaller subset for integer data
-        output_dir=joinpath(output_dir, "integer_data"),
-        integer_data=true,
-        zero_one=false
-    )
-    
-    println("\nAll CBF files generated successfully!")
-    println("You can now solve these models with any CBF-compatible solver.")
+function export_acst_cbfs(;
+    output_dir = joinpath(@__DIR__, "ODWB", "cbf_eopt_models", "acst"),
+    node_instance_pairs = [(5, i) for i in 1:5],
+    use_base_graph::Bool = false,
+)
+    mkpath(output_dir)
+    base_suffix = use_base_graph ? "_basegraph" : ""
+    println("Exporting $(length(node_instance_pairs)) ACST models to: $output_dir")
+    for (n_nodes, instance) in node_instance_pairs
+        inst_path = joinpath(_LAP_INST_ROOT, "$(n_nodes)_nodes", "$(n_nodes)_$(instance).json")
+        if !isfile(inst_path)
+            println("  skip missing: $inst_path")
+            continue
+        end
+        m_dummy = Int(n_nodes * (n_nodes - 1) / 2)
+        model = ODWB.algebraic_connectivity_model(
+            instance,
+            m_dummy,
+            n_nodes;
+            build_spanning_tree = true,
+            use_base_graph = use_base_graph,
+            augment_budget = -1,
+        )
+        fname = "acst_n$(n_nodes)_inst$(instance)$(base_suffix).cbf"
+        fpath = joinpath(output_dir, fname)
+        try
+            if export_model_to_cbf(model, fpath; quiet_success = true)
+                println("  ✓ $fname  (variables: $(num_variables(model)))")
+            else
+                println("  ✗ $fname  (export failed)")
+            end
+        catch e
+            println("  ✗ $fname : $e")
+        end
+    end
+    println("ACST export done.")
 end
 
-# Run the script if called directly
+function main_eopt()
+    println("E-optimal design CBF export")
+    println("="^40)
+    num_experiments = [50, 80, 100, 120, 150]
+    dimensions = [(m, Int(floor(sqrt(m)))) for m in num_experiments]
+    seeds = [1, 2, 3, 4, 5]
+    criteria = ["E"]
+    correlations = [false, true]
+    output_dir = "cbf_eopt_models"
+    generate_cbf_files(
+        dimensions, seeds, criteria, correlations;
+        output_dir = output_dir,
+        integer_data = false,
+        zero_one = false,
+    )
+    println("\nGenerating integer data versions...")
+    generate_cbf_files(
+        dimensions[1:2], seeds[1:3], criteria, [false];
+        output_dir = joinpath(output_dir, "integer_data"),
+        integer_data = true,
+        zero_one = false,
+    )
+    println("\nE-opt CBF generation finished.")
+end
+
+function main_acst()
+    println("ACST (LaplacianOpt) CBF export")
+    println("="^40)
+    pairs = vcat(
+        [(5, i) for i in 1:5],
+        [(8, i) for i in 1:3],
+        [(10, i) for i in 1:3],
+    )
+    export_acst_cbfs(; node_instance_pairs = pairs, use_base_graph = false)
+end
+
+function main()
+    mode = isempty(ARGS) ? "eopt" : lowercase(ARGS[1])
+    if mode == "eopt"
+        main_eopt()
+    elseif mode == "acst"
+        main_acst()
+    elseif mode == "all"
+        main_eopt()
+        println()
+        main_acst()
+    else
+        error("Unknown mode $(repr(mode)). Use: eopt (default), acst, or all.")
+    end
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     main()
 end
