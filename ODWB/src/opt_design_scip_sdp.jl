@@ -41,74 +41,26 @@ function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, 
         @constraint(model, t * (n - N + 1) <= sum(x[i] * norm(A[i, :], 2)^2 for i in 1:m))
     end
     @objective(model, Max, t)
-    return model
+    return model, x, t
 end
-
+# Returns JuMP VariableIndex → 1-based column order in the written CBF (matches `var_values_ordered` from SCIP).
 function _export_model_to_cbf(model, filename)
     cbf_model = MOI.FileFormats.Model(format=MOI.FileFormats.FORMAT_CBF)
     bridged = MOI.Bridges.full_bridge_optimizer(cbf_model, Float64)
-    MOI.copy_to(bridged, backend(model))
+    src = JuMP.backend(model)
+    index_map = MOI.copy_to(bridged, src)
+    dest_order = MOI.get(bridged, MOI.ListOfVariableIndices())
+    dest_to_pos = Dict{MOI.VariableIndex,Int}(zip(dest_order, eachindex(dest_order)))
+    jump_vi_to_pos = Dict{MOI.VariableIndex,Int}()
+    for vi in MOI.get(src, MOI.ListOfVariableIndices())
+        dest_vi = index_map[vi]
+        if haskey(dest_to_pos, dest_vi)
+            jump_vi_to_pos[vi] = dest_to_pos[dest_vi]
+        end
+    end
     MOI.write_to_file(cbf_model, filename)
+    return jump_vi_to_pos
 end
-
-#=function build_E_scipsdp_model(seed, m, n, criterion, time_limit, corr; verbose=true, integer_data=false, zero_one=false, N=-Inf, use_scip_sdp=false)
-    if criterion == "EF"
-        A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n, true, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
-    else
-        A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, zero_one=zero_one, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
-    end
-
-    @eval(SCIP, have_scip_sdp) || error("SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP.")
-    opt = optimizer_with_attributes(SCIP.Optimizer,
-        MOI.Silent() => !verbose,
-        "limits/time" => time_limit,
-        "limits/gap" => 1e-6,
-        MOI.RawOptimizerAttribute("relaxing/SDP/freq") => -1,
-        MOI.RawOptimizerAttribute("lp/solvefreq") => 1,
-    )
-    model = Model(opt)
-
-    JuMP.@variable(model, x[1:m])
-    JuMP.set_integer.(x)
-    JuMP.@variable(model, t)
-
-    if use_scip_sdp
-        # SCIP-SDP: add PSD constraint first (order may affect lock handling)
-        if criterion == "E"
-            info_matrix = [
-                (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
-                for i in 1:n, j in 1:n
-            ]
-        else
-            info_matrix = [
-                C[i, j] + (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m)
-                for i in 1:n, j in 1:n
-            ]
-        end
-        JuMP.@constraint(model, info_matrix in JuMP.PSDCone())
-    else
-        if criterion == "E"
-            info_matrix = [
-                JuMP.@expression(model, (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m))
-                for i in 1:n, j in 1:n
-            ]
-        else
-            info_matrix = [
-                JuMP.@expression(model, C[i, j] + (i == j ? -t : 0.0) + sum(A[k, i] * x[k] * A[k, j] for k in 1:m))
-                for i in 1:n, j in 1:n
-            ]
-        end
-        JuMP.@constraint(model, info_matrix in JuMP.PSDCone())
-    end
-
-    JuMP.@constraint(model, sum(x) == N)
-    JuMP.@constraint(model, x >= 0)
-    JuMP.@constraint(model, x <= ub)
-    @objective(model, Max, t)
-    
-
-    return model, x, t
-end =#
 
 const _SCIP_STATUS_TO_MOI = Dict(
     SCIP.SCIP_STATUS_OPTIMAL => MOI.OPTIMAL,
@@ -145,6 +97,9 @@ function solve_opt_scip_sdp(
     use_base_graph=false,
     presolve=true,
     symmetry=true,
+    disable_crossover_heuristic=false,
+    disable_heuristics=false,
+    extra_scip_params=Dict{String,Any}(),
     )
     if !(criterion in ["E", "EF", "AGC","ACST"])
         error("SCIP SDP can currently only handle E-optimal, EF-optimal, AGC and ACST problems")
@@ -152,28 +107,59 @@ function solve_opt_scip_sdp(
 
     @assert SCIP.have_scip_sdp "SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP."
     # CBF round-trip: avoids checkVarsLocks assertion when vars appear in SDP + linear constraints
-    model = if criterion in ["E", "EF", "AGC"] 
-        _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scale) 
-    else 
-        algebraic_connectivity_model(seed, m, n, build_spanning_tree=true, use_base_graph=use_base_graph, augment_budget=augment_budget) 
+    model, x_lin, x_mat = if criterion in ["E", "EF", "AGC"]
+        mod, xv, _t = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scale)
+        (mod, xv, nothing)
+    else
+        mod, _γ, xm = algebraic_connectivity_model(
+            seed, m, n;
+            build_spanning_tree = true,
+            use_base_graph = use_base_graph,
+            augment_budget = augment_budget,
+        )
+        (mod, nothing, xm)
     end
     cbf_path = joinpath(mktempdir(), "eopt_scip_sdp_$(getpid()).cbf")
     
-    _export_model_to_cbf(model, cbf_path)
+    jump_vi_to_pos = _export_model_to_cbf(model, cbf_path)
     # Precompile: 10s run to trigger JIT and avoid large first-run compile (same pattern as other solvers)
     gap = N < n ? 1e-4 : gap
-    SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit=10, gap=rel_gap, absgap=gap, verbose=false, sdp_mode=scip_sdp_mode, presolving=presolve, symmetry=symmetry)
+    SCIP.solve_cbf_with_scip_sdp(
+        cbf_path;
+        time_limit=10,
+        gap=rel_gap,
+        absgap=gap,
+        verbose=false,
+        sdp_mode=scip_sdp_mode,
+        presolving=presolve,
+        symmetry=symmetry,
+        disable_crossover_heuristic=disable_crossover_heuristic,
+        disable_heuristics=disable_heuristics,
+        extra_params=extra_scip_params,
+    )
     # Actual run
-    result = SCIP.solve_cbf_with_scip_sdp(cbf_path; time_limit, gap=rel_gap, absgap=gap, verbose=verbose, sdp_mode=scip_sdp_mode, presolving=presolve, symmetry=symmetry)
+    result = SCIP.solve_cbf_with_scip_sdp(
+        cbf_path;
+        time_limit,
+        gap=rel_gap,
+        absgap=gap,
+        verbose=verbose,
+        sdp_mode=scip_sdp_mode,
+        presolving=presolve,
+        symmetry=symmetry,
+        disable_crossover_heuristic=disable_crossover_heuristic,
+        disable_heuristics=disable_heuristics,
+        extra_params=extra_scip_params,
+    )
     status = get(_SCIP_STATUS_TO_MOI, result.status, MOI.OTHER_ERROR)
     solution = result.obj_val
     t = result.solve_time
     dual_bound = result.dual_bound
     rel_gap = result.rel_gap
     @show solution, dual_bound, rel_gap
-    # CBF order: x[1..m] then t (m+1 vars total)
     ord = result.var_values_ordered
-    y = length(ord) >= m ? ord[1:m] : fill(NaN, m)
+    y = criterion == "ACST" ? reshape(ord[1:n^2], n, n) : ord[1:m]
+
     isfile(cbf_path) && rm(cbf_path, force=true)
     @show y
 
@@ -193,20 +179,32 @@ function solve_opt_scip_sdp(
         A, C, N, ub, _ =  build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
     if criterion == "ACST"
-        A, L, _ = data_ACST(n, seed, use_base_graph=use_base_graph)
+        A, L, _, potential_edges = data_ACST(n, seed, use_base_graph=use_base_graph)
         m = size(A, 1)
         n = size(A, 2)
         L += ones(n, n)
         ub = fill(1.0, m)
         N = augment_budget == -1 ? n-1 : augment_budget
         f_check, _ = build_e_criterion(A, L=L, tightened=tightened)
+        # OA / numerics: binaries may be fractionally off; round before combinatorial checks.
         graph = Graphs.complete_graph(n)
-        lmo = Boscia.ManagedLMO(CO.SpanningTreeLMO(graph), fill(0.0, m), fill(1.0, m), collect(1:m), m)
-        feasible = Boscia.is_linear_feasible(lmo, y)
-        scaled_solution = feasible ? f_check(y) : Inf
-        @show sum(y)
+        n_kn = Graphs.ne(graph)
+        y_tree = zeros(Float64, n_kn)
+        for (k, (i, j)) in enumerate(potential_edges)
+            y_tree[k] = y[i, j]
+        end
+        lmo = Boscia.ManagedLMO(
+            CO.SpanningTreeLMO(graph),
+            fill(0.0, n_kn),
+            fill(1.0, n_kn),
+            collect(1:n_kn),
+            n_kn,
+        )
+        feasible = Boscia.is_linear_feasible(lmo, y_tree)
+        scaled_solution = feasible ? f_check(y_tree) : Inf
+        @show sum(y_tree)
     else
-        f_check, _ = build_e_criterion(A, L=C, tightened=tightened)
+        f_check, _ = build_e_criterion(A, L=criterion in ["AGC", "EF"] ? C : nothing, tightened=tightened)
         feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
         scaled_solution = feasible ? f_check(y) : Inf
     end
