@@ -14,7 +14,11 @@ function data_ACST(num_nodes::Int, instance::Int; use_base_graph=false)
     file_path = laplacianopt_instance_file(num_nodes, instance)
     data_dict = parse_laplacianopt_json(file_path)
     W = data_dict["adjacency_augment_graph"]
-    W /= maximum(abs.(W))
+    if num_nodes > 10
+        W /= mean(abs.(W))
+    else
+        W /= maximum(abs.(W))
+    end
     L = if use_base_graph data_dict["adjacency_base_graph"] else zeros(Float64, num_nodes, num_nodes) end
     num_present_edges = sum(Diagonal(L)) / 2
     potential_edges = Tuple{Int,Int}[]
