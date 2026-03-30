@@ -528,8 +528,8 @@ function solve_opt(
 
         folder = if rank_based_pruning
         "rank_based_pruning"
-        elseif use_dual_exclusion_criterion
-            "dual_exclusion_criterion"
+        elseif use_exclusion_criterion
+            "exclusion_criterion"
         #elseif !use_sub_grad_info
         #    "no_sub_grad_info"
         #elseif use_sub_grad_info && !best_sol_by_original 

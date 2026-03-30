@@ -422,6 +422,47 @@ function tightening_from_dual(tree, node, vdix, A, L, fixed_mask, N, N_star, l, 
         end
     end
 
+    # build up node LMO
+    Boscia.build_LMO(
+        tree.root.problem.tlmo,
+        tree.root.problem.integer_variable_bounds,
+        node.local_bounds,
+        tree.root.problem.integer_variables,
+    )
+    if !Boscia.is_linear_feasible(tree.root.problem.tlmo, y) && tree.root.options[:variant] == Boscia.BlendedPairwiseConditionalGradient()
+        push!(node.local_bounds.upper_bounds, (vdix => 0.0))
+        # build up node LMO
+        Boscia.build_LMO(
+            tree.root.problem.tlmo,
+            tree.root.problem.integer_variable_bounds,
+            node.local_bounds,
+            tree.root.problem.integer_variables,
+        )
+        v_left = Boscia.compute_extreme_point(tree.root.problem.tlmo, y)
+        delete!(node.local_bounds.upper_bounds, vdix)
+
+        push!(node.local_bounds.lower_bounds, (vdix => 1.0))
+        # build up node LMO
+        Boscia.build_LMO(
+            tree.root.problem.tlmo,
+            tree.root.problem.integer_variable_bounds,
+            node.local_bounds,
+            tree.root.problem.integer_variables,
+        )
+        v_right = Boscia.compute_extreme_point(tree.root.problem.tlmo, y)
+        delete!(node.local_bounds.lower_bounds, vdix)
+
+        Boscia.build_LMO(
+            tree.root.problem.tlmo,
+            tree.root.problem.integer_variable_bounds,
+            node.local_bounds,
+            tree.root.problem.integer_variables,
+        )
+
+        active_set = FrankWolfe.ActiveSet([(0.5, v_left), (0.5, v_right)])
+        node.active_set = active_set
+    end
+
     if zc > 0 || oc > 0
         fixed_to_zero_view = view(fixed_to_zero, 1:zc)
         fixed_to_one_view = view(fixed_to_one, 1:oc)
