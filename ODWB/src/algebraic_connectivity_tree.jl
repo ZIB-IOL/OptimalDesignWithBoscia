@@ -38,7 +38,6 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
     data_dict, _ = data_I(n, seed)
     n = data_dict["num_nodes"]
     W = data_dict["adjacency_augment_graph"]
-    #W /= maximum(abs.(W))
     if build_spanning_tree
         augment_budget = n-1
     else
@@ -64,7 +63,8 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
     @constraint(model, [i=1:n],
         Y[i,i] == dot(W[i,:], x[i,:]) - gamma * (n-1) / n
     )
-    @constraint(model, [i=1:n,j=1:n],
+    #@constraint(model, Y[n,n] == - gamma * (n-1) / n)
+    @constraint(model, [i=1:(n-1),j=(i+1):n],
         Y[i,j] == -W[i,j]*x[i,j] + gamma / n,
     )
     # spanning tree constraint
@@ -80,16 +80,10 @@ function algebraic_connectivity_model(seed, m, n; build_spanning_tree::Bool=true
                 end
             end
         end
-        @constraint(model, sum(x[i,j] for i in 1:n for j in i:n) == augment_budget + num_forced_edges)
+        @constraint(model, sum(x[i,j] for i in 1:(n-1) for j in (i+1):n) == augment_budget + num_forced_edges)
     else
-        @constraint(model, sum(x[i,j] for i in 1:n for j in i:n) == augment_budget)
+        @constraint(model, sum(x[i,j] for i in 1:(n-1) for j in (i+1):n) == augment_budget)
     end
-    # each node must have at least one edge
-    #for i in 1:n 
-    #    @constraint(m, sum(x[i,:]) >= 1)
-    #end
-    #println("Built model")
-    #println(m)
     @objective(model, Max, gamma)
     return model, gamma, x
 end
