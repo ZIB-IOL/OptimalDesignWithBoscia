@@ -34,9 +34,9 @@ end
 seed = parse(Int, ENV["SEED"])
 option = ENV["OPTION"]
 N_construct = ENV["N"]
-ratio_para = criterion in ["E", "EF", "AGC", "ACST"] ? [1] : [4,10]
+ratio_para = criterion in ["E", "EF", "AGC", "ACST", "ACSTS"] ? [1] : [4,10]
 time_limit = 3600 # one hour time limit
-seeds = seed == 0 ? criterion == "ACST" ? collect(1:3) : collect(1:5) : [seed]
+seeds = seed == 0 ? criterion in ["ACST", "ACSTS"] ? collect(1:3) : collect(1:5) : [seed]
 
 if option == "mu_testing"
     starts = [m/50, exp10(-200/m)]
@@ -52,7 +52,7 @@ end
 
 @show criterion, mode, corr
 
-if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC", "ACST"])
+if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC", "ACST", "ACSTS"])
     error("Invalid criterion!")
 end
 for k in ratio_para
@@ -61,7 +61,7 @@ for k in ratio_para
     else
         k == 1 ? Int(floor(sqrt(m))) : Int(floor(m/k))
     end
-    if criterion == "ACST"
+    if criterion in ["ACST", "ACSTS"]
         # ENV["DIMENSION"] is the number of nodes n; m (edge count) is fixed after this block.
         # `solve_opt` recomputes m = size(A,1) from the instance; keep m = n*(n-1)÷2 here so LMO matches K_n.
         n = m
@@ -71,7 +71,7 @@ for k in ratio_para
     end
     N = if criterion == "AGC"
         Int(floor(m/2))
-    elseif criterion == "ACST"
+    elseif criterion in ["ACST", "ACSTS"]
         option == "use_base_graph" ? -Inf : n-1
     elseif N_construct == "one"
         Int(floor(1.5 * n))
@@ -92,7 +92,7 @@ for k in ratio_para
                 end
                 smoothing_min = if criterion == "AGC"
                    N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
-                elseif criterion == "ACST"
+                elseif criterion in ["ACST", "ACSTS"]
                     max(1e-4, exp10(-min(80, m) / max(m, 1)))
                 else
                    exp10(-20/m)
@@ -111,7 +111,7 @@ for k in ratio_para
                             smoothing_start=start,
                             smoothing_decay=decay,
                             smoothing_min=smoothing_min,#exp10(-200/m), exp10(-400/m) for AGC
-                            use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol", "dual_exclusion_criterion", "rank_based_pruning"], 
+                            use_exclusion_criterion=option in ["exclusion_criterion", "exclusion_criterion_random", "exclusion_criterion_tighter_tol", "dual_exclusion_criterion", "rank_based_pruning_exclusion"], 
                             use_dual_exclusion_criterion=option == "dual_exclusion_criterion",
                             use_dual_tightening=option == "dual_exclusion_criterion",
                             use_heuristics=option == "all_heuristics", 
@@ -128,9 +128,9 @@ for k in ratio_para
                             n_random = option == "exclusion_criterion_random" ? 10 : 0,
                             start_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-4 : 1e-2,
                             min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6,
-                            use_base_graph = criterion == "ACST" ? option == "use_base_graph" : false,
-                            use_BPCG = criterion == "ACST" ? true : false,
-                            ls_secant = criterion == "ACST" ? true : false,
+                            use_base_graph = criterion in ["ACST", "ACSTS"] ? option == "use_base_graph" : false,
+                            use_BPCG = criterion in ["ACST", "ACSTS"] ? true : false,
+                            ls_secant = criterion in ["ACST", "ACSTS"] ? true : false,
                             best_sol_by_original = option in ["best_sol", "best_sol_resolve_integer"],
                             resolve_integer_solution = true, #option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
                             use_sub_grad_info = option != "no_sub_grad_info",
