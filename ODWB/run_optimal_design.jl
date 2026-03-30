@@ -167,10 +167,13 @@ for k in ratio_para
                             scale = option == "tightened_scaled" ? 0.5 : Inf,
                             gap= N < n ? 1e-4 : 1e-6,
                             rel_gap=5e-2,
-                            presolve= criterion == "ACST" ? false : true,
-                            symmetry= criterion == "ACST" ? true : true) #scip_sdp_mode=option == "oa" ? :oa : :bnb
+                            presolve = criterion == "ACST" ? false : true,
+                            symmetry = criterion == "ACST" ? false : true,
+                            disable_crossover_heuristic = criterion == "ACST" ? true : false,
+                            disable_heuristics = criterion == "ACST" ? false : false,
+                        ) #scip_sdp_mode=option == "oa" ? :oa : :bnb
                     elseif mode == "Pajarito"
-                        ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=integer_data, N=N)
+                        ODWB.solve_opt_pajarito(seed, m, n, time_limit, criterion, corr, integer_data=false, N=N)
                     elseif mode == "Custom"
                         if criterion in ["E", "EF", "AGC"]
                             error("Co-BnB does not work with the $(criterion)-optimal problems!")
