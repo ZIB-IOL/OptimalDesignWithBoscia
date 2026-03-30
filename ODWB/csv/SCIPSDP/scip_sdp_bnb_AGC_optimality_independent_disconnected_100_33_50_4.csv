@@ -1,2 +1,2 @@
-seed,numberOfExperiments,numberOfParameters,time,N,solution,dual_bound,rel_gap,scaled_solution,termination,feasible,n_nodes,n_cuts_found,n_cuts_applied,n_sdp_iters
-4,100,33,3600.006995,50,3.039077812134212,3.2234273705744947,0.06065970331665246,-3.0390778121373883,TIME_LIMIT,true,169589,0,0,4651692
+seed,numberOfExperiments,numberOfParameters,time,N,solution,dual_bound,rel_gap,tightened,scaled_solution,termination,feasible,n_nodes,n_cuts_found,n_cuts_applied,n_sdp_iters
+4,100,33,3600.004824,50,3.039077812134212,3.223201232151273,0.06058529310500242,false,-3.0390778121373883,TIME_LIMIT,true,172764,0,0,4738886
