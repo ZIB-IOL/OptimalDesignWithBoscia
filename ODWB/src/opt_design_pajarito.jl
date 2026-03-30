@@ -410,6 +410,45 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         model, x, epi = build_E_pajarito_model(seed, m, n, criterion, 10, corr, verbose=false, integer_data=integer_data, zero_one=zero_one, N=N)
         optimize!(model)
         model, x, epi = build_E_pajarito_model(seed, m, n, criterion, time_limit, corr, verbose=verbose, integer_data=integer_data, zero_one=zero_one, N=N)
+    elseif criterion == "ACST"
+        model, epi, x = algebraic_connectivity_model(seed, m, n)
+        oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
+        MOI.Silent() => true,
+        )
+        # SDP solver
+        conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
+            MOI.Silent() => true, #!verbose,
+        )
+        opt = optimizer_with_attributes(Pajarito.Optimizer,
+            "time_limit" => time_limit, 
+            "iteration_limit" => 100000,
+            "oa_solver" => oa_solver, 
+            "conic_solver" => conic_solver,
+            "tol_rel_gap" => 5e-2,
+            "tol_abs_gap" => 1e-6,
+            MOI.Silent() => !verbose,
+        )
+        set_optimizer(model, opt)
+        optimize!(model)
+
+        oa_solver = optimizer_with_attributes(HiGHS.Optimizer,
+        MOI.Silent() => true,
+        )
+        # SDP solver
+        conic_solver = optimizer_with_attributes(Hypatia.Optimizer, 
+            MOI.Silent() => true, #!verbose,
+        )
+        opt = optimizer_with_attributes(Pajarito.Optimizer,
+            "time_limit" => time_limit, 
+            "iteration_limit" => 100000,
+            "oa_solver" => oa_solver, 
+            "conic_solver" => conic_solver,
+            "tol_rel_gap" => 5e-2,
+            "tol_abs_gap" => 1e-6,
+            MOI.Silent() => !verbose,
+        )
+        model, epi, x = algebraic_connectivity_model(seed, m, n)
+        set_optimizer(model, opt)
     end
 
     # solve 
@@ -420,6 +459,8 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
     solution = objective_value(model)
     solution = criterion == "D" || criterion == "DF" ? solution * (-1) : solution
     y = value.(x)
+    @show y
+    @show value.(all_variables(model))
     t = solve_time(model)
     paja_opt = JuMP.unsafe_backend(model)
     numberIter = paja_opt.num_cuts
@@ -432,6 +473,20 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "E" || criterion == "EF"
         A, C, N, ub, _ = integer_data ? build_integer_data(seed, m, n,criterion == "EF", corr, N=N) : build_data(seed, m, n, criterion == "EF", corr, zero_one=zero_one, N=N)
+    elseif criterion == "ACST"
+        A, L, _, potential_edges = data_ACST(n, seed, use_base_graph=false)
+        m = size(A, 1)
+        n = size(A, 2)
+        L += ones(n, n)
+        C = L
+        ub = fill(1.0, m)
+        N = n-1
+        z = zeros(m)
+        for (k, (i, j)) in enumerate(potential_edges)
+            z[k] = y[i,j]
+        end
+        y = z 
+        @show y
     else
         A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
@@ -441,10 +496,36 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         f_check, _ = build_general_trace(A, p, criterion == "GTIF", C=C)
     elseif criterion == "E" || criterion == "EF"
         f_check, _ = build_e_criterion(A)
+    elseif criterion == "ACST"
+        f_check, _ = build_e_criterion(A, L=L, tightened=false)
     else
         f_check, _ = build_d_criterion(A, criterion == "DF", C=C, build_safe = false, μ=criterion == "D" ? 1e-4 : 0.0)
     end
-    feasible = isfeasible(seed, m, n,criterion, y, corr, ub=ub)
+    if criterion == "ACST"
+        A, L, _, potential_edges = data_ACST(n, seed, use_base_graph=false)
+        m = size(A, 1)
+        n = size(A, 2)
+        L += ones(n, n)
+        ub = fill(1.0, m)
+        N = n-1
+        # OA / numerics: binaries may be fractionally off; round before combinatorial checks.
+        graph = Graphs.complete_graph(n)
+        n_kn = Graphs.ne(graph)
+        y
+        lmo = Boscia.ManagedLMO(
+            CO.SpanningTreeLMO(graph),
+            fill(0.0, n_kn),
+            fill(1.0, n_kn),
+            collect(1:n_kn),
+            n_kn,
+        )
+        feasible = Boscia.is_linear_feasible(lmo, y)
+        scaled_solution = feasible ? f_check(y) : Inf
+        @show sum(y)
+    else
+        feasible = isfeasible(seed, m, n, criterion, y, corr, ub=ub, N=N)
+        scaled_solution = feasible ? f_check(y) : Inf
+    end
     @show feasible
 
     if boscia_solution !== nothing && !any(isnan.(y))
