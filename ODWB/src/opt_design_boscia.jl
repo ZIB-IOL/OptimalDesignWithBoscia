@@ -110,7 +110,7 @@ function solve_opt(
         A = potential_edges_incidence_matrix(n, potential_edges)
         ub = fill(1.0, m)
         N = !isfinite(N) ? Int(floor(m/2)) : N
-    elseif criterion == "ACST"
+    elseif criterion in ["ACST", "ACSTS"] # ACSTS is ACST but with the simple probability LMO
         A, L, _, _ = data_ACST(n, seed, use_base_graph=use_base_graph)
         m = size(A, 1)
         n = size(A, 2)
@@ -211,7 +211,7 @@ function solve_opt(
                 push!(custom_heu, Boscia.Heuristic(pipage_rounding_heuristic, 0.3, :pipage_rounding))
             end
         elseif use_sr_rounding_heu
-            if criterion in ["E","EF","AGC"]
+            if criterion in ["E","EF","AGC", "ACSTS", "ACST"]
                 sr_rounding_heuristic = build_simple_randomized_rounding_heuristic(A, N, 10)
                 push!(custom_heu, Boscia.Heuristic(sr_rounding_heuristic, 1.0, :sr_rounding))
             end
@@ -247,7 +247,7 @@ function solve_opt(
         f, grad! = build_d_criterion(A, false, μ=1e-4, build_safe=false, long_run=long_runs)
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
-    elseif criterion in ["E","AGC", "ACST"]
+    elseif criterion in ["E","AGC", "ACST", "ACSTS"]
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N)
     elseif criterion == "EF"
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=C)
@@ -290,7 +290,7 @@ function solve_opt(
             processed_tightening_nodes=processed_tightening_nodes,
         )
     else
-        tightening = use_exclusion_criterion && criterion in ["E", "EF", "AGC"]
+        tightening = use_exclusion_criterion && criterion in ["E", "EF", "AGC", "ACSTS", "ACST"]
         @show tightening
         branch_callback = build_branch_callback_mem(
             A, 
@@ -356,7 +356,7 @@ function solve_opt(
         # Actual Run
         settings.branch_and_bound[:time_limit] = time_limit
         x, _, result = Boscia.solve(f, grad!, lmo, settings=settings)
-    elseif criterion in ["E", "EF", "AGC", "ACST"]
+    elseif criterion in ["E", "EF", "AGC", "ACST", "ACSTS"]
         line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
         # Precompile run
         settings = Boscia.create_default_settings(mode=Boscia.SMOOTHING_MODE)
