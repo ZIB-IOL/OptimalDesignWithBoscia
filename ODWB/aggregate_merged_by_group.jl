@@ -52,6 +52,7 @@ const BOSCIA_EXCLUSION_VARIANTS = [
 
 # Terminations that claim a globally optimal solution (used for cross-solver primal check)
 const OPTIMAL_CLAIM_TERMINATIONS = ("OPTIMAL", "OPTIMALITY_PROVED")
+const QUASI_OPTIMAL_REL_TOL = 0.05
 
 # Solved = reached optimal (or gap limit) within time
 function is_solved(termination, time)
@@ -144,7 +145,8 @@ function apply_pajarito_infeasible_incumbent_penalty!(df::DataFrame)::Int
 end
 
 function primal_scaled_tol(a, b)
-    max(1e-5, 1e-4 * max(abs(a), abs(b), 1e-12))
+    # Treat as quasi-optimal if worse than best by > 5% (relative).
+    max(1e-5, QUASI_OPTIMAL_REL_TOL * max(abs(a), abs(b), 1e-12))
 end
 
 """
@@ -158,6 +160,9 @@ function apply_cross_solver_primal_check!(df::DataFrame; sense::Symbol=:min)::In
     hasproperty(df, :scaled_solution) || return 0
     keys = [:seed, :dimension, :N, :numberOfParameters]
     all(hasproperty(df, k) for k in keys) || return 0
+    if !hasproperty(df, :quasi_optimal)
+        df[!, :quasi_optimal] = fill(false, nrow(df))
+    end
     n_adj = 0
     g = groupby(df, keys)
     for sub in g
@@ -179,6 +184,7 @@ function apply_cross_solver_primal_check!(df::DataFrame; sense::Symbol=:min)::In
                 tol = primal_scaled_tol(best, v)
                 if v > best + tol
                     df[idx, :time] = Float64(TIME_LIMIT)
+                    df[idx, :quasi_optimal] = true
                     n_adj += 1
                 end
             end
@@ -199,6 +205,7 @@ function apply_cross_solver_primal_check!(df::DataFrame; sense::Symbol=:min)::In
                 tol = primal_scaled_tol(best, v)
                 if v < best - tol
                     df[idx, :time] = Float64(TIME_LIMIT)
+                    df[idx, :quasi_optimal] = true
                     n_adj += 1
                 end
             end
@@ -230,6 +237,9 @@ function apply_cross_solver_primal_check_fixed_reference!(
     hasproperty(df, :solver) || return 0
     keys = [:seed, :dimension, :N, :numberOfParameters]
     all(hasproperty(df, k) for k in keys) || return 0
+    if !hasproperty(df, :quasi_optimal)
+        df[!, :quasi_optimal] = fill(false, nrow(df))
+    end
     n_adj = 0
     g = groupby(df, keys)
     for sub in g
@@ -248,6 +258,7 @@ function apply_cross_solver_primal_check_fixed_reference!(
             tol = primal_scaled_tol(ref_v, v)
             if v < ref_v - tol
                 df[idx, :time] = Float64(TIME_LIMIT)
+                df[idx, :quasi_optimal] = true
                 n_adj += 1
             end
         end
@@ -428,6 +439,7 @@ function combined_table(corr::Bool; verbose::Bool=false, all_boscia_variants::Bo
     if hasproperty(df, :N_construction)
         df = df[df.N_construction .!= "rank_deficient", :]
     end
+    df[!, :quasi_optimal] = fill(false, nrow(df))
     nfix = apply_cross_solver_primal_check!(df; sense=:min)
     if verbose && nfix > 0
         println("  Cross-solver primal check (min scaled_solution): adjusted $nfix rows (time → $(TIME_LIMIT)s, solved recomputed).")
@@ -561,9 +573,14 @@ function combined_table_agc(corr::Bool, connected::Bool; verbose::Bool=false, al
     common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
     available = [n for n in common if all(hasproperty(d, n) for d in dfs)]
     df = vcat([df[:, available] for df in dfs]...)
-    # NOTE: do not downgrade AGC rows via cross-solver objective consistency. Different solvers/variants can
-    # legitimately report different feasible objectives; for the AGC comparison tables we keep solver status
-    # as-is (OPTIMAL/GAPLIMIT/etc.) and report rel_gap/time accordingly.
+    df[!, :quasi_optimal] = fill(false, nrow(df))
+    # Evaluation policy: if a solver claims OPTIMAL/OPTIMALITY_PROVED but reports a worse objective than
+    # another solver on the same instance (beyond tolerance), treat it as suboptimal: time -> TIME_LIMIT
+    # and do not count it as solved.
+    nfix = apply_cross_solver_primal_check!(df; sense=:min)
+    if verbose && nfix > 0
+        println("  Cross-solver primal check (min scaled_solution): adjusted $nfix rows (time → $(TIME_LIMIT)s, solved recomputed).")
+    end
     if hasproperty(df, :scaled_solution)
         select!(df, Not(:scaled_solution))
     end
@@ -706,6 +723,7 @@ function combined_table_spanning_tree_acst_rank_pruning_vs_pajarito(;
     common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :dual_gap, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters, :feasible]
     available = [nm for nm in common if hasproperty(d1, nm) && hasproperty(d2, nm)]
     df = vcat(d1[:, available], d2[:, available]; cols=:orderequal)
+    df[!, :quasi_optimal] = fill(false, nrow(df))
 
     if verbose && hasproperty(d2, :feasible)
         n_inf = count(i -> pajarito_feasible_is_false(d2[i, :feasible]), 1:nrow(d2))
@@ -745,7 +763,7 @@ function run_aggregation_spanning_trees(; out_dir=nothing, all_boscia_variants=f
         verbose && println("  No Boscia spanning-tree data, skipping first table.")
     else
         verbose && println("  Combined rows: $(nrow(df)), methods: $(unique(df.solver))")
-        by_dim = aggregate_by(df, :dimension)
+        by_dim = vcat(aggregate_by(df, :dimension), aggregate_overall(df, :dimension); cols=:union)
         out_dim = joinpath(out_dir, "spanning_tree_independent_by_dimension.csv")
         CSV.write(out_dim, by_dim)
         verbose && println("  Wrote $out_dim ($(nrow(by_dim)) rows)")
@@ -754,7 +772,7 @@ function run_aggregation_spanning_trees(; out_dir=nothing, all_boscia_variants=f
     df2 = combined_table_spanning_tree_acst_rank_pruning_vs_pajarito(; verbose, unified_df_with_scaled=df_with_scaled)
     if df2 !== nothing
         verbose && println("  Combined rows: $(nrow(df2)), methods: $(unique(df2.solver))")
-        by_dim2 = aggregate_by(df2, :dimension)
+        by_dim2 = vcat(aggregate_by(df2, :dimension), aggregate_overall(df2, :dimension); cols=:union)
         out_paj = joinpath(out_dir, "spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.csv")
         CSV.write(out_paj, by_dim2)
         verbose && println("  Wrote $out_paj ($(nrow(by_dim2)) rows)")
@@ -785,6 +803,7 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
         unsolved_rel = [r for (r, s) in zip(rel_gaps, solved) if !s && isfinite(r) && r isa Number && r > 0]
         rel_gap_geom_unsolved = isempty(unsolved_rel) ? missing : exp(sum(log, unsolved_rel) / length(unsolved_rel))
         n_failed = count(failed)
+        quasi_opt = hasproperty(sdf, :quasi_optimal) ? count(sdf.quasi_optimal) : 0
         # Averages over solved instances only; 0 when not applicable for that solver
         solved_idx = findall(solved)
         n_sol = length(solved_idx)
@@ -802,6 +821,7 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
             :time_std_wrt_geom => time_std_geom === missing ? missing : round(time_std_geom; digits=4),
             :rel_gap_geom_mean_unsolved => rel_gap_geom_unsolved === missing ? missing : round(rel_gap_geom_unsolved; digits=6),
             :failed_instances => n_failed,
+            :quasi_optimal => quasi_opt,
             :avg_lmo_calls => avg_lmo_calls,
             :avg_nodes => avg_nodes,
             :avg_cuts => avg_cuts,
@@ -812,7 +832,7 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
     end
     out = DataFrame(rows)
     # Consistent column order: group, solver, then metrics (incl. solver-specific avgs over solved only)
-    order = [group_col, :solver, :n_instances, :n_solved, :pct_solved, :time_geom_mean, :time_std_wrt_geom, :rel_gap_geom_mean_unsolved, :failed_instances, :avg_lmo_calls, :avg_nodes, :avg_cuts, :avg_sdp_iters]
+    order = [group_col, :solver, :n_instances, :n_solved, :pct_solved, :time_geom_mean, :time_std_wrt_geom, :rel_gap_geom_mean_unsolved, :failed_instances, :quasi_optimal, :avg_lmo_calls, :avg_nodes, :avg_cuts, :avg_sdp_iters]
     nms = names(out)
     # Match both Symbol and String column names (DataFrame(rows) may use either)
     cols = [c for c in order if c in nms || string(c) in nms]
@@ -821,6 +841,16 @@ function aggregate_by(df::DataFrame, group_col::Symbol)
     end
     idx = [c in nms ? c : string(c) for c in order if c in nms || string(c) in nms]
     return out[:, idx]
+end
+
+"""
+Overall aggregation across *all* instances for each solver, emitted as an extra row in by-dimension CSVs.
+We encode the overall column as `dimension = -1` (rendered as `all` in LaTeX).
+"""
+function aggregate_overall(df::DataFrame, group_col::Symbol; overall_value=-1)
+    tmp = copy(df)
+    tmp[!, group_col] = fill(overall_value, nrow(tmp))
+    return aggregate_by(tmp, group_col)
 end
 
 function run_aggregation(; out_dir=nothing, smoothing=false, all_boscia_variants=false, verbose=true)
@@ -848,7 +878,7 @@ function run_aggregation(; out_dir=nothing, smoothing=false, all_boscia_variants
         if verbose
             println("  Combined rows: $(nrow(df)), solvers/regimes: $(unique(df.solver))")
         end
-        by_dim = aggregate_by(df, :dimension)
+        by_dim = vcat(aggregate_by(df, :dimension), aggregate_overall(df, :dimension); cols=:union)
         by_n = aggregate_by(df, :N_construction)
         n_order = ["rank_deficient", "one", "log"]
         col_n = :N_construction in names(by_n) ? :N_construction : "N_construction"
@@ -893,7 +923,7 @@ function run_aggregation_agc(; out_dir=nothing, all_boscia_variants=false, verbo
         if verbose
             println("  Combined rows: $(nrow(df)), solvers: $(unique(df.solver))")
         end
-        by_dim = aggregate_by(df, :dimension)
+        by_dim = vcat(aggregate_by(df, :dimension), aggregate_overall(df, :dimension); cols=:union)
         out_dim = joinpath(out_dir, "agc_$(tag)_by_dimension.csv")
         CSV.write(out_dim, by_dim)
         if verbose

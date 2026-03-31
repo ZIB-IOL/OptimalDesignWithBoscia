@@ -1,7 +1,7 @@
-N_construction,solver,n_instances,n_solved,pct_solved,time_geom_mean,time_std_wrt_geom,rel_gap_geom_mean_unsolved,failed_instances,avg_lmo_calls,avg_nodes,avg_cuts,avg_sdp_iters
-one,Boscia,25,0,0.0,3603.8861,1.5129,0.489862,1,0.0,0.0,0.0,0.0
-one,SCIPSDP_oa,25,4,16.0,2382.3195,1326.8169,0.33549,0,0.0,21697.0,127020.75,0.0
-one,SCIPSDP_bnb,25,10,40.0,979.7275,2091.2724,0.17834,0,0.0,23356.2,0.0,703295.8
-log,Boscia,25,0,0.0,3602.4837,0.5753,0.370082,0,0.0,0.0,0.0,0.0
-log,SCIPSDP_oa,25,1,4.0,2792.8502,967.4838,0.1041,0,0.0,533.0,3027.0,0.0
-log,SCIPSDP_bnb,25,14,56.0,730.5636,2074.0936,0.061116,0,0.0,34945.86,0.0,783842.0
+N_construction,solver,n_instances,n_solved,pct_solved,time_geom_mean,time_std_wrt_geom,rel_gap_geom_mean_unsolved,failed_instances,quasi_optimal,avg_lmo_calls,avg_nodes,avg_cuts,avg_sdp_iters
+one,Boscia,25,0,0.0,3603.8861,1.5129,0.489862,1,0,0.0,0.0,0.0,0.0
+one,SCIPSDP_oa,25,8,32.0,1366.3305,1942.108,0.542506,0,0,0.0,18578.75,121717.38,0.0
+one,SCIPSDP_bnb,25,10,40.0,979.7275,2091.2724,0.17834,0,0,0.0,23356.2,0.0,703295.8
+log,Boscia,25,0,0.0,3602.4837,0.5753,0.370082,0,0,0.0,0.0,0.0,0.0
+log,SCIPSDP_oa,25,7,28.0,742.9072,2449.8893,0.132962,0,0,0.0,8476.43,16833.71,0.0
+log,SCIPSDP_bnb,25,17,68.0,439.2366,1980.773,0.067336,0,0,0.0,28831.12,0.0,646922.71

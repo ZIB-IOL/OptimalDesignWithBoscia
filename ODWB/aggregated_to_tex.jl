@@ -97,7 +97,14 @@ const SMOOTHING_LABELS = Dict(
     "decay_0.9" => "Decay 0.9",
     "decay_0.7" => "Decay 0.7",
 )
-const DEFAULT_HIDDEN_METRICS = Set(["time_std_wrt_geom", "failed_instances", "avg_sdp_iters"])
+const DEFAULT_HIDDEN_METRICS = Set([
+    "time_std_wrt_geom",
+    "failed_instances",
+    "avg_sdp_iters",
+    "avg_lmo_calls",
+    "avg_nodes",
+    "avg_cuts",
+])
 
 # All metrics that can be shown; order and short header for LaTeX; 5th elem = :max/:min to bold best per column (or nothing)
 const METRIC_CONFIG = [
@@ -106,6 +113,7 @@ const METRIC_CONFIG = [
     ("time_std_wrt_geom", "time std", "0.2f", :numeric, nothing),
     ("rel_gap_geom_mean_unsolved", "rel. gap", "0.2e", :scientific, :min),
     ("failed_instances", "failed", "d", :int, nothing),
+    ("quasi_optimal", "quasi optimal", "d", :int, nothing),
     ("avg_lmo_calls", "LMO", "d", :int, nothing),
     ("avg_nodes", "nodes", "d", :int, nothing),
     ("avg_cuts", "cuts", "d", :int, nothing),
@@ -157,7 +165,8 @@ function pivot_aggregated(df::DataFrame, row_col::Symbol, hide::Vector{String}, 
         order = ["rank_deficient", "one", "log"]
         sort(collect(raw_vals); by=x -> (idx = findfirst(==(string(x)), order); idx === nothing ? 4 : idx))
     else
-        sort(collect(raw_vals))
+        # Put the special overall column (`-1`) last when present.
+        sort(collect(raw_vals); by=x -> (x isa Number && x == -1) ? typemax(Int) : (x isa Number ? Int(x) : 0))
     end
     rows = []
     for rv in row_vals
@@ -209,7 +218,8 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
     println(io, "\\begin{tabular}{", col_spec, "}")
     println(io, "\\toprule")
     # Header: Solver, Metric, then one column per dimension (or N_construction)
-    line1 = " Solver & Metric & " * join(tex_escape.(string.(row_vals)), " & ")
+    header_vals = [((v isa Number && v == -1) ? "all" : string(v)) for v in row_vals]
+    line1 = " Solver & Metric & " * join(tex_escape.(header_vals), " & ")
     println(io, line1, " \\\\")
     println(io, "\\midrule")
     # Data: for each solver, multirow block with one row per metric (first col = solver multirow, second = metric name)
