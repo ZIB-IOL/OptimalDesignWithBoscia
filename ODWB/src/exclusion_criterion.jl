@@ -509,6 +509,12 @@ function build_branch_callback_mem(
     u = ones(T, m)
     fixed_mask = falses(m)
 
+    # Buffers reused across callback invocations (avoid per-node allocations).
+    free_indices = Vector{Int}(undef, m)
+    V_i = zeros(T, n, n)      # A[vdix,:] * A[vdix,:]'
+    G_free = zeros(T, n, n)   # A_free' * A_free
+    tmp = zeros(T, n, n)      # workspace for eigmin calls
+
     return function branch_callback(tree, node, vdix)
         if node.depth > m
             return false, false
@@ -539,28 +545,67 @@ function build_branch_callback_mem(
         prune_left = false
         prune_right = false
         if node.depth > Int(N) && rank_based_pruning
-            free_indices = findall(x -> x == false, fixed_mask)
-            V_i = A[vdix, :] * A[vdix, :]'
-            A_free = A[free_indices, :] * A[free_indices, :]'
-            local_rank_l = rank(M_0) + min(N_star, rank(A_free) - rank(V_i))
-            local_rank_u = rank(M_0) + min(N_star - 1, rank(A_free))
+            # Collect free indices without allocating a fresh vector.
+            free_count = 0
+            @inbounds for i in 1:m
+                if !fixed_mask[i]
+                    free_count += 1
+                    free_indices[free_count] = i
+                end
+            end
+            free_view = view(free_indices, 1:free_count)
+
+            # rank(A_free) == rank(A[free,:]) but the latter avoids forming A_free*A_free'.
+            # rank(V_i) is 1 unless A[vdix,:] is (numerically) zero.
+            @views a = A[vdix, :]
+            r_V = iszero(norm(a)) ? 0 : 1
+            r_M0 = rank(M_0)
+            r_Afree = free_count == 0 ? 0 : rank(@view(A[free_view, :]))
+
+            local_rank_l = r_M0 + min(N_star, r_Afree - r_V)
+            local_rank_u = r_M0 + min(N_star - 1, r_Afree)
             prune_left = local_rank_l < n
             prune_right = local_rank_u < n
             if prune_left || prune_right
-                @show n, rank(M_0), rank(A_free), N_star, local_rank_l, local_rank_u, prune_left, prune_right
+                @show n, r_M0, r_Afree, N_star, local_rank_l, local_rank_u, prune_left, prune_right
                 push!(number_pruned_nodes, node.id => prune_left + prune_right)
                 processed_pruning_nodes += 1
             end
         elseif eigenvalue_based_pruning && node.depth > Int(N)
-            free_indices = findall(x -> x == false, fixed_mask)
-            V_i = A[vdix, :] * A[vdix, :]'
-            A_free = A[free_indices, :] * A[free_indices, :]'
-            left_eig = eigmin(M_0 + A_free - V_i)
-            right_eig = eigmin(M_0 + A_free)
+            # Collect free indices without allocating a fresh vector.
+            free_count = 0
+            @inbounds for i in 1:m
+                if !fixed_mask[i]
+                    free_count += 1
+                    free_indices[free_count] = i
+                end
+            end
+            free_view = view(free_indices, 1:free_count)
+
+            # Build V_i and G_free in parameter space (n×n) using preallocated buffers.
+            # V_i = a*a',  G_free = A_free' * A_free.
+            @views a = A[vdix, :]
+            mul!(V_i, a, a', one(T), zero(T))
+            if free_count == 0
+                fill!(G_free, zero(T))
+            else
+                A_free_rows = @view(A[free_view, :])
+                mul!(G_free, A_free_rows', A_free_rows, one(T), zero(T))
+            end
+
+            # Reuse a workspace matrix for eigmin to avoid allocating M_0 + ...
+            tmp .= M_0
+            tmp .+= G_free
+            tmp .-= V_i
+            left_eig = eigmin(Symmetric(tmp))
+
+            tmp .= M_0
+            tmp .+= G_free
+            right_eig = eigmin(Symmetric(tmp))
             prune_left = left_eig < -tree.incumbent
             prune_right = right_eig < -tree.incumbent
             if prune_left || prune_right
-                @show n, rank(M_0), rank(A_free), N_star, left_eig, right_eig, prune_left, prune_right
+                @show n, rank(M_0), free_count, N_star, left_eig, right_eig, prune_left, prune_right
                 push!(number_pruned_nodes, node.id => prune_left + prune_right)
                 processed_pruning_nodes += 1
             end
