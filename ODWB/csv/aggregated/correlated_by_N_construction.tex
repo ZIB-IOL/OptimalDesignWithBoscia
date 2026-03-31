@@ -1,0 +1,26 @@
+\begin{tabular}{llrr}
+\toprule
+ Solver & Metric & one & log \\
+\midrule
+\multirow{6}{*}{Boscia} & \% sol. & 32.0 & 48.0 \\
+  & time (s) & 1669.2 & \textbf{461.9} \\
+  & rel. gap & 2.23e-01 & 5.78e-02 \\
+  & LMO & 19981886 & 3982306 \\
+  & nodes & 6681 & 2120 \\
+  & cuts & 0 & 0 \\
+\midrule
+\multirow{6}{*}{SCIPSDP (OA)} & \% sol. & 32.0 & 8.0 \\
+  & time (s) & 947.9 & 1505.6 \\
+  & rel. gap & 2.61e-01 & 5.14e-02 \\
+  & LMO & 0 & 0 \\
+  & nodes & 7721 & 6 \\
+  & cuts & 141663 & 78 \\
+\midrule
+\multirow{6}{*}{SCIPSDP (B\&B)} & \% sol. & \textbf{40.0} & \textbf{60.0} \\
+  & time (s) & \textbf{856.5} & 627.6 \\
+  & rel. gap & \textbf{1.27e-01} & \textbf{2.50e-02} \\
+  & LMO & 0 & 0 \\
+  & nodes & 13691 & 34239 \\
+  & cuts & 0 & 0 \\
+\bottomrule
+\end{tabular}

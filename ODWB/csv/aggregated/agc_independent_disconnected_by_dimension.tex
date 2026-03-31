@@ -1,0 +1,26 @@
+\begin{tabular}{llrrrr}
+\toprule
+ Solver & Metric & 80 & 100 & 150 & 200 \\
+\midrule
+\multirow{6}{*}{Boscia} & \% sol. & 20.0 & 20.0 & \textbf{20.0} & \textbf{0.0} \\
+  & time (s) & 575.2 & 788.3 & 3123.9 & 3600.3 \\
+  & rel. gap & 9.61e-02 & 1.19e-01 & 2.39e-01 & 1.48e-01 \\
+  & LMO & 1330 & 58 & 2181725 & 0 \\
+  & nodes & 33 & 3 & 19817 & 0 \\
+  & cuts & 0 & 0 & 0 & 0 \\
+\midrule
+\multirow{6}{*}{SCIPSDP (OA)} & \% sol. & 20.0 & 20.0 & 0.0 & \textbf{0.0} \\
+  & time (s) & 2941.0 & 739.7 & 3600.6 & 3600.2 \\
+  & rel. gap & 9.34e-02 & 1.00e-01 & 1.54e-01 & 1.65e-01 \\
+  & LMO & 0 & 0 & 0 & 0 \\
+  & nodes & 111677 & 202 & 0 & 0 \\
+  & cuts & 440928 & 610 & 0 & 0 \\
+\midrule
+\multirow{6}{*}{SCIPSDP (B\&B)} & \% sol. & \textbf{80.0} & \textbf{80.0} & \textbf{20.0} & \textbf{0.0} \\
+  & time (s) & \textbf{376.2} & \textbf{421.1} & \textbf{3052.6} & \textbf{3600.0} \\
+  & rel. gap & \textbf{2.08e-02} & \textbf{6.06e-02} & \textbf{8.24e-02} & \textbf{8.05e-02} \\
+  & LMO & 0 & 0 & 0 & 0 \\
+  & nodes & 46591 & 35478 & 33523 & 0 \\
+  & cuts & 0 & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}
