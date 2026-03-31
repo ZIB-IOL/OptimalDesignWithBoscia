@@ -95,6 +95,7 @@ function solve_opt(
     resolve_integer_solution=false,
     rank_based_pruning=false,
     relative_gap_tolerance=1e-2,
+    eigenvalue_based_pruning=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -306,6 +307,7 @@ function solve_opt(
             number_pruned_nodes=number_pruned_nodes,
             processed_pruning_nodes=processed_pruning_nodes,
             rank_based_pruning=rank_based_pruning,
+            eigenvalue_based_pruning=eigenvalue_based_pruning,
         )
     end
 
@@ -528,6 +530,8 @@ function solve_opt(
 
         folder = if rank_based_pruning
         "rank_based_pruning"
+        elseif eigenvalue_based_pruning
+            "eigenvalue_based_pruning"
         elseif use_exclusion_criterion
             "exclusion_criterion"
         #elseif !use_sub_grad_info

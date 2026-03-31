@@ -500,6 +500,7 @@ function build_branch_callback_mem(
     number_pruned_nodes=Dict{Int, Int}(),
     processed_pruning_nodes=0,
     rank_based_pruning=false,
+    eigenvalue_based_pruning=false,
 )
     m, n = size(A)
     T = eltype(A)
@@ -547,6 +548,19 @@ function build_branch_callback_mem(
             prune_right = local_rank_u < n
             if prune_left || prune_right
                 @show n, rank(M_0), rank(A_free), N_star, local_rank_l, local_rank_u, prune_left, prune_right
+                push!(number_pruned_nodes, node.id => prune_left + prune_right)
+                processed_pruning_nodes += 1
+            end
+        elseif eigenvalue_based_pruning && node.depth > Int(N)
+            free_indices = findall(x -> x == false, fixed_mask)
+            V_i = A[vdix, :] * A[vdix, :]'
+            A_free = A[free_indices, :] * A[free_indices, :]'
+            left_eig = eigmin(M_0 + A_free - V_i)
+            right_eig = eigmin(M_0 + A_free)
+            prune_left = left_eig < -tree.incumbent
+            prune_right = right_eig < -tree.incumbent
+            if prune_left || prune_right
+                @show n, rank(M_0), rank(A_free), N_star, left_eig, right_eig, prune_left, prune_right
                 push!(number_pruned_nodes, node.id => prune_left + prune_right)
                 processed_pruning_nodes += 1
             end

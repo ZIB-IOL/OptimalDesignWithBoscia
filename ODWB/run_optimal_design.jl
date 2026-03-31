@@ -136,6 +136,7 @@ for k in ratio_para
                             use_sub_grad_info = option != "no_sub_grad_info",
                             rank_based_pruning = option == "rank_based_pruning",
                             relative_gap_tolerance = 5e-2,
+                            eigenvalue_based_pruning = option == "eigenvalue_based_pruning",
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
