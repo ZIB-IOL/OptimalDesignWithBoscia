@@ -420,7 +420,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
             MOI.Silent() => true, #!verbose,
         )
         opt = optimizer_with_attributes(Pajarito.Optimizer,
-            "time_limit" => time_limit, 
+            "time_limit" => 10, 
             "iteration_limit" => 100000,
             "oa_solver" => oa_solver, 
             "conic_solver" => conic_solver,
@@ -487,6 +487,7 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         end
         y = z 
         @show y
+        @show findall(y .> 0.0)
     else
         A, _, N, ub, _ = integer_data ? build_integer_data(seed, m, n, false, corr, N=N) : build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
     end
@@ -511,7 +512,6 @@ function solve_opt_pajarito(seed, m, n, time_limit, criterion, corr; write=true,
         # OA / numerics: binaries may be fractionally off; round before combinatorial checks.
         graph = Graphs.complete_graph(n)
         n_kn = Graphs.ne(graph)
-        y
         lmo = Boscia.ManagedLMO(
             CO.SpanningTreeLMO(graph),
             fill(0.0, n_kn),
