@@ -14,6 +14,8 @@
 #
 
 using CSV, DataFrames, Printf
+using Colors
+include(joinpath(@__DIR__, "colours.jl"))
 
 # Plotting: try PyPlot, then Plots (with GR or pyplot backend)
 const PLOT_BACKEND = try
@@ -200,8 +202,11 @@ end
 
 """Load progress CSV and compute relative gap. Returns (time, iteration, rel_gap) vectors.
 
-Relative gap = (upperBound - lowerBound) / scale, with scale = max(|upperBound|, |lowerBound|, 1e-10).
-This is the absolute optimality gap normalized by the larger of the two bounds (standard in optimization).
+Relative gap definition used here:
+    rel_gap = abs(upperBound - lowerBound) / abs(min(upperBound, lowerBound))
+
+The `abs` on the denominator ensures the gap is nonnegative (so it can be shown on a log scale),
+and matches the intent of scaling by the smaller (more conservative) bound magnitude.
 """
 function load_rel_gap(csv_path::String)
     df = CSV.read(csv_path, DataFrame)
@@ -210,13 +215,17 @@ function load_rel_gap(csv_path::String)
     end
     lb = df.lowerBound
     ub = df.upperBound
-    time = "time" in names(df) ? df.time : 1:nrow(df)
+    time_raw = "time" in names(df) ? df.time : collect(1:nrow(df))
+    # In our full-run CSVs, time is typically recorded in milliseconds.
+    # Heuristic: if the maximum exceeds 10k, treat it as ms and convert to seconds.
+    time = (maximum(time_raw) > 10_000) ? (time_raw ./ 1000.0) : Float64.(time_raw)
     n = length(lb)
     rel_gap = Float64[]
     for i in 1:n
-        abs_gap = ub[i] - lb[i]
-        scale = max(abs(ub[i]), abs(lb[i]), 1e-10)
-        push!(rel_gap, abs_gap / scale)
+        abs_gap = abs(ub[i] - lb[i])
+        denom = abs(min(ub[i], lb[i]))
+        denom = max(denom, 1e-10)
+        push!(rel_gap, abs_gap / denom)
     end
     iter = 1:n
     return time, iter, rel_gap
@@ -234,8 +243,12 @@ function plot_instance_rel_gap(
         @warn "No plotting backend (PyPlot/Plots) available; skipping plot generation."
         return
     end
+    # Turn (r,g,b) tuples from colours.jl into something each backend accepts.
+    rgb_tuple(t) = (float(t[1]), float(t[2]), float(t[3]))
+    rgb_color(t) = RGB(float(t[1]), float(t[2]), float(t[3]))
     setting_order = ["large_const", "small_const", "decay_0.9", "decay_0.7"]
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+    # Color-blind friendly colors (from colours.jl); do not reuse colors.
+    colors = [cb_blue, cb_purple, cb_rose, cb_blue_green]
 
     if PLOT_BACKEND == "PyPlot"
         fig, axes = PyPlot.subplots(1, 2, figsize = (12, 5))
@@ -249,24 +262,19 @@ function plot_instance_rel_gap(
                 continue
             end
             label = MU_SETTING_LABELS[idx]
-            axes[1].plot(time, rel_gap, color = colors[idx], label = label, alpha = 0.8)
-            axes[2].plot(iter, rel_gap, color = colors[idx], label = label, alpha = 0.8)
+            axes[1].plot(time, rel_gap, color = rgb_tuple(colors[idx]), label = label, alpha = 0.85)
+            axes[2].plot(iter, rel_gap, color = rgb_tuple(colors[idx]), label = label, alpha = 0.85)
         end
         axes[1].set_xlabel("Time (s)")
         axes[1].set_ylabel("Relative gap")
-        axes[1].set_title("Relative gap vs time")
-        axes[1].set_xscale("log")
         axes[1].set_yscale("log")
-        axes[1].legend()
         axes[1].grid(true, alpha = 0.3)
         axes[2].set_xlabel("Iteration")
         axes[2].set_ylabel("Relative gap")
-        axes[2].set_title("Relative gap vs iteration")
         axes[2].set_yscale("log")
         axes[2].legend()
         axes[2].grid(true, alpha = 0.3)
-        fig.suptitle("E-optimality μ settings: m=$m n=$n N=$N seed=$seed ($data_type)", fontsize = 12)
-        PyPlot.tight_layout(rect = (0.02, 0.03, 0.98, 0.94))
+        PyPlot.tight_layout(rect = (0.02, 0.03, 0.98, 0.98))
         if save_plots
             mkpath(out_dir)
             filepath = joinpath(out_dir, "eopt_mu_relgap_$(data_type)_$(m)_$(n)_$(N)_$(seed).png")
@@ -276,8 +284,8 @@ function plot_instance_rel_gap(
         PyPlot.close(fig)
     else
         # Plots.jl
-        p1 = Plots.plot(; xlabel = "Time (s)", ylabel = "Relative gap", title = "Relative gap vs time", xaxis = :log, yaxis = :log)
-        p2 = Plots.plot(; xlabel = "Iteration", ylabel = "Relative gap", title = "Relative gap vs iteration", yaxis = :log)
+        p1 = Plots.plot(; xlabel = "Time (s)", ylabel = "Relative gap", yaxis = :log, legend = false)
+        p2 = Plots.plot(; xlabel = "Iteration", ylabel = "Relative gap", yaxis = :log, legend = :topright)
         for (idx, key) in enumerate(setting_order)
             path = get(files_by_setting, key, nothing)
             if path === nothing || !isfile(path)
@@ -288,8 +296,8 @@ function plot_instance_rel_gap(
                 continue
             end
             label = MU_SETTING_LABELS[idx]
-            Plots.plot!(p1, time, rel_gap; label = label, color = colors[idx])
-            Plots.plot!(p2, iter, rel_gap; label = label, color = colors[idx])
+            Plots.plot!(p1, time, rel_gap; label = label, color = rgb_color(colors[idx]), linewidth = 2)
+            Plots.plot!(p2, iter, rel_gap; label = label, color = rgb_color(colors[idx]), linewidth = 2)
         end
         plot_combined = Plots.plot(p1, p2;
             layout = (1, 2),
