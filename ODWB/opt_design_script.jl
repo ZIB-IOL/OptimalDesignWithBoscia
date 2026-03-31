@@ -10,7 +10,7 @@
 #solvers = ["Boscia", "Pajarito", "SCIP", "Custom", "SOCP"]
 
 # E-Opimal Design
-
+#=
 num_experiments = [50,80,100,120,150] #170,200]#[50,80,100,120,150,170,200]  # for AGC [80, 100, 150, 200]
 criteria = ["E"] # "EF"
 data_types = ["IND", "CORR"]
@@ -18,17 +18,17 @@ solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
 seeds = [1,2,3,4,5] #[1,2,3,4,5]
 options = ["eigenvalue_based_pruning"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
 N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
-
+=#
 # Connectivity 
-#=
+
 num_experiments = [80, 100, 150, 200]
 criteria = ["AGC"]
 data_types = ["IND","CORR"]
 solvers = ["Boscia"]
-seeds = [0]
-options = ["baseline"]
+seeds = [1,2,3,4,5]
+options = ["eigenvalue_based_pruning"]
 N_construct = ["one"] 
-=#
+
 
 # Connectivity spanning trees
 #=
@@ -52,7 +52,7 @@ for criterion in criteria
                             if (option == "exclusion_criterion" && solver == "SCIPSDP") || (option == "oa" && solver == "Boscia")
                                 continue
                             end
-                            run(`sbatch -A optimi -J B-E experiment.sbatch $criterion $solver $data $m $seed $option $N`) # CB
+                            run(`sbatch -A optimi -J B-AGC experiment.sbatch $criterion $solver $data $m $seed $option $N`) # CB
                         end
                     end
                 end
