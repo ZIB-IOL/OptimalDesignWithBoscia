@@ -11,13 +11,13 @@
 
 # E-Opimal Design
 
-num_experiments = [50,80,100,120,150,170,200]#[50,80,100,120,150,170,200]  # for AGC [80, 100, 150, 200]
+num_experiments = [50,80,100,120,150] #170,200]#[50,80,100,120,150,170,200]  # for AGC [80, 100, 150, 200]
 criteria = ["E"] # "EF"
 data_types = ["IND", "CORR"]
 solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
-seeds = [0] #[1,2,3,4,5]
-options = ["baseline"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
-N_construct = ["rank_deficient", "one", "log"] #["one", "log", "rank_deficient"] 
+seeds = [1,2,3,4,5] #[1,2,3,4,5]
+options = ["eigenvalue_based_pruning"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
+N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
 
 # Connectivity 
 #=
