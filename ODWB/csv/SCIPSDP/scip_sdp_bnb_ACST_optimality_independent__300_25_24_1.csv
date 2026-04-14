@@ -1,0 +1,2 @@
+seed,numberOfExperiments,numberOfParameters,time,N,solution,dual_bound,rel_gap,tightened,scaled_solution,termination,feasible,n_nodes,n_cuts_found,n_cuts_applied,n_sdp_iters
+1,300,25,3600.001,24,24.849298946740763,633.8072956238893,24.50604332872013,false,-0.1080566026548928,TIME_LIMIT,true,17655,0,0,464689
