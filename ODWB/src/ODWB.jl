@@ -37,7 +37,9 @@ using Graphs
 import MathOptSetDistances
 const MOD = MathOptSetDistances
 
-using Mosek # path /Users/deborah/mosek/mosek/11.0/tools/platform/osxaarch64/bin
+# path local /Users/deborah/mosek/mosek/11.0/tools/platform/osxaarch64/bin
+# path cluster /software/mosek/10.2/tools/platform/linux64x86
+using Mosek 
 using MosekTools
 
 include("laplacianopt_json.jl")
