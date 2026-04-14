@@ -359,9 +359,31 @@ function build_d_criterion(A, fusion; μ =0.0, C=nothing, build_safe=false, long
 end
 
 """
+Choose reduced spectrum
+"""
+function choose_reduced_spectrum(A, μ, epsilon)
+    _, n = size(A)
+    eigs = reverse(eigvals(-A'*A))
+    max_sing = svdvals(-A' * A)[1]
+    delta = epsilon/6
+    for i in 1:n
+        lhs = (sqrt(2) * (n - i) * exp((eigs[i] - eigs[1])/μ))/(sum(exp((eigs[j] - eigs[1])/μ) for j in 1:i))
+        rhs = delta/max_sing
+        if !isfinite(lhs)
+            @show k, eigs[i], eigs[1], μ
+        end
+        #@show k, lhs, rhs
+        if lhs <= rhs
+            @show i, lhs, rhs
+            return i 
+        end
+    end
+end
+
+"""
 Build the E-criterion and its smoothed version.
 """
-function build_e_criterion(A; L=nothing, tightened=false, N=Inf)
+function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectrum=false, corr=false)
     m, n = size(A)
     # FW line search may evaluate slightly outside [0,1]^m; that can make A'diag(x)A (and eigen) explode.
     function inf_matrix(x)
@@ -395,8 +417,10 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf)
         return storage
     end
 
-    function generate_smoothing_function(μ)
-
+    function generate_smoothing_function(μ; epsilon=1e-6, level=Inf)
+        # in case of correlated data do not use the reduction on the smaller levels
+        k = reduced_spectrum ? corr && level > m/20 ? choose_reduced_spectrum(A, μ, epsilon) : n : n
+        k = k < n ? k + 1 : k
         function f_mu(x)
             X = inf_matrix(x)
             λ = eigvals(X)
@@ -408,9 +432,9 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf)
         function grad_mu!(storage, x)
             X = inf_matrix(x)
             λ, V = eigen(X)
-            frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
+            frac = - 1/exp(LogExpFunctions.logsumexp(-λ[(n + 1 - k):end] ./ μ))
             add_on = tightened ? μ/(n - N + 1) * norm.(eachrow(A), 2).^2 : 0.0
-            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,j]).^2 , -λ[j]/ μ)  for j in 1:n) .+ add_on
+            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,n + 1 - j]).^2 , -λ[n + 1 - j]/ μ)  for j in 1:k) .+ add_on
             return storage
         end
         return f_mu, grad_mu!

@@ -68,6 +68,9 @@ for k in ratio_para
         global m = Int(n * (n - 1) / 2)
         global starts = [n / 25]
         global decays = [0.9]
+    elseif option == "reduced_spectrum"
+        global starts = corr ? [m/20] : [m/100]
+        global decays = [0.9]
     end
     N = if criterion == "AGC"
         Int(floor(m/2))
@@ -94,6 +97,8 @@ for k in ratio_para
                    N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
                 elseif criterion in ["ACST", "ACSTS"]
                     max(1e-4, exp10(-min(80, m) / max(m, 1)))
+                elseif option == "reduced_spectrum"
+                    exp10(-100/m)
                 else
                    exp10(-20/m)
                 end
@@ -137,6 +142,7 @@ for k in ratio_para
                             rank_based_pruning = option == "rank_based_pruning",
                             relative_gap_tolerance = 5e-2,
                             eigenvalue_based_pruning = option == "eigenvalue_based_pruning",
+                            reduced_spectrum = option == "reduced_spectrum",
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]

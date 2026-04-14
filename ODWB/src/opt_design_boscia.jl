@@ -96,6 +96,7 @@ function solve_opt(
     rank_based_pruning=false,
     relative_gap_tolerance=1e-2,
     eigenvalue_based_pruning=false,
+    reduced_spectrum=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -249,7 +250,7 @@ function solve_opt(
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
     elseif criterion in ["E","AGC", "ACST", "ACSTS"]
-        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N)
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum)
     elseif criterion == "EF"
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=C)
     elseif criterion == "GTI"
@@ -530,6 +531,8 @@ function solve_opt(
 
         folder = if rank_based_pruning
         "rank_based_pruning"
+        elseif reduced_spectrum
+            "reduced_spectrum"
         elseif eigenvalue_based_pruning
             "eigenvalue_based_pruning"
         elseif use_exclusion_criterion
