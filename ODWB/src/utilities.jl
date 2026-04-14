@@ -363,14 +363,14 @@ Choose reduced spectrum
 """
 function choose_reduced_spectrum(A, μ, epsilon)
     _, n = size(A)
-    eigs = reverse(eigvals(-A'*A))
-    max_sing = svdvals(-A' * A)[1]
+    eig_vals = typeof(A' * A) == SparseArrays.SparseMatrixCSC{Float64, Int64} ? reverse(eigvals(Matrix(-A'*A))) : reverse(eigvals(-A'*A))
+    max_sing = typeof(A' * A) == SparseArrays.SparseMatrixCSC{Float64, Int64} ? svdvals(Matrix(-A' * A))[1] : svdvals(-A' * A)[1]
     delta = epsilon/6
     for i in 1:n
-        lhs = (sqrt(2) * (n - i) * exp((eigs[i] - eigs[1])/μ))/(sum(exp((eigs[j] - eigs[1])/μ) for j in 1:i))
+        lhs = (sqrt(2) * (n - i) * exp((eig_vals[i] - eig_vals[1])/μ))/(sum(exp((eig_vals[j] - eig_vals[1])/μ) for j in 1:i))
         rhs = delta/max_sing
         if !isfinite(lhs)
-            @show k, eigs[i], eigs[1], μ
+            @show k, eig_vals[i], eig_vals[1], μ
         end
         #@show k, lhs, rhs
         if lhs <= rhs

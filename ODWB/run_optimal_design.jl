@@ -41,12 +41,12 @@ seeds = seed == 0 ? criterion in ["ACST", "ACSTS"] ? collect(1:3) : collect(1:5)
 if option == "mu_testing"
     starts = [m/50, exp10(-200/m)]
     decays = [1.0, 0.9, 0.7]
-elseif criterion == "AGC"
-    starts = [m/200]
-    decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
 elseif option == "reduced_spectrum"
     starts = corr ? [m/20] : [m/100]
     decays = [0.9]
+elseif criterion == "AGC"
+    starts = [m/200]
+    decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -69,7 +69,7 @@ for k in ratio_para
         # `solve_opt` recomputes m = size(A,1) from the instance; keep m = n*(n-1)÷2 here so LMO matches K_n.
         n = m
         global m = Int(n * (n - 1) / 2)
-        global starts = [n / 25]
+        global starts = option == "reduced_spectrum" ? [n / 10] : [n / 25]
         global decays = [0.8]
     end
     N = if criterion == "AGC"
@@ -95,6 +95,8 @@ for k in ratio_para
                 end
                 smoothing_min = if criterion == "AGC"
                    N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
+                elseif option == "reduced_spectrum" && criterion in ["ACST", "ACSTS"]
+                    max(1e-2, exp10(-min(40, m) / max(m, 1)))
                 elseif criterion in ["ACST", "ACSTS"]
                     max(1e-4, exp10(-min(80, m) / max(m, 1)))
                 elseif option == "reduced_spectrum"
