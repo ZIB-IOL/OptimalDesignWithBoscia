@@ -44,6 +44,9 @@ if option == "mu_testing"
 elseif criterion == "AGC"
     starts = [m/200]
     decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
+elseif option == "reduced_spectrum"
+    starts = corr ? [m/20] : [m/100]
+    decays = [0.9]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -67,10 +70,7 @@ for k in ratio_para
         n = m
         global m = Int(n * (n - 1) / 2)
         global starts = [n / 25]
-        global decays = [0.9]
-    elseif option == "reduced_spectrum"
-        global starts = corr ? [m/20] : [m/100]
-        global decays = [0.9]
+        global decays = [0.8]
     end
     N = if criterion == "AGC"
         Int(floor(m/2))
