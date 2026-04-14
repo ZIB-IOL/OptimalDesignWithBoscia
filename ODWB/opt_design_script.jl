@@ -20,7 +20,7 @@ options = ["eigenvalue_based_pruning"] #["baseline", "use_exclusion_criterion", 
 N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
 =#
 # Connectivity 
-
+#=
 num_experiments = [80, 100, 150, 200]
 criteria = ["AGC"]
 data_types = ["IND","CORR"]
@@ -28,18 +28,18 @@ solvers = ["Boscia"]
 seeds = [1,2,3,4,5]
 options = ["eigenvalue_based_pruning"]
 N_construct = ["one"] 
-
+=#
 
 # Connectivity spanning trees
-#=
+
 num_experiments = [10, 12, 15, 25, 40, 60, 100]
 criteria = ["ACST"]
 data_types = ["IND"]
-solvers = ["Boscia"]
+solvers = ["SCIPSDP_bnb", "SCIPSDP_oa"]
 seeds = [0]
 options = ["baseline"]
 N_construct = ["one"] 
-=#
+
 # create instances
 for criterion in criteria
     for data in data_types
@@ -52,7 +52,7 @@ for criterion in criteria
                             if (option == "exclusion_criterion" && solver == "SCIPSDP") || (option == "oa" && solver == "Boscia")
                                 continue
                             end
-                            run(`sbatch -A optimi -J B-AGC experiment.sbatch $criterion $solver $data $m $seed $option $N`) # CB
+                            run(`sbatch -A optimi -J S-ACST experiment.sbatch $criterion $solver $data $m $seed $option $N`) # CB
                         end
                     end
                 end
