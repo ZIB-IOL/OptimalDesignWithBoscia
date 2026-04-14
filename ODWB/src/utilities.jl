@@ -417,9 +417,9 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
         return storage
     end
 
-    function generate_smoothing_function(μ; epsilon=1e-6, level=Inf)
+    function generate_smoothing_function(μ; epsilon=1e-6, node_level=Inf)
         # in case of correlated data do not use the reduction on the smaller levels
-        k = reduced_spectrum ? corr && level > m/20 ? choose_reduced_spectrum(A, μ, epsilon) : n : n
+        k = reduced_spectrum ? corr && node_level > m/20 ? choose_reduced_spectrum(A, μ, epsilon) : n : n
         k = k < n ? k + 1 : k
         function f_mu(x)
             X = inf_matrix(x)
