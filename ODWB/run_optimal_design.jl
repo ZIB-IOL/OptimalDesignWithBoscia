@@ -7,15 +7,16 @@ using CSV
 
 
 # For debugging
-#=
+
 ENV["MODE"] = "Boscia"
-ENV["CRITERION"] = "AGC"
+ENV["CRITERION"] = "ACST"
 ENV["TYPE"] = "IND"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "exclusion_criterion"
+ENV["OPTION"] = "optimal_reduced_spectrum"
 ENV["N"] = "one"
-ENV["DIMENSION"] = "80"
-=#
+ENV["DIMENSION"] = "10"
+
+#ENV["JULIA_DEBUG"] = "Boscia"
 
 """
 DON'T FORGET TO ADD e AGAIN ONCE YOU ARE DONE DEBUGGING!!
