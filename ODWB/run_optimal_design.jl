@@ -41,12 +41,12 @@ seeds = seed == 0 ? criterion in ["ACST", "ACSTS"] ? collect(1:3) : collect(1:5)
 if option == "mu_testing"
     starts = [m/50, exp10(-200/m)]
     decays = [1.0, 0.9, 0.7]
-elseif option == "reduced_spectrum"
-    starts = corr ? [m/20] : [m/100]
-    decays = [0.9]
 elseif criterion == "AGC"
-    starts = [m/200]
+    starts = corr ? [m/200] : [m/100]
     decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
+elseif option == "reduced_spectrum"
+    starts = corr ? [m/10] : [m/100]
+    decays = [0.7]
 else
     starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
     decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
@@ -96,11 +96,11 @@ for k in ratio_para
                 smoothing_min = if criterion == "AGC"
                    N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
                 elseif option == "reduced_spectrum" && criterion in ["ACST", "ACSTS"]
-                    max(1e-2, exp10(-min(40, m) / max(m, 1)))
+                    max(1e-4, exp10(-min(40, m) / max(m, 1)))
                 elseif criterion in ["ACST", "ACSTS"]
                     max(1e-4, exp10(-min(80, m) / max(m, 1)))
                 elseif option == "reduced_spectrum"
-                    exp10(-100/m)
+                    corr ? exp10(-50/m) : exp10(-100/m)
                 else
                    exp10(-20/m)
                 end
@@ -141,10 +141,12 @@ for k in ratio_para
                             best_sol_by_original = option in ["best_sol", "best_sol_resolve_integer"],
                             resolve_integer_solution = true, #option in ["resolve_integer", "best_sol_resolve_integer", "no_sub_grad_info_no_best_sol"],
                             use_sub_grad_info = option != "no_sub_grad_info",
-                            rank_based_pruning = option == "rank_based_pruning",
+                            rank_based_pruning = option in ["rank_based_pruning", "reduced_spectrum", "optimal_reduced_spectrum"] && criterion in ["ACST", "ACSTS", "AGC"],
                             relative_gap_tolerance = 5e-2,
                             eigenvalue_based_pruning = option == "eigenvalue_based_pruning",
-                            reduced_spectrum = option == "reduced_spectrum",
+                            reduced_spectrum = option in ["reduced_spectrum"],
+                            full_reduced_spectrum = option in ["optimal_reduced_spectrum"],
+                            clip_mu_resolution = false, #criterion in ["ACST", "ACSTS"] ? true : false,
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
