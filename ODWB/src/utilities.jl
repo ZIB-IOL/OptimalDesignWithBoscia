@@ -432,7 +432,7 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
         delta = epsilon/10
         rhs = delta/sigma_max
         if lhs <= rhs
-            println("Cut off verified.")
+            #println("Cut off verified.")
             return true
         end
         return false
