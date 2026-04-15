@@ -33,6 +33,7 @@ using StableRNGs
 using Dualization
 using JSON
 using Graphs
+using Arpack
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances

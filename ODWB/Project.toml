@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Deborah Hendrych <hendrych@zib.de>"]
 
 [deps]
+Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
 Bonobo = "f7b14807-3d4d-461a-888a-05dd4bca8bc3"
 Boscia = "36b166db-dac5-4d05-b36a-e6c4cef071c9"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -43,6 +44,7 @@ CombinatorialLinearOracles = {rev = "span-tree-blmo", url = "https://github.com/
 SCIP = {rev = "sdp-interface", url = "https://github.com/dhendryc/SCIP.jl"}
 
 [compat]
+Arpack = "0.5.4"
 Boscia = "0.2"
 Colors = "0.13.1"
 CombinatorialLinearOracles = "0.1.5"
