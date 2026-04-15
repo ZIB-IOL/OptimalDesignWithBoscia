@@ -9,12 +9,12 @@ using CSV
 # For debugging
 #=
 ENV["MODE"] = "Boscia"
-ENV["CRITERION"] = "AGC"
+ENV["CRITERION"] = "E"
 ENV["TYPE"] = "IND"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "exclusion_criterion"
+ENV["OPTION"] = "reduced_spectrum"
 ENV["N"] = "one"
-ENV["DIMENSION"] = "80"
+ENV["DIMENSION"] = "50"
 =#
 
 """
