@@ -560,7 +560,15 @@ function build_branch_callback_mem(
             @views a = A[vdix, :]
             r_V = iszero(norm(a)) ? 0 : 1
             r_M0 = rank(M_0)
-            r_Afree = free_count == 0 ? 0 : rank(@view(A[free_view, :]))
+            # `rank` on sparse SubArray can dispatch through `svdvals!` and fail.
+            # Materialize only this small free-row block when A is sparse.
+            r_Afree = if free_count == 0
+                0
+            elseif issparse(A)
+                rank(Matrix(@view(A[free_view, :])))
+            else
+                rank(@view(A[free_view, :]))
+            end
 
             local_rank_l = r_M0 + min(N_star, r_Afree - r_V)
             local_rank_u = r_M0 + min(N_star - 1, r_Afree)
