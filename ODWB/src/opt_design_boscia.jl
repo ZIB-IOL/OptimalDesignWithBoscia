@@ -97,6 +97,7 @@ function solve_opt(
     relative_gap_tolerance=1e-2,
     eigenvalue_based_pruning=false,
     reduced_spectrum=false,
+    clip_mu_resolution=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -382,6 +383,7 @@ function solve_opt(
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
         settings.smoothing[:best_sol_by_original] = best_sol_by_original
         settings.smoothing[:resolve_integer_solution] = resolve_integer_solution
+        settings.smoothing[:clip_mu_resolution] = clip_mu_resolution
 
         settings.frank_wolfe[:max_fw_iter] = 5000
         settings.frank_wolfe[:line_search] = line_search
@@ -529,10 +531,10 @@ function solve_opt(
             ""
         end =#
 
-        folder = if rank_based_pruning
-        "rank_based_pruning"
-        elseif reduced_spectrum
+        folder = if reduced_spectrum
             "reduced_spectrum"
+        elseif rank_based_pruning
+            "rank_based_pruning"
         elseif eigenvalue_based_pruning
             "eigenvalue_based_pruning"
         elseif use_exclusion_criterion
