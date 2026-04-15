@@ -11,12 +11,12 @@
 
 # E-Opimal Design
 
-num_experiments = [50,80,100,120,150, 170, 200] #170,200]#[50,80,100,120,150,170,200]  # for AGC [80, 100, 150, 200]
+num_experiments = [50,80,100,120,150] #170,200]#[50,80,100,120,150,170,200]  # for AGC [80, 100, 150, 200]
 criteria = ["E"] # "EF"
 data_types = ["IND", "CORR"]
 solvers = ["Boscia"] #, "Pajarito" , "SCIPSDP"
 seeds = [1,2,3,4,5] #[1,2,3,4,5]
-options = ["reduced_spectrum"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
+options = ["optimal_reduced_spectrum"] #["baseline", "use_exclusion_criterion", "oa", "mu_testing"]
 N_construct = ["one", "log"] #["one", "log", "rank_deficient"] 
 
 # Connectivity 
@@ -26,7 +26,7 @@ criteria = ["AGC"]
 data_types = ["IND","CORR"]
 solvers = ["Boscia"]
 seeds = [1,2,3,4,5]
-options = ["reduced_spectrum"]
+options = ["optimal_reduced_spectrum"]
 N_construct = ["one"] 
 =#
 
@@ -37,7 +37,7 @@ criteria = ["ACST", "ACSTS"]
 data_types = ["IND"]
 solvers = ["Boscia"]
 seeds = [1,2,3]
-options = ["reduced_spectrum"]
+options = ["optimal_reduced_spectrum"]
 N_construct = ["one"] 
 =#
 # create instances
