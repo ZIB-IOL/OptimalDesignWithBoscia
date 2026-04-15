@@ -452,7 +452,7 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
            # λ, V = eigen(X)
             k = n
             if reduced_spectrum
-                k = Int(floor(n/2))
+                k = Int(floor(n/3))
                 λ, V = Arpack.eigs(X, nev=k, which=:SM)
                 if !verify_cut_off(reverse(λ), k, sigma_max, μ, epsilon)
                     λ, V = eigen(X)
