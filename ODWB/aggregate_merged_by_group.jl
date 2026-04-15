@@ -9,8 +9,8 @@ f- Smoothing mode (--smoothing): 4 Boscia smoothing regimes (large_mu, small_mu,
 - AGC mode (--agc): same default four solvers (rank-pruning row omitted if no merged AGC file) →
   agc_correlated_connected_by_dimension.csv and agc_independent_disconnected_by_dimension.csv.
 - Spanning tree (`--acst-trees`, or legacy `--acst` / `--acsts`): (1) Boscia-only ACST + ACSTS unified table
-  → `spanning_tree_independent_by_dimension.csv`; (2) ACST with rank-based pruning vs **Pajarito** on the same
-  ACST instances → `spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.csv`.
+  → `spanning_tree_independent_by_dimension.csv`; (2) ACST with rank-based pruning vs **SCIPSDP_oa/SCIPSDP_bnb** on the same
+  ACST instances → `spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.csv`.
   Default rows in (1): ACST (Boscia), ACST (rank pruning), ACSTS variants; `--all-boscia` adds more ACST/ACSTS columns.
   Cross-solver check: **max** `scaled_solution` in both tables.
 - Metrics: geometric mean of time, std w.r.t. geom mean, n_solved, pct_solved, rel_gap geom (unsolved),
@@ -22,7 +22,7 @@ OPTIMALITY_PROVED) but its `scaled_solution` is inconsistent with another solver
 than the best in the correct direction, within tolerance), we set `time` to TIME_LIMIT and recompute
 `solved`.
 
-Run after merge_single_runs_to_csv.jl. Reads merged CSVs from csv/Boscia, csv/SCIPSDP, and (for spanning-tree table 2) csv/Pajarito.
+Run after merge_single_runs_to_csv.jl. Reads merged CSVs from csv/Boscia and csv/SCIPSDP.
 =#
 
 using CSV, DataFrames, Statistics
@@ -330,6 +330,25 @@ function load_and_normalize_boscia(corr::Bool)
     return df
 end
 
+function load_and_normalize_boscia_baseline(corr::Bool)
+    type = corr ? "correlated" : "independent"
+    path = joinpath(BOSCIA_DIR, "boscia_baseline_E_optimality_$(type)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("Boscia (baseline)", n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = coalesce.(df.rel_dual_gap, Inf)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    df[!, :N_construction] = [n_construction_label(row.numberOfParameters, row.N) for row in eachrow(df)]
+    df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
+    df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
+    df[!, :n_cuts_applied] = fill(0, n)
+    df[!, :n_sdp_iters] = fill(0, n)
+    return df
+end
+
 function load_and_normalize_boscia_e_merged_folder(folder::String, solver_label::String, corr::Bool)
     type = corr ? "correlated" : "independent"
     path = joinpath(BOSCIA_DIR, "boscia_$(folder)_E_optimality_$(type)_merged.csv")
@@ -450,6 +469,24 @@ function combined_table(corr::Bool; verbose::Bool=false, all_boscia_variants::Bo
     return df
 end
 
+function combined_table_reduced_vs_baseline(corr::Bool; verbose::Bool=false)
+    d_red = load_and_normalize_boscia(corr)  # reduced_spectrum merged under "Boscia"
+    d_base = load_and_normalize_boscia_baseline(corr)
+    (d_red === nothing || d_base === nothing) && return nothing
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    df = vcat(d_red[:, common], d_base[:, common])
+    if hasproperty(df, :N_construction)
+        df = df[df.N_construction .!= "rank_deficient", :]
+    end
+    df[!, :quasi_optimal] = fill(false, nrow(df))
+    nfix = apply_cross_solver_primal_check!(df; sense=:min)
+    if verbose && nfix > 0
+        println("  Reduced vs baseline primal check (min scaled_solution): adjusted $nfix rows (time → $(TIME_LIMIT)s, solved recomputed).")
+    end
+    hasproperty(df, :scaled_solution) && select!(df, Not(:scaled_solution))
+    return df
+end
+
 function combined_table_smoothing(corr::Bool)
     dfs = DataFrame[]
     for regime in SMOOTHING_REGIMES
@@ -480,6 +517,26 @@ function load_and_normalize_boscia_agc(corr::Bool, connected::Bool)
     df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
     df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
     # For AGC, N_construction is not meaningful; mark as "other"
+    df[!, :N_construction] = fill("other", n)
+    df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
+    df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
+    df[!, :n_cuts_applied] = fill(0, n)
+    df[!, :n_sdp_iters] = fill(0, n)
+    return df
+end
+
+function load_and_normalize_boscia_agc_baseline(corr::Bool, connected::Bool)
+    type = corr ? "correlated" : "independent"
+    conn = connected ? "connected" : "disconnected"
+    path = joinpath(BOSCIA_DIR, "boscia_baseline_AGC_optimality_$(type)_$(conn)_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=BOSCIA_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("Boscia (baseline)", n)
+    df[!, :dimension] = df.numberOfExperiments
+    df[!, :rel_gap] = hasproperty(df, :rel_dual_gap) ? coalesce.(df.rel_dual_gap, Inf) : fill(Inf, n)
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
     df[!, :N_construction] = fill("other", n)
     df[!, :nodes] = hasproperty(df, :num_nodes) ? df.num_nodes : fill(0, n)
     df[!, :ncalls] = hasproperty(df, :ncalls) ? df.ncalls : fill(0, n)
@@ -587,6 +644,21 @@ function combined_table_agc(corr::Bool, connected::Bool; verbose::Bool=false, al
     return df
 end
 
+function combined_table_agc_reduced_vs_baseline(corr::Bool, connected::Bool; verbose::Bool=false)
+    d_red = load_and_normalize_boscia_agc(corr, connected)
+    d_base = load_and_normalize_boscia_agc_baseline(corr, connected)
+    (d_red === nothing || d_base === nothing) && return nothing
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    df = vcat(d_red[:, common], d_base[:, common])
+    df[!, :quasi_optimal] = fill(false, nrow(df))
+    nfix = apply_cross_solver_primal_check!(df; sense=:min)
+    if verbose && nfix > 0
+        println("  AGC reduced vs baseline primal check (min scaled_solution): adjusted $nfix rows.")
+    end
+    hasproperty(df, :scaled_solution) && select!(df, Not(:scaled_solution))
+    return df
+end
+
 function load_and_normalize_boscia_acst_variant(criterion::String, folder::Union{Nothing,String}, solver_label::String)
     path = if folder === nothing
         joinpath(BOSCIA_DIR, "boscia_$(criterion)_optimality_independent_merged.csv")
@@ -643,6 +715,34 @@ function load_and_normalize_pajarito_acst_merged()
     return df
 end
 
+function load_and_normalize_scipsdp_acst_merged(mode::String)
+    path = joinpath(SCIPSDP_DIR, "scip_sdp_$(mode)_ACST_optimality_independent_merged.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; delim=SCIPSDP_DELIM, silencewarnings=true)
+    n = nrow(df)
+    df[!, :solver] = fill("SCIPSDP_$(mode)", n)
+    df[!, :dimension] = df.numberOfExperiments
+    # ACST SCIPSDP CSVs use the minimization form (-λ_min). Convert to λ_min for comparisons/tables.
+    if hasproperty(df, :scaled_solution)
+        df[!, :scaled_solution] = -Float64.(df.scaled_solution)
+    end
+    df[!, :rel_gap] = hasproperty(df, :rel_gap) ? coalesce.(df.rel_gap, Inf) : fill(Inf, n)
+    if !hasproperty(df, :dual_gap)
+        df[!, :dual_gap] = fill(missing, n)
+    end
+    if !hasproperty(df, :feasible)
+        df[!, :feasible] = fill(missing, n)
+    end
+    df[!, :solved] = [is_solved(row.termination, row.time) for row in eachrow(df)]
+    df[!, :failed] = [is_failed(row.termination, row.solution, get(row, :solution_source, missing)) for row in eachrow(df)]
+    df[!, :N_construction] = fill("other", n)
+    df[!, :nodes] = hasproperty(df, :n_nodes) ? df.n_nodes : fill(0, n)
+    df[!, :ncalls] = fill(0, n)
+    df[!, :n_cuts_applied] = (mode == "oa" && hasproperty(df, :n_cuts_applied)) ? df.n_cuts_applied : fill(0, n)
+    df[!, :n_sdp_iters] = (mode == "bnb" && hasproperty(df, :n_sdp_iters)) ? coalesce.(df.n_sdp_iters, 0) : fill(0, n)
+    return df
+end
+
 function combined_table_spanning_tree_unified(;
     verbose::Bool=false,
     all_boscia_variants::Bool=false,
@@ -689,6 +789,24 @@ function combined_table_spanning_tree_unified(;
     return df
 end
 
+function combined_table_spanning_tree_acst_reduced_vs_baseline(; verbose::Bool=false)
+    d_red = load_and_normalize_boscia_acst_variant("ACST", nothing, "ACST (Boscia)")
+    d_base = load_and_normalize_boscia_acst_variant("ACST", "baseline", "ACST (baseline)")
+    (d_red === nothing || d_base === nothing) && return nothing
+    common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :dual_gap, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
+    df = vcat(d_red[:, common], d_base[:, common])
+    df[!, :quasi_optimal] = fill(false, nrow(df))
+    nfix = apply_cross_solver_primal_check!(df; sense=:max)
+    if verbose && nfix > 0
+        println("  ACST reduced vs baseline primal check (max scaled_solution): adjusted $nfix rows.")
+    end
+    if hasproperty(df, :scaled_solution)
+        select!(df, Not(:scaled_solution))
+    end
+    hasproperty(df, :dual_gap) && select!(df, Not(:dual_gap))
+    return df
+end
+
 """
 ACST rank pruning vs Pajarito with frozen Boscia reference.
 
@@ -701,7 +819,7 @@ For Pajarito, `rel_gap` uses Boscia ACST (rank pruning) `LB = scaled_solution - 
 `(scaled_pajarito - LB) / max(|scaled_pajarito|, 1e-12)` when `feasible` is not explicitly false (aligns with Boscia’s
 `rel_dual_gap` if objectives coincide).
 """
-function combined_table_spanning_tree_acst_rank_pruning_vs_pajarito(;
+function combined_table_spanning_tree_acst_rank_pruning_vs_scipsdp(;
     verbose::Bool=false,
     unified_df_with_scaled::Union{Nothing,DataFrame}=nothing,
 )
@@ -717,26 +835,23 @@ function combined_table_spanning_tree_acst_rank_pruning_vs_pajarito(;
     if !hasproperty(d1, :feasible)
         d1[!, :feasible] = fill(missing, nrow(d1))
     end
-    d2 = load_and_normalize_pajarito_acst_merged()
-    d2 === nothing && return nothing
+    d_oa = load_and_normalize_scipsdp_acst_merged("oa")
+    d_bnb = load_and_normalize_scipsdp_acst_merged("bnb")
+    scip_parts = DataFrame[]
+    d_oa !== nothing && push!(scip_parts, d_oa)
+    d_bnb !== nothing && push!(scip_parts, d_bnb)
+    isempty(scip_parts) && return nothing
+    d2 = vcat(scip_parts...; cols=:union)
 
     common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :dual_gap, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters, :feasible]
     available = [nm for nm in common if hasproperty(d1, nm) && hasproperty(d2, nm)]
     df = vcat(d1[:, available], d2[:, available]; cols=:orderequal)
     df[!, :quasi_optimal] = fill(false, nrow(df))
 
-    if verbose && hasproperty(d2, :feasible)
-        n_inf = count(i -> pajarito_feasible_is_false(d2[i, :feasible]), 1:nrow(d2))
-        n_inf > 0 && println("  Pajarito `feasible`=false (post-check infeasible): invalidated $n_inf runs at load.")
-    end
-
     nfix = apply_cross_solver_primal_check_fixed_reference!(df, ACST_RANK_PRUNING_SOLVER_LABEL; sense=:max)
     if verbose && nfix > 0
-        println("  Pajarito feasibility/optimality guard vs ACST rank-pruning reference: invalidated $nfix rows.")
+        println("  SCIPSDP optimality guard vs ACST rank-pruning reference: invalidated $nfix rows.")
     end
-    ref_rank = df_u[df_u.solver .== ACST_RANK_PRUNING_SOLVER_LABEL, :]
-    ng = apply_pajarito_rel_gap_from_boscia_dual_bound!(df, ref_rank)
-    verbose && ng > 0 && println("  Pajarito rel_gap from Boscia LB (`scaled - dual_gap`): set for $ng feasible runs.")
     if hasproperty(df, :scaled_solution)
         select!(df, Not(:scaled_solution))
     end
@@ -750,7 +865,7 @@ function run_aggregation_spanning_trees(; out_dir=nothing, all_boscia_variants=f
     out_dir = something(out_dir, joinpath(CSV_BASE, "aggregated"))
     mkpath(out_dir)
     if verbose
-        println("Aggregating spanning-tree results (Boscia ACST+ACSTS; plus ACST rank pruning vs Pajarito).")
+        println("Aggregating spanning-tree results (Boscia ACST+ACSTS; plus ACST rank pruning vs SCIPSDP).")
         println("Output directory: $out_dir")
     end
     verbose && println("\n--- spanning_tree_independent (Boscia formulations) ---")
@@ -768,20 +883,31 @@ function run_aggregation_spanning_trees(; out_dir=nothing, all_boscia_variants=f
         CSV.write(out_dim, by_dim)
         verbose && println("  Wrote $out_dim ($(nrow(by_dim)) rows)")
     end
-    verbose && println("\n--- spanning_tree_acst_rank_pruning_vs_pajarito ---")
-    df2 = combined_table_spanning_tree_acst_rank_pruning_vs_pajarito(; verbose, unified_df_with_scaled=df_with_scaled)
+    verbose && println("\n--- spanning_tree_acst_rank_pruning_vs_scipsdp ---")
+    df2 = combined_table_spanning_tree_acst_rank_pruning_vs_scipsdp(; verbose, unified_df_with_scaled=df_with_scaled)
     if df2 !== nothing
         verbose && println("  Combined rows: $(nrow(df2)), methods: $(unique(df2.solver))")
         by_dim2 = vcat(aggregate_by(df2, :dimension), aggregate_overall(df2, :dimension); cols=:union)
-        out_paj = joinpath(out_dir, "spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.csv")
+        out_paj = joinpath(out_dir, "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.csv")
         CSV.write(out_paj, by_dim2)
         verbose && println("  Wrote $out_paj ($(nrow(by_dim2)) rows)")
     else
-        verbose && println("\n--- spanning_tree_acst_rank_pruning_vs_pajarito: skipped (no rank-pruning and/or Pajarito merged CSV) ---")
+        verbose && println("\n--- spanning_tree_acst_rank_pruning_vs_scipsdp: skipped (no rank-pruning and/or SCIPSDP merged CSV) ---")
+    end
+    verbose && println("\n--- spanning_tree_acst_reduced_vs_baseline ---")
+    df3 = combined_table_spanning_tree_acst_reduced_vs_baseline(; verbose)
+    if df3 !== nothing
+        by_dim3 = vcat(aggregate_by(df3, :dimension), aggregate_overall(df3, :dimension); cols=:union)
+        out_cmp = joinpath(out_dir, "spanning_tree_acst_reduced_vs_baseline_independent_by_dimension.csv")
+        CSV.write(out_cmp, by_dim3)
+        verbose && println("  Wrote $out_cmp ($(nrow(by_dim3)) rows)")
+    elseif verbose
+        println("  skipped (missing reduced and/or baseline ACST merged CSV).")
     end
     if verbose
         println("\nDone. Outputs: spanning_tree_independent_by_dimension.csv (if Boscia data), " *
-            "spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.csv (if both solvers load).")
+            "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.csv (if all methods load), " *
+            "spanning_tree_acst_reduced_vs_baseline_independent_by_dimension.csv (if both variants load).")
     end
 end
 
@@ -892,6 +1018,18 @@ function run_aggregation(; out_dir=nothing, smoothing=false, all_boscia_variants
             println("  Wrote $out_dim ($(nrow(by_dim)) rows)")
             println("  Wrote $out_n ($(nrow(by_n)) rows)")
         end
+
+        if !smoothing
+            df_cmp = combined_table_reduced_vs_baseline(corr; verbose)
+            if df_cmp !== nothing
+                by_dim_cmp = vcat(aggregate_by(df_cmp, :dimension), aggregate_overall(df_cmp, :dimension); cols=:union)
+                out_cmp = joinpath(out_dir, "$(data_type)_reduced_vs_baseline_by_dimension.csv")
+                CSV.write(out_cmp, by_dim_cmp)
+                verbose && println("  Wrote $out_cmp ($(nrow(by_dim_cmp)) rows)")
+            elseif verbose
+                println("  Skip reduced-vs-baseline table for $data_type (missing merged baseline/reduced CSV).")
+            end
+        end
     end
     if verbose
         println("\nDone. Outputs: $(prefix)*_by_dimension.csv, $(prefix)*_by_N_construction.csv")
@@ -928,6 +1066,15 @@ function run_aggregation_agc(; out_dir=nothing, all_boscia_variants=false, verbo
         CSV.write(out_dim, by_dim)
         if verbose
             println("  Wrote $out_dim ($(nrow(by_dim)) rows)")
+        end
+        df_cmp = combined_table_agc_reduced_vs_baseline(corr, connected; verbose)
+        if df_cmp !== nothing
+            by_dim_cmp = vcat(aggregate_by(df_cmp, :dimension), aggregate_overall(df_cmp, :dimension); cols=:union)
+            out_cmp = joinpath(out_dir, "agc_$(tag)_reduced_vs_baseline_by_dimension.csv")
+            CSV.write(out_cmp, by_dim_cmp)
+            verbose && println("  Wrote $out_cmp ($(nrow(by_dim_cmp)) rows)")
+        elseif verbose
+            println("  Skip reduced-vs-baseline AGC for $tag (missing merged baseline/reduced CSV).")
         end
     end
     if verbose

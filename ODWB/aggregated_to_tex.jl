@@ -4,7 +4,7 @@ Generate LaTeX tables from aggregated CSVs (by_dimension and by_N_construction).
 - Default solver order matches aggregate_merged_by_group.jl: Boscia, SCIPSDP_oa, SCIPSDP_bnb
   (only columns present in the CSV are emitted).
 - `--acst-trees` (or legacy `--acst` / `--acsts`): `spanning_tree_independent_by_dimension.tex` from the Boscia-only
-  unified CSV, and `spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.tex` when that aggregate exists.
+  unified CSV, and `spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.tex` when that aggregate exists.
   `--all-boscia` only affects the first table’s solver order.
 - Use `--all-boscia` to also expect exclusion-criterion Boscia variants in the CSV order (E / AGC / spanning tree).
 - Rows = dimension or N_construction.
@@ -18,7 +18,7 @@ Usage:
   julia aggregated_to_tex.jl [...] [--smoothing] [--agc] [--acst-trees] [--acst] [--acsts] [--all-boscia]
   julia aggregated_to_tex.jl --smoothing   # Boscia smoothing regimes (4) → smoothing_*.tex
   julia aggregated_to_tex.jl --agc         # AGC setups (2) → agc_*.tex
-  julia aggregated_to_tex.jl --acst-trees  # Boscia ACST+ACSTS + ACST rank pr. vs Pajarito → two .tex files when CSVs exist
+  julia aggregated_to_tex.jl --acst-trees  # Boscia ACST+ACSTS + ACST rank pr. vs SCIPSDP → two .tex files when CSVs exist
   julia aggregated_to_tex.jl --hide avg_nodes time_std_wrt_geom
 
 All arguments after --hide (until the next --) are treated as column names to hide; commas are optional.
@@ -35,6 +35,10 @@ const SOLVERS_DEFAULT = [
     "Boscia",
     "SCIPSDP_oa",
     "SCIPSDP_bnb",
+]
+const SOLVERS_REDUCED_VS_BASELINE = [
+    "Boscia",
+    "Boscia (baseline)",
 ]
 const SOLVERS_WITH_EXCLUSIONS = [
     "Boscia",
@@ -67,14 +71,17 @@ const SOLVERS_TEX_SPANNING_TREE_ALL = [
     "ACSTS (excl. tighter tol)",
     "ACSTS (dual excl.)",
 ]
-const SOLVERS_TEX_ACST_RANK_VS_PAJARITO = ["ACST (rank pruning)", "Pajarito"]
+const SOLVERS_TEX_ACST_RANK_VS_SCIPSDP = ["ACST (rank pruning)", "SCIPSDP_oa", "SCIPSDP_bnb"]
+const SOLVERS_TEX_ACST_REDUCED_VS_BASELINE = ["ACST (Boscia)", "ACST (baseline)"]
 const SOLVER_LABELS = Dict(
     "Boscia" => "Boscia",
     "Boscia (excl.)" => "Boscia (excl.)",
     "Boscia (excl. random)" => "Boscia (excl. random)",
     "Boscia (excl. tighter tol)" => "Boscia (excl. tighter tol)",
     "Boscia (dual excl.)" => "Boscia (dual excl.)",
+    "Boscia (baseline)" => "Boscia (baseline)",
     "ACST (Boscia)" => "ACST (def.)",
+    "ACST (baseline)" => "ACST (baseline)",
     "ACST (rank pruning)" => "ACST (rank pr.)",
     "ACST (excl.)" => "ACST (excl.)",
     "ACST (excl. random)" => "ACST (excl. rand.)",
@@ -86,7 +93,6 @@ const SOLVER_LABELS = Dict(
     "ACSTS (excl. random)" => "ACSTS (excl. rand.)",
     "ACSTS (excl. tighter tol)" => "ACSTS (excl. tight)",
     "ACSTS (dual excl.)" => "ACSTS (dual excl.)",
-    "Pajarito" => "Pajarito",
     "SCIPSDP_oa" => "SCIPSDP (OA)",
     "SCIPSDP_bnb" => "SCIPSDP (B\\&B)",
 )
@@ -282,6 +288,20 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
                 write_tex_table(io, row_vals, metrics, rows, :dimension, title; solvers=solvers, solver_labels=SOLVER_LABELS)
             end
             println("Wrote ", tex_path)
+
+            cmp_path = joinpath(AGG_DIR, "agc_$(tag)_reduced_vs_baseline_by_dimension.csv")
+            if isfile(cmp_path)
+                cmp_df = CSV.read(cmp_path, DataFrame)
+                cmp_solvers = [s for s in SOLVERS_REDUCED_VS_BASELINE if s in unique(cmp_df.solver)]
+                if !isempty(cmp_solvers)
+                    row_vals_cmp, metrics_cmp, rows_cmp = pivot_aggregated(cmp_df, :dimension, hide_list, cmp_solvers)
+                    cmp_tex_path = joinpath(out, "agc_$(tag)_reduced_vs_baseline_by_dimension.tex")
+                    open(cmp_tex_path, "w") do io
+                        write_tex_table(io, row_vals_cmp, metrics_cmp, rows_cmp, :dimension, "AGC reduced spectrum vs baseline ($(tag))"; solvers=cmp_solvers, solver_labels=SOLVER_LABELS)
+                    end
+                    println("Wrote ", cmp_tex_path)
+                end
+            end
         end
     elseif acst_trees
         order = all_boscia ? SOLVERS_TEX_SPANNING_TREE_ALL : SOLVERS_TEX_SPANNING_TREE
@@ -299,19 +319,33 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
         else
             println("Skip spanning-tree TeX (Boscia formulations): $path not found")
         end
-        path_paj = joinpath(AGG_DIR, "spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.csv")
+        path_paj = joinpath(AGG_DIR, "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.csv")
         if isfile(path_paj)
             df_p = CSV.read(path_paj, DataFrame)
             df_p = df_p[df_p.dimension .< 780, :]
-            solvers_p = [s for s in SOLVERS_TEX_ACST_RANK_VS_PAJARITO if s in unique(df_p.solver)]
+            solvers_p = [s for s in SOLVERS_TEX_ACST_RANK_VS_SCIPSDP if s in unique(df_p.solver)]
             row_vals_p, metrics_p, rows_p = pivot_aggregated(df_p, :dimension, hide_list, solvers_p)
-            tex_paj = joinpath(out, "spanning_tree_acst_rank_pruning_vs_pajarito_independent_by_dimension.tex")
+            tex_paj = joinpath(out, "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.tex")
             open(tex_paj, "w") do io
-                write_tex_table(io, row_vals_p, metrics_p, rows_p, :dimension, "Spanning tree — ACST rank pruning vs Pajarito (independent)"; solvers=solvers_p, solver_labels=SOLVER_LABELS)
+                write_tex_table(io, row_vals_p, metrics_p, rows_p, :dimension, "Spanning tree — ACST rank pruning vs SCIPSDP (independent)"; solvers=solvers_p, solver_labels=SOLVER_LABELS)
             end
             println("Wrote ", tex_paj)
         else
-            println("Skip ACST vs Pajarito TeX: $path_paj not found")
+            println("Skip ACST vs SCIPSDP TeX: $path_paj not found")
+        end
+        path_cmp = joinpath(AGG_DIR, "spanning_tree_acst_reduced_vs_baseline_independent_by_dimension.csv")
+        if isfile(path_cmp)
+            df_c = CSV.read(path_cmp, DataFrame)
+            df_c = df_c[df_c.dimension .< 780, :]
+            solvers_c = [s for s in SOLVERS_TEX_ACST_REDUCED_VS_BASELINE if s in unique(df_c.solver)]
+            row_vals_c, metrics_c, rows_c = pivot_aggregated(df_c, :dimension, hide_list, solvers_c)
+            tex_cmp = joinpath(out, "spanning_tree_acst_reduced_vs_baseline_independent_by_dimension.tex")
+            open(tex_cmp, "w") do io
+                write_tex_table(io, row_vals_c, metrics_c, rows_c, :dimension, "Spanning tree — ACST reduced spectrum vs baseline (independent)"; solvers=solvers_c, solver_labels=SOLVER_LABELS)
+            end
+            println("Wrote ", tex_cmp)
+        else
+            println("Skip ACST reduced-vs-baseline TeX: $path_cmp not found")
         end
     else
         prefix = smoothing ? "smoothing_" : ""
@@ -333,6 +367,21 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
                     write_tex_table(io, row_vals, metrics, rows, row_col, "$(title_suffix) ($(dtype))"; solvers=solvers, solver_labels=solver_labels)
                 end
                 println("Wrote ", tex_path)
+            end
+
+            # Additional diagnostic table: reduced_spectrum ("Boscia") vs baseline Boscia
+            cmp_path = joinpath(AGG_DIR, "$(dtype)_reduced_vs_baseline_by_dimension.csv")
+            if isfile(cmp_path)
+                cmp_df = CSV.read(cmp_path, DataFrame)
+                cmp_solvers = [s for s in SOLVERS_REDUCED_VS_BASELINE if s in unique(cmp_df.solver)]
+                if !isempty(cmp_solvers)
+                    row_vals_cmp, metrics_cmp, rows_cmp = pivot_aggregated(cmp_df, :dimension, hide_list, cmp_solvers)
+                    cmp_tex_path = joinpath(out, "$(dtype)_reduced_vs_baseline_by_dimension.tex")
+                    open(cmp_tex_path, "w") do io
+                        write_tex_table(io, row_vals_cmp, metrics_cmp, rows_cmp, :dimension, "Reduced spectrum vs baseline ($(dtype))"; solvers=cmp_solvers, solver_labels=SOLVER_LABELS)
+                    end
+                    println("Wrote ", cmp_tex_path)
+                end
             end
         end
     end
