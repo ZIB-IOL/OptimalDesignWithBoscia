@@ -1,2 +1,2 @@
 seed;numberOfExperiments;numberOfParameters;N;time;solution;scaled_solution;dual_gap;rel_dual_gap;ncalls;num_nodes;termination;optimal_time;optimal_iteration;solution_source;avg_fixed_to_one;avg_fixed_to_zero;avg_pruned_nodes
-3;80;26;40;46.215;-12.354226230778139;-12.354226230778139;0.6176365797258647;0.049993950911077216;195584;1115;OPTIMAL;28720.0;367;rounding;0.0;0.0;0.0
+3;80;26;40;3602.468;-12.274595399534928;-12.274595399534928;1.053094002474717;0.08579460000079658;5923001;2583;TIME_LIMIT;1.128755e6;589;rounding;0.0;0.0;0.0
