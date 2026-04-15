@@ -361,31 +361,41 @@ end
 """
 Choose reduced spectrum
 """
-function choose_reduced_spectrum(A, μ, epsilon)
-    _, n = size(A)
-    eig_vals = typeof(A' * A) == SparseArrays.SparseMatrixCSC{Float64, Int64} ? reverse(eigvals(Matrix(-A'*A))) : reverse(eigvals(-A'*A))
-    max_sing = typeof(A' * A) == SparseArrays.SparseMatrixCSC{Float64, Int64} ? svdvals(Matrix(-A' * A))[1] : svdvals(-A' * A)[1]
-    delta = epsilon/10
-    for i in 1:n
-        lhs = (sqrt(2) * (n - i) * exp((eig_vals[i] - eig_vals[1])/μ))/(sum(exp((eig_vals[j] - eig_vals[1])/μ) for j in 1:i))
-        rhs = delta/max_sing
+function choose_reduced_spectrum(sigma_max, eig_vals, μ, epsilon, n)
+    (!isfinite(sigma_max) || sigma_max <= 0) && return n
+    delta = epsilon / 10
+    rhs = delta / sigma_max
+    shift = eig_vals[1]
+    running_sum = 0.0
+    prefactor = sqrt(2.0)
+    for i in 1:(n-1)
+        weight_i = exp((eig_vals[i] - shift) / μ)
+        running_sum += weight_i
+        lhs = (prefactor * (n - i) * weight_i) / running_sum
         if !isfinite(lhs)
-            @show k, eig_vals[i], eig_vals[1], μ
+            #@show i, eig_vals[i], shift, μ
         end
-        #@show k, lhs, rhs
-        if lhs <= rhs
+        if isfinite(lhs) && lhs <= rhs
             @show i, lhs, rhs
             return i 
         end
     end
+    return n
 end
 
 """
 Build the E-criterion and its smoothed version.
 """
-function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectrum=false, corr=false)
+function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectrum=false, corr=false, full_reduced_spectrum=false)
     m, n = size(A)
     # FW line search may evaluate slightly outside [0,1]^m; that can make A'diag(x)A (and eigen) explode.
+    gram = Symmetric(A' * A)
+    # `eigvals` on sparse matrices can trigger dense fallback anyway; materialize at most once.
+    gram_dense_or_not = issparse(gram.data) ? Matrix(gram) : gram    
+    # For M = -A'A: singular values are |eigvals(M)| = eigvals(A'A), so
+    # sigma_max(M) = lambda_max(A'A) = sigma_max(A)^2.
+    sigma_max = eigmax(gram_dense_or_not)
+    (!isfinite(sigma_max) || sigma_max <= 0) && return n
     function inf_matrix(x)
         xv = Vector{Float64}(undef, m)
         @inbounds for i in 1:m
@@ -417,17 +427,18 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
         return storage
     end
 
-    function generate_smoothing_function(μ; epsilon=1e-6, node_level=Inf)
-        # in case of correlated data do not use the reduction on the smaller levels
-        k =  if reduced_spectrum && corr && node_level <= m/5
-            n 
-        elseif reduced_spectrum 
-            println("Using reduced spectrum")
-            choose_reduced_spectrum(A, μ, epsilon)
-        else
-            n 
+    function verify_cut_off(λ, k, sigma_max, μ, epsilon)
+        lhs = (sqrt(2) * (n - k) * exp((λ[k] - λ[1])/μ))/(sum(exp((λ[j] - λ[1])/μ) for j in 1:k))
+        delta = epsilon/10
+        rhs = delta/sigma_max
+        if lhs <= rhs
+            println("Cut off verified.")
+            return true
         end
-        k = k < n ? k + 1 : k
+        return false
+    end
+
+    function generate_smoothing_function(μ; epsilon=1e-6, node_level=Inf)
         function f_mu(x)
             X = inf_matrix(x)
             λ = eigvals(X)
@@ -438,10 +449,28 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
 
         function grad_mu!(storage, x)
             X = inf_matrix(x)
-            λ, V = eigen(X)
-            frac = - 1/exp(LogExpFunctions.logsumexp(-λ[(n + 1 - k):end] ./ μ))
+           # λ, V = eigen(X)
+            k = n
+            if reduced_spectrum
+                k = Int(floor(n/2))
+                λ, V = Arpack.eigs(X, nev=k, which=:SM)
+                if !verify_cut_off(reverse(λ), k, sigma_max, μ, epsilon)
+                    λ, V = eigen(X)
+                    λ = reverse(λ)
+                    V = reverse(V, dims=2)
+                    k = n
+                end
+            elseif full_reduced_spectrum
+                k = n
+                λ, V = eigen(X)
+                λ = reverse(λ)
+                V = reverse(V, dims=2)
+                k = choose_reduced_spectrum(sigma_max, λ, μ, epsilon, n)
+                k = k < n ? k + 1 : k
+            end
+            frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
             add_on = tightened ? μ/(n - N + 1) * norm.(eachrow(A), 2).^2 : 0.0
-            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:,n + 1 - j]).^2 , -λ[n + 1 - j]/ μ)  for j in 1:k) .+ add_on
+            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:, j]).^2 , -λ[j]/ μ)  for j in 1:k) .+ add_on
             return storage
         end
         return f_mu, grad_mu!
