@@ -365,7 +365,7 @@ function choose_reduced_spectrum(A, μ, epsilon)
     _, n = size(A)
     eig_vals = typeof(A' * A) == SparseArrays.SparseMatrixCSC{Float64, Int64} ? reverse(eigvals(Matrix(-A'*A))) : reverse(eigvals(-A'*A))
     max_sing = typeof(A' * A) == SparseArrays.SparseMatrixCSC{Float64, Int64} ? svdvals(Matrix(-A' * A))[1] : svdvals(-A' * A)[1]
-    delta = epsilon/6
+    delta = epsilon/10
     for i in 1:n
         lhs = (sqrt(2) * (n - i) * exp((eig_vals[i] - eig_vals[1])/μ))/(sum(exp((eig_vals[j] - eig_vals[1])/μ) for j in 1:i))
         rhs = delta/max_sing
@@ -419,12 +419,11 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
 
     function generate_smoothing_function(μ; epsilon=1e-6, node_level=Inf)
         # in case of correlated data do not use the reduction on the smaller levels
-        k =  if reduced_spectrum 
-                if corr && node_level <= m/20
-                    n 
-                else
-                    choose_reduced_spectrum(A, μ, epsilon)
-                end
+        k =  if reduced_spectrum && corr && node_level <= m/5
+            n 
+        elseif reduced_spectrum 
+            println("Using reduced spectrum")
+            choose_reduced_spectrum(A, μ, epsilon)
         else
             n 
         end

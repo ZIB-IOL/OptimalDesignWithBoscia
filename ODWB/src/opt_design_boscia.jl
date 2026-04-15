@@ -250,7 +250,7 @@ function solve_opt(
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
     elseif criterion in ["E","AGC", "ACST", "ACSTS"]
-        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum)
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr)
     elseif criterion == "EF"
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=C)
     elseif criterion == "GTI"
