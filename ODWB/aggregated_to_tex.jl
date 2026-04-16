@@ -165,6 +165,7 @@ end
 
 function pivot_aggregated(df::DataFrame, row_col::Symbol, hide::Vector{String}, solvers::Vector{String})
     metrics = [m[1] for m in METRIC_CONFIG if m[1] in names(df) && !(m[1] in hide)]
+    solver_strings = String.(df.solver)
     raw_vals = unique(df[!, row_col])
     row_vals = if row_col == :N_construction
         order = ["rank_deficient", "one", "log"]
@@ -177,7 +178,7 @@ function pivot_aggregated(df::DataFrame, row_col::Symbol, hide::Vector{String}, 
     for rv in row_vals
         row_data = Any[rv]
         for solver in solvers
-            sub = df[(df[!, row_col] .== rv) .& (df.solver .== solver), :]
+            sub = df[(df[!, row_col] .== rv) .& (solver_strings .== solver), :]
             for (key, _, _, _, _) in METRIC_CONFIG
                 key in metrics || continue
                 if nrow(sub) >= 1 && key in names(sub)
@@ -285,6 +286,44 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
     end
     println(io, "\\bottomrule")
     println(io, "\\end{tabular}")
+end
+
+const OVERALL_SUMMARY_SPECS = [
+    ("E corr.", "correlated_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+    ("E ind.", "independent_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+    ("AGC corr.", "agc_correlated_connected_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+    ("AGC ind.", "agc_independent_disconnected_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+    ("ACST", "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.csv", Dict("Boscia" => "ACST (Boscia)", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+]
+
+function overall_summary_rows(hide::Vector{String}, solvers::Vector{String})
+    metrics = [m[1] for m in METRIC_CONFIG if !(m[1] in hide)]
+    case_labels = String[]
+    rows = Any[]
+    for (case_label, file_name, solver_map) in OVERALL_SUMMARY_SPECS
+        path = joinpath(AGG_DIR, file_name)
+        isfile(path) || continue
+        df = CSV.read(path, DataFrame)
+        hasproperty(df, :dimension) || continue
+        df = df[df.dimension .== -1, :]
+        nrow(df) == 0 && continue
+        solver_strings = String.(df.solver)
+        row_data = Any[case_label]
+        for solver in solvers
+            source_solver = get(solver_map, solver, solver)
+            sub = df[solver_strings .== source_solver, :]
+            for metric in metrics
+                if nrow(sub) >= 1 && metric in names(sub)
+                    push!(row_data, sub[1, metric])
+                else
+                    push!(row_data, missing)
+                end
+            end
+        end
+        push!(case_labels, case_label)
+        push!(rows, row_data)
+    end
+    return case_labels, metrics, rows
 end
 
 function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false, agc=false, acst_trees=false, all_boscia=false)
@@ -411,6 +450,16 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
                     println("Wrote ", cmp_tex_path)
                 end
             end
+        end
+    end
+    if !smoothing
+        case_labels, metrics, rows = overall_summary_rows(hide_list, SOLVERS_DEFAULT)
+        if !isempty(case_labels)
+            tex_summary = joinpath(out, "all_criteria_summary.tex")
+            open(tex_summary, "w") do io
+                write_tex_table(io, case_labels, metrics, rows, :dimension, "Overall summary"; solvers=SOLVERS_DEFAULT, solver_labels=SOLVER_LABELS)
+            end
+            println("Wrote ", tex_summary)
         end
     end
     println("\n--- Required LaTeX preamble ---")

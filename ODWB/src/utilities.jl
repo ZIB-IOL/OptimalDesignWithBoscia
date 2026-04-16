@@ -470,6 +470,10 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
                     k = choose_reduced_spectrum(sigma_max, λ, μ, epsilon, n)
                     k = k < n  ? k + 1 : k
                 end
+            else
+                k = n
+                Y = issparse(X) ? Matrix(X) : X
+                λ, V = eigen(Y)
             end
             frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
             add_on = tightened ? μ/(n - N + 1) * norm.(eachrow(A), 2).^2 : 0.0

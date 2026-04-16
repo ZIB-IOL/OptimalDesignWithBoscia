@@ -1,6 +1,7 @@
 using CSV
 using DataFrames
 using Plots
+using Plots.PlotMeasures: mm
 
 include(joinpath(@__DIR__, "..", "ODWB", "colours.jl"))
 
@@ -44,6 +45,8 @@ Base.@kwdef struct RunRecord
     path::String
 end
 
+const OFFICIAL_KEY_CACHE = Dict{Tuple{String, String}, Set{NTuple{4, Int}}}()
+
 const FAMILY_DEFS = Dict(
     "reduced_spectrum" => [
         SetupSpec(label="baseline", kind=:boscia, name="baseline"),
@@ -81,7 +84,7 @@ end
 
 function scipsdp_boscia_spec(cfg::ExperimentConfig)
     if cfg.criterion == "ACST"
-        return SetupSpec(label="Boscia", kind=:boscia, name="baseline")
+        return SetupSpec(label="Boscia", kind=:boscia, name="rank_based_pruning")
     elseif cfg.criterion == "AGC"
         return SetupSpec(label="Boscia", kind=:boscia, name="eigenvalue_based_pruning")
     elseif cfg.criterion == "E" && cfg.data_type == "correlated"
@@ -165,6 +168,52 @@ function keep_instance(criterion_name::String, key::NTuple{4, Int})
     return is_e_allowed(m, n, N)
 end
 
+function merged_csv_candidates(criterion_name::String)
+    if criterion_name == "ACST"
+        return [
+            joinpath(BOSCIA_DIR, "boscia_baseline_ACST_optimality_independent_merged.csv"),
+            joinpath(BOSCIA_DIR, "boscia_rank_based_pruning_ACST_optimality_independent_merged.csv"),
+            joinpath(SCIPSDP_DIR, "scip_sdp_oa_ACST_optimality_independent_merged.csv"),
+            joinpath(SCIPSDP_DIR, "scip_sdp_bnb_ACST_optimality_independent_merged.csv"),
+        ]
+    elseif criterion_name == "ACSTS"
+        return [
+            joinpath(BOSCIA_DIR, "boscia_baseline_ACSTS_optimality_independent_merged.csv"),
+            joinpath(BOSCIA_DIR, "boscia_rank_based_pruning_ACSTS_optimality_independent_merged.csv"),
+        ]
+    end
+    return String[]
+end
+
+function official_instance_keys(criterion_name::String, cfg::ExperimentConfig)
+    cache_key = (criterion_name, cfg.data_type)
+    get!(OFFICIAL_KEY_CACHE, cache_key) do
+        keys = Set{NTuple{4, Int}}()
+        for path in merged_csv_candidates(criterion_name)
+            isfile(path) || continue
+            for row in CSV.File(path)
+                key = (
+                    Int(row.numberOfExperiments),
+                    Int(row.numberOfParameters),
+                    Int(row.N),
+                    Int(row.seed),
+                )
+                push!(keys, key)
+            end
+        end
+        keys
+    end
+end
+
+function keep_plot_instance(cfg::ExperimentConfig, criterion_name::String, key::NTuple{4, Int})
+    keep_instance(criterion_name, key) || return false
+    if criterion_name in ("ACST", "ACSTS")
+        official_keys = official_instance_keys(criterion_name, cfg)
+        return isempty(official_keys) || (key in official_keys)
+    end
+    return true
+end
+
 termination_is_optimal(termination::AbstractString) = strip(termination) == "OPTIMAL"
 
 function is_solved(record::RunRecord)
@@ -179,7 +228,7 @@ function collect_runs(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::St
             match_obj = match(regex, fname)
             isnothing(match_obj) && continue
             key = Tuple(parse(Int, part) for part in match_obj.captures)::NTuple{4, Int}
-            keep_instance(criterion_name, key) || continue
+            keep_plot_instance(cfg, criterion_name, key) || continue
             haskey(runs, key) && continue
             runs[key] = load_record(joinpath(dir, fname))
         end
@@ -187,7 +236,8 @@ function collect_runs(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::St
     return runs
 end
 
-function quasioptimal_keys(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord}})
+function quasioptimal_keys(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord}}; sense::Symbol=:min)
+    sense in (:min, :max) || error("sense must be :min or :max")
     labels = collect(keys(run_maps))
     all_keys = Set{NTuple{4, Int}}()
     for runs in values(run_maps), key in keys(runs)
@@ -196,22 +246,43 @@ function quasioptimal_keys(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord
 
     flagged = Dict(label => Set{NTuple{4, Int}}() for label in labels)
     for key in all_keys
-        best = Inf
-        for label in labels
-            record = get(run_maps[label], key, nothing)
-            record === nothing && continue
-            isfinite(record.solution) || continue
-            best = min(best, record.solution)
-        end
-        isfinite(best) || continue
-        tol = max(REL_TOL * abs(best), ABS_TOL)
-        for label in labels
-            record = get(run_maps[label], key, nothing)
-            record === nothing && continue
-            termination_is_optimal(record.termination) || continue
-            isfinite(record.solution) || continue
-            if record.solution > best + tol
-                push!(flagged[label], key)
+        if sense == :min
+            best = Inf
+            for label in labels
+                record = get(run_maps[label], key, nothing)
+                record === nothing && continue
+                isfinite(record.solution) || continue
+                best = min(best, record.solution)
+            end
+            isfinite(best) || continue
+            tol = max(REL_TOL * abs(best), ABS_TOL)
+            for label in labels
+                record = get(run_maps[label], key, nothing)
+                record === nothing && continue
+                termination_is_optimal(record.termination) || continue
+                isfinite(record.solution) || continue
+                if record.solution > best + tol
+                    push!(flagged[label], key)
+                end
+            end
+        else
+            best = -Inf
+            for label in labels
+                record = get(run_maps[label], key, nothing)
+                record === nothing && continue
+                isfinite(record.solution) || continue
+                best = max(best, record.solution)
+            end
+            isfinite(best) || continue
+            tol = max(REL_TOL * abs(best), ABS_TOL)
+            for label in labels
+                record = get(run_maps[label], key, nothing)
+                record === nothing && continue
+                termination_is_optimal(record.termination) || continue
+                isfinite(record.solution) || continue
+                if record.solution < best - tol
+                    push!(flagged[label], key)
+                end
             end
         end
     end
@@ -229,13 +300,44 @@ function solved_times(runs::Dict{NTuple{4, Int}, RunRecord}, flagged::Set{NTuple
     return times
 end
 
+function fixed_reference_quasioptimal_keys(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord}}, reference_label::String)
+    labels = collect(keys(run_maps))
+    reference_runs = get(run_maps, reference_label, Dict{NTuple{4, Int}, RunRecord}())
+    flagged = Dict(label => Set{NTuple{4, Int}}() for label in labels)
+    isempty(reference_runs) && return flagged
+    for (key, ref_record) in reference_runs
+        isfinite(ref_record.solution) || continue
+        tol = max(REL_TOL * abs(ref_record.solution), ABS_TOL)
+        for label in labels
+            label == reference_label && continue
+            record = get(run_maps[label], key, nothing)
+            record === nothing && continue
+            termination_is_optimal(record.termination) || continue
+            isfinite(record.solution) || continue
+            if record.solution > ref_record.solution + tol
+                push!(flagged[label], key)
+            end
+        end
+    end
+    return flagged
+end
+
 function step_xy(times::Vector{Float64})
     if isempty(times)
         return [1.0, TIME_LIMIT], [0, 0]
     end
-    x0 = max(minimum(times) / 2, 1e-3)
-    x = vcat(x0, times, TIME_LIMIT)
-    y = vcat(0, collect(1:length(times)), length(times))
+    x = Float64[1.0]
+    y = Int[0]
+    solved = 0
+    for t in times
+        push!(x, t)
+        push!(y, solved)
+        solved += 1
+        push!(x, t)
+        push!(y, solved)
+    end
+    push!(x, TIME_LIMIT)
+    push!(y, solved)
     return x, y
 end
 
@@ -288,7 +390,12 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
         return false
     end
 
-    flagged = quasioptimal_keys(run_maps)
+    sense = cfg.criterion == "ACST" ? :max : :min
+    flagged = if family == "scipsdp" && cfg.criterion == "ACST"
+        fixed_reference_quasioptimal_keys(run_maps, "Boscia")
+    else
+        quasioptimal_keys(run_maps; sense)
+    end
     total_instances = total_instance_count(run_maps, present_labels)
     plt = plot(
         xscale=:log10,
@@ -298,7 +405,15 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
         ylabel="Solved instances",
         grid=true,
         legend=:topleft,
-        size=(760, 420),
+        size=(820, 500),
+        fontfamily="Computer Modern",
+        guidefontsize=10,
+        tickfontsize=8,
+        legendfontsize=8,
+        left_margin=20mm,
+        right_margin=8mm,
+        top_margin=8mm,
+        bottom_margin=16mm,
     )
 
     base_styles = Dict(spec.label => style for (spec, style) in zip(specs, style_triplets(length(specs))))
@@ -321,7 +436,6 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
             marker=marker,
             linewidth=2,
             markersize=4,
-            seriestype=:steppost,
         )
     end
 

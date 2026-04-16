@@ -99,6 +99,7 @@ function solve_opt(
     reduced_spectrum=false,
     clip_mu_resolution=false,
     full_reduced_spectrum=false,
+    record_eigenvalue=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -281,6 +282,7 @@ function solve_opt(
     processed_tightening_nodes = 0
     number_pruned_nodes = Dict{Int, Int}()
     processed_pruning_nodes = 0
+    eigenvalue_list = []
     if use_dual_exclusion_criterion && criterion in ["E", "EF", "AGC"]
         branch_callback = build_dual_branch_callback(
             A,
@@ -311,6 +313,8 @@ function solve_opt(
             processed_pruning_nodes=processed_pruning_nodes,
             rank_based_pruning=rank_based_pruning,
             eigenvalue_based_pruning=eigenvalue_based_pruning,
+            record_eigenvalue=record_eigenvalue,
+            eigenvalue_list=eigenvalue_list,
         )
     end
 
@@ -595,6 +599,12 @@ function solve_opt(
             list_global_tightening = result[:global_tightenings]
             df = DataFrame(seed=seed, dimension=n, time=time_list, lowerBound= lb_list, upperBound = ub_list, termination=status, LMOcalls = list_lmo_calls, localTighteings=list_local_tightening, globalTightenings=list_global_tightening, list_active_set_size_cb=list_active_set_size_cb,list_discarded_set_size_cb=list_discarded_set_size_cb)
             file_name = joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" * folder * "_" * criterion * scaled * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
+            CSV.write(file_name, df, append=false)
+        end
+
+        if record_eigenvalue
+            df = DataFrame(eigenvalue=eigenvalue_list)
+            file_name = joinpath(@__DIR__, "../csv/Boscia/eigenvalue_list/boscia_" * folder * "_" * criterion * scaled * "_optimality_" * type * "_" * connection * tighten * "_" * string(m) * "_" * string(n) * "_" * string(N) * "_" * string(seed) * ".csv")
             CSV.write(file_name, df, append=false)
         end
 

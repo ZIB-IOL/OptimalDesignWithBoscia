@@ -501,6 +501,8 @@ function build_branch_callback_mem(
     processed_pruning_nodes=0,
     rank_based_pruning=false,
     eigenvalue_based_pruning=false,
+    record_eigenvalue=false,
+    eigenvalue_list=Vector{Float64}(undef, 0),
 )
     m, n = size(A)
     T = eltype(A)
@@ -616,6 +618,14 @@ function build_branch_callback_mem(
                 @show n, rank(M_0), free_count, N_star, left_eig, right_eig, prune_left, prune_right
                 push!(number_pruned_nodes, node.id => prune_left + prune_right)
                 processed_pruning_nodes += 1
+            end
+        end
+        if record_eigenvalue
+            x = node.active_set.x
+            X = A' * Diagonal(x) * A
+            λ, V = eigen(X)
+            if isreal(λ[1])
+                push!(eigenvalue_list, λ)
             end
         end
 

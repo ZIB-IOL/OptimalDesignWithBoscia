@@ -760,8 +760,8 @@ function combined_table_spanning_tree_unified(;
     drop_scaled_solution::Bool=true,
 )
     loaders = Any[]
-    # ACST default row uses rank-based pruning data (reported as ACST (Boscia) in tables).
-    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (Boscia)"))
+    # ACST default row uses baseline data; rank-pruning is reported separately.
+    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", "baseline", "ACST (Boscia)"))
     push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (rank pruning)"))
     if all_boscia_variants
         for (f, lab) in BOSCIA_EXCLUSION_VARIANTS
@@ -816,7 +816,7 @@ stay identical across both outputs. Pajarito rows with `feasible == false` are i
 Remaining Pajarito rows are validated against that reference: if Pajarito claims OPTIMAL/OPTIMALITY_PROVED
 but has a worse `scaled_solution`, its run is invalidated (time → limit).
 
-For SCIPSDP, `rel_gap` uses Boscia ACST baseline `LB = scaled_solution - dual_gap` on the same instance;
+For SCIPSDP, `rel_gap` uses Boscia ACST rank-pruning `LB = scaled_solution - dual_gap` on the same instance;
 `(scaled_scipsdp - LB) / max(|scaled_scipsdp|, 1e-12)` when `feasible` is not explicitly false (aligns with Boscia’s
 `rel_dual_gap` if objectives coincide).
 """
@@ -824,7 +824,7 @@ function combined_table_spanning_tree_acst_rank_pruning_vs_scipsdp(;
     verbose::Bool=false,
     unified_df_with_scaled::Union{Nothing,DataFrame}=nothing,
 )
-    d1 = load_and_normalize_boscia_acst_variant("ACST", "baseline", "ACST (Boscia)")
+    d1 = load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (Boscia)")
     d1 === nothing && return nothing
     nrow(d1) == 0 && return nothing
     if !hasproperty(d1, :feasible)
@@ -845,7 +845,7 @@ function combined_table_spanning_tree_acst_rank_pruning_vs_scipsdp(;
 
     nfix = apply_cross_solver_primal_check_fixed_reference!(df, "ACST (Boscia)"; sense=:max)
     if verbose && nfix > 0
-        println("  SCIPSDP optimality guard vs ACST Boscia reference: invalidated $nfix rows.")
+        println("  SCIPSDP optimality guard vs ACST rank-pruning Boscia reference: invalidated $nfix rows.")
     end
     if hasproperty(df, :scaled_solution)
         select!(df, Not(:scaled_solution))
