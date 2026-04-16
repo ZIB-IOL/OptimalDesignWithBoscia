@@ -71,7 +71,7 @@ const SOLVERS_TEX_SPANNING_TREE_ALL = [
     "ACSTS (excl. tighter tol)",
     "ACSTS (dual excl.)",
 ]
-const SOLVERS_TEX_ACST_RANK_VS_SCIPSDP = ["ACST (rank pruning)", "SCIPSDP_oa", "SCIPSDP_bnb"]
+const SOLVERS_TEX_ACST_RANK_VS_SCIPSDP = ["ACST (Boscia)", "SCIPSDP_oa", "SCIPSDP_bnb"]
 const SOLVERS_TEX_ACST_REDUCED_VS_BASELINE = ["ACST (Boscia)", "ACST (baseline)"]
 const SOLVER_LABELS = Dict(
     "Boscia" => "Boscia",
@@ -80,7 +80,7 @@ const SOLVER_LABELS = Dict(
     "Boscia (excl. tighter tol)" => "Boscia (excl. tighter tol)",
     "Boscia (dual excl.)" => "Boscia (dual excl.)",
     "Boscia (baseline)" => "Boscia (baseline)",
-    "ACST (Boscia)" => "ACST (def.)",
+    "ACST (Boscia)" => "Boscia",
     "ACST (baseline)" => "ACST (baseline)",
     "ACST (rank pruning)" => "ACST (rank pr.)",
     "ACST (excl.)" => "ACST (excl.)",
@@ -302,7 +302,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
             path = joinpath(AGG_DIR, "agc_$(tag)_by_dimension.csv")
             isfile(path) || continue
             df = CSV.read(path, DataFrame)
-            solvers = [s for s in solver_order if s in unique(df.solver)]
+            solver_set = Set(String.(unique(df.solver)))
+            solvers = [s for s in solver_order if s in solver_set]
             row_vals, metrics, rows = pivot_aggregated(df, :dimension, hide_list, solvers)
             tex_path = joinpath(out, "agc_$(tag)_by_dimension.tex")
             open(tex_path, "w") do io
@@ -313,7 +314,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
             cmp_path = joinpath(AGG_DIR, "agc_$(tag)_reduced_vs_baseline_by_dimension.csv")
             if isfile(cmp_path)
                 cmp_df = CSV.read(cmp_path, DataFrame)
-                cmp_solvers = [s for s in SOLVERS_REDUCED_VS_BASELINE if s in unique(cmp_df.solver)]
+                cmp_solver_set = Set(String.(unique(cmp_df.solver)))
+                cmp_solvers = [s for s in SOLVERS_REDUCED_VS_BASELINE if s in cmp_solver_set]
                 if !isempty(cmp_solvers)
                     row_vals_cmp, metrics_cmp, rows_cmp = pivot_aggregated(cmp_df, :dimension, hide_list, cmp_solvers)
                     cmp_tex_path = joinpath(out, "agc_$(tag)_reduced_vs_baseline_by_dimension.tex")
@@ -330,7 +332,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
         if isfile(path)
             df = CSV.read(path, DataFrame)
             df = df[df.dimension .< 780, :]
-            solvers = [s for s in order if s in unique(df.solver)]
+            solver_set = Set(String.(unique(df.solver)))
+            solvers = [s for s in order if s in solver_set]
             row_vals, metrics, rows = pivot_aggregated(df, :dimension, hide_list, solvers)
             tex_path = joinpath(out, "spanning_tree_independent_by_dimension.tex")
             open(tex_path, "w") do io
@@ -344,11 +347,12 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
         if isfile(path_paj)
             df_p = CSV.read(path_paj, DataFrame)
             df_p = df_p[df_p.dimension .< 780, :]
-            solvers_p = [s for s in SOLVERS_TEX_ACST_RANK_VS_SCIPSDP if s in unique(df_p.solver)]
+            solver_set_p = Set(String.(unique(df_p.solver)))
+            solvers_p = [s for s in SOLVERS_TEX_ACST_RANK_VS_SCIPSDP if s in solver_set_p]
             row_vals_p, metrics_p, rows_p = pivot_aggregated(df_p, :dimension, hide_list, solvers_p)
             tex_paj = joinpath(out, "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.tex")
             open(tex_paj, "w") do io
-                write_tex_table(io, row_vals_p, metrics_p, rows_p, :dimension, "Spanning tree — ACST rank pruning vs SCIPSDP (independent)"; solvers=solvers_p, solver_labels=SOLVER_LABELS)
+                write_tex_table(io, row_vals_p, metrics_p, rows_p, :dimension, "Spanning tree — ACST Boscia vs SCIPSDP (independent)"; solvers=solvers_p, solver_labels=SOLVER_LABELS)
             end
             println("Wrote ", tex_paj)
         else
@@ -358,7 +362,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
         if isfile(path_cmp)
             df_c = CSV.read(path_cmp, DataFrame)
             df_c = df_c[df_c.dimension .< 780, :]
-            solvers_c = [s for s in SOLVERS_TEX_ACST_REDUCED_VS_BASELINE if s in unique(df_c.solver)]
+            solver_set_c = Set(String.(unique(df_c.solver)))
+            solvers_c = [s for s in SOLVERS_TEX_ACST_REDUCED_VS_BASELINE if s in solver_set_c]
             row_vals_c, metrics_c, rows_c = pivot_aggregated(df_c, :dimension, hide_list, solvers_c)
             tex_cmp = joinpath(out, "spanning_tree_acst_reduced_vs_baseline_independent_by_dimension.tex")
             open(tex_cmp, "w") do io
@@ -381,7 +386,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
                 isfile(path) || continue
                 df = CSV.read(path, DataFrame)
                 # Use only solvers that appear in the data (preserve configured order)
-                solvers = smoothing ? SMOOTHING_REGIMES : [s for s in solver_order if s in unique(df.solver)]
+                solver_set = Set(String.(unique(df.solver)))
+                solvers = smoothing ? SMOOTHING_REGIMES : [s for s in solver_order if s in solver_set]
                 row_vals, metrics, rows = pivot_aggregated(df, row_col, hide_list, solvers)
                 tex_path = joinpath(out, "$(prefix)$(dtype)_by_$(suffix).tex")
                 open(tex_path, "w") do io
@@ -394,7 +400,8 @@ function main(; data_type="both", hide=nothing, out_dir=nothing, smoothing=false
             cmp_path = joinpath(AGG_DIR, "$(dtype)_reduced_vs_baseline_by_dimension.csv")
             if isfile(cmp_path)
                 cmp_df = CSV.read(cmp_path, DataFrame)
-                cmp_solvers = [s for s in SOLVERS_REDUCED_VS_BASELINE if s in unique(cmp_df.solver)]
+                cmp_solver_set = Set(String.(unique(cmp_df.solver)))
+                cmp_solvers = [s for s in SOLVERS_REDUCED_VS_BASELINE if s in cmp_solver_set]
                 if !isempty(cmp_solvers)
                     row_vals_cmp, metrics_cmp, rows_cmp = pivot_aggregated(cmp_df, :dimension, hide_list, cmp_solvers)
                     cmp_tex_path = joinpath(out, "$(dtype)_reduced_vs_baseline_by_dimension.tex")

@@ -208,6 +208,39 @@ function merge_boscia_exclusion_group(exclusion_folder::String, corr::Bool; verb
     return merged, missing_list
 end
 
+function merge_boscia_e_variant_group(folder::String, corr::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    group_name = "Boscia E ($folder) $type_str"
+    verbose && println("\n--- $group_name ---")
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    found_any = false
+    for (m, n, N, seed) in ALL_KEYS
+        fname = boscia_prefixed_single_filename(folder, corr, m, n, N, seed)
+        path = joinpath(BOSCIA_DIR, fname)
+        df = read_boscia_single(path)
+        if df !== nothing
+            found_any = true
+            key_to_row[(m, n, N, seed)] = df
+        else
+            push!(missing_list, (m, n, N, seed))
+            key_to_row[(m, n, N, seed)] = boscia_placeholder_row(m, n, N, seed)
+        end
+    end
+    if !found_any
+        verbose && println("No single-run CSVs found for $group_name; skipping merged output.")
+        return nothing, missing_list
+    end
+    n_found = length(ALL_KEYS) - length(missing_list)
+    verbose && println("Found $n_found/$(length(ALL_KEYS)) runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    rows = [key_to_row[k] for k in ALL_KEYS]
+    merged = vcat(rows...; cols=:union)
+    out_path = joinpath(BOSCIA_DIR, boscia_exclusion_merged_filename(folder, corr))
+    CSV.write(out_path, merged; delim=BOSCIA_DELIM)
+    verbose && println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    return merged, missing_list
+end
+
 function read_boscia_single(path::String)::Union{DataFrame,Nothing}
     isfile(path) || return nothing
     try
@@ -678,6 +711,41 @@ function merge_boscia_agc_exclusion_group(exclusion_folder::String, corr::Bool, 
     return merged, missing_list
 end
 
+function merge_boscia_agc_variant_group(folder::String, corr::Bool, connected::Bool; verbose=true)
+    type_str = corr ? "correlated" : "independent"
+    conn_str = connected ? "connected" : "disconnected"
+    group_name = "Boscia AGC ($folder) $type_str $conn_str"
+    verbose && println("\n--- $group_name ---")
+    key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
+    missing_list = Tuple{Int,Int,Int,Int}[]
+    found_any = false
+    for (m, n, N, seed) in ALL_KEYS_AGC
+        fname = boscia_agc_prefixed_single_filename(folder, corr, connected, m, n, N, seed)
+        path = joinpath(BOSCIA_DIR, fname)
+        df = read_boscia_single(path)
+        if df !== nothing
+            found_any = true
+            key_to_row[(m, n, N, seed)] = df
+        else
+            push!(missing_list, (m, n, N, seed))
+            key_to_row[(m, n, N, seed)] = boscia_placeholder_row(m, n, N, seed)
+        end
+    end
+    if !found_any
+        verbose && println("No single-run CSVs found for $group_name; skipping merged output.")
+        return nothing, missing_list
+    end
+    n_expected = length(ALL_KEYS_AGC)
+    n_found = n_expected - length(missing_list)
+    verbose && println("Found $n_found/$n_expected runs" * (isempty(missing_list) ? "" : " ($(length(missing_list)) missing)"))
+    rows = [key_to_row[k] for k in ALL_KEYS_AGC]
+    merged = vcat(rows...; cols=:union)
+    out_path = joinpath(BOSCIA_DIR, boscia_agc_exclusion_merged_filename(folder, corr, connected))
+    CSV.write(out_path, merged; delim=BOSCIA_DELIM)
+    verbose && println("Wrote $(nrow(merged)) rows -> $(out_path)")
+    return merged, missing_list
+end
+
 function merge_boscia_agc_group(connected::Bool, corr::Bool; verbose=true)
     type_str = corr ? "correlated" : "independent"
     conn_str = connected ? "connected" : "disconnected"
@@ -1066,6 +1134,9 @@ function run_merge(; solvers=nothing, verbose=true)
             println("(rank-based pruning, 75 instances per group)")
             merge_boscia_exclusion_group("rank_based_pruning", true; verbose)
             merge_boscia_exclusion_group("rank_based_pruning", false; verbose)
+            println("(eigenvalue-based pruning, 75 instances per group)")
+            merge_boscia_e_variant_group("eigenvalue_based_pruning", true; verbose)
+            merge_boscia_e_variant_group("eigenvalue_based_pruning", false; verbose)
         elseif s == "BosciaExclusion"
             isdir(BOSCIA_DIR) || (println("Skip BosciaExclusion: $BOSCIA_DIR not found"); continue)
             println("(75 instances per group, exclusion criteria variants)")
@@ -1103,6 +1174,7 @@ function run_merge(; solvers=nothing, verbose=true)
             merge_boscia_agc_group(true,  true;  verbose)  # correlated,  connected
             merge_boscia_agc_baseline_group(true, true; verbose)
             merge_boscia_agc_exclusion_group("rank_based_pruning", true, true; verbose)
+            merge_boscia_agc_variant_group("eigenvalue_based_pruning", true, true; verbose)
             for exclusion_folder in BOSCIA_EXCLUSION_FOLDERS
                 merge_boscia_agc_exclusion_group(exclusion_folder, true, true; verbose)
             end
@@ -1111,6 +1183,7 @@ function run_merge(; solvers=nothing, verbose=true)
             merge_boscia_agc_group(false, false; verbose)  # independent, disconnected
             merge_boscia_agc_baseline_group(false, false; verbose)
             merge_boscia_agc_exclusion_group("rank_based_pruning", false, false; verbose)
+            merge_boscia_agc_variant_group("eigenvalue_based_pruning", false, false; verbose)
             for exclusion_folder in BOSCIA_EXCLUSION_FOLDERS
                 merge_boscia_agc_exclusion_group(exclusion_folder, false, false; verbose)
             end
