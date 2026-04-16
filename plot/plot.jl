@@ -1,333 +1,333 @@
-using PyPlot
-using DataFrames
 using CSV
+using DataFrames
+using Plots
 
-function plot_termination(corr)
-    criteria = ["AF","A","DF","D"]
-    type = corr ? "correlated" : "independent"
-    for criterion in criteria
-    if  criterion == "AF" || criterion == "DF"
-        df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/" * criterion * "_optimality_"* type * "_non_grouped.csv")))
-        df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timeScip, :terminationScip, :timePajarito, :terminationPajarito])
+const TIME_LIMIT = 3600.0
+const BOSCIA_DIR = joinpath(@__DIR__, "..", "ODWB", "csv", "Boscia")
+const SCIPSDP_DIR = joinpath(@__DIR__, "..", "ODWB", "csv", "SCIPSDP")
+const OUT_DIR = joinpath(@__DIR__, "termination_plots")
+const REL_TOL = 0.05
+const ABS_TOL = 1e-6
 
-        df[df.timeBoscia.>1800, :timeBoscia] .= 1800
-        df[df.timeScip.>1800, :timeScip] .= 1800
-        df[df.timePajarito.>1800, :timePajarito] .= 1800
-    elseif criterion == "D" || criterion == "A"
-        df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/" * criterion * "_optimality_"* type * "_non_grouped.csv")))
-        df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timePajarito, :terminationPajarito])
-
-        df[df.timeBoscia.>1800, :timeBoscia] .= 1800
-        df[df.timePajarito.>1800, :timePajarito] .= 1800
-    end
-
-    time_limit = 1800
-
-    colors = ["b", "m", "c", "r", "g", "y", "k", "peru"]
-    markers = ["o", "s", "^", "P", "X", "H", "D"]
-    linestyle = ["-", ":", "-.", "--"]
-
-    PyPlot.matplotlib[:rc]("text", usetex=true)
-    PyPlot.matplotlib[:rc]("font", size=12, family="cursive")
-    PyPlot.matplotlib[:rc]("axes", labelsize=14)
-    PyPlot.matplotlib[:rc]("text.latex", preamble=raw"""
-    \usepackage{libertine}
-    \usepackage{libertinust1math}
-    """)
-
-    fig = plt.figure(figsize=(6.5,3.5))
-    ax = fig.add_subplot(111)
-    df_boscia = deepcopy(df)
-    filter!(row -> !(row.terminationBoscia == 0),  df_boscia)
-    time_boscia = sort(df_boscia[!,"timeBoscia"])
-    push!(time_boscia, 1.1 * time_limit)
-    ax.plot(time_boscia, [1:nrow(df_boscia); nrow(df_boscia)], label="Boscia", color=colors[1], marker=markers[1], markevery=0.1, linestyle=linestyle[1])
-   
-    if criterion == "AF" || criterion == "DF"
-        df_scip = deepcopy(df)
-        filter!(row -> !(row.terminationScip == 0),  df_scip)     
-        time_scip = sort(df_scip[!,"timeScip"])
-        push!(time_scip, 1.1 * time_limit)
-        ax.plot(time_scip, [1:nrow(df_scip); nrow(df_scip)], label="SCIP+OA", color=colors[end], marker=markers[2], markevery=0.1, linestyle=linestyle[2])
-    end
-
-    df_pajarito = deepcopy(df)
-    filter!(row -> !(row.terminationPajarito == 0),  df_pajarito)
-    time_pajarito = sort(df_pajarito[!,"timePajarito"])
-    push!(time_pajarito, 1.1 * time_limit)
-    ax.plot(time_pajarito, [1:nrow(df_pajarito); nrow(df_pajarito)], label="Pajarito", color=colors[2], marker=markers[3], markevery=0.1, linestyle=linestyle[3])
-    
-    ylabel("Solved instances")
-    #locator_params(axis="y", nbins=4)
-    xlabel("Time (s)")
-    ax.set_xscale("log")
-    ax.grid()
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.3), fontsize=12,
-    fancybox=true, shadow=false, ncol=2)
-   
-
-    fig.tight_layout()
-
-    over_what = "time" 
-
-    file = "../csv/plots/" * criterion * "_" * type * "_" * over_what *  ".pdf"
-
-    PyPlot.savefig(file)
-    end
+Base.@kwdef struct SetupSpec
+    label::String
+    kind::Symbol
+    name::String
+    subdir::Union{Nothing, String} = nothing
 end
 
-function plot_termination_ratio(corr, time=true, both=true)
+Base.@kwdef struct ExperimentConfig
+    criterion::String
+    data_type::String
+    suffix::String
+    file_tag::String
+    formulations::Vector{String} = String[]
+end
 
-    criteria = ["AF","A","DF","D"]
-    for criterion in criteria
-    if  criterion == "AF" || criterion == "DF"
-        if both
-            df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_correlated_non_grouped.csv")))
-            df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timeScip, :terminationScip, :timePajarito, :terminationPajarito, :timeCustomBB, :terminationCustomBB])
+Base.@kwdef struct RunRecord
+    time::Float64
+    termination::String
+    solution::Float64
+    path::String
+end
 
-            df[df.timeBoscia.>3600, :timeBoscia] .= 3600
-            df[df.timeScip.>3600, :timeScip] .= 3600
-            df[df.timePajarito.>3600, :timePajarito] .= 3600
-            df[df.timeCustomBB.>3600, :timeCustomBB] .= 3600
+const FAMILY_DEFS = Dict(
+    "reduced_spectrum" => [
+        SetupSpec(label="baseline", kind=:boscia, name="baseline"),
+        SetupSpec(label="reduced spectrum", kind=:boscia, name="reduced_spectrum", subdir="reduced_spectrum_half"),
+        SetupSpec(label="optimal reduced spectrum", kind=:boscia, name="optimal_reduced_spectrum"),
+    ],
+    "exclusion" => [
+        SetupSpec(label="baseline", kind=:boscia, name="baseline"),
+        SetupSpec(label="dual exclusion", kind=:boscia, name="dual_exclusion_criterion"),
+        SetupSpec(label="exclusion", kind=:boscia, name="exclusion_criterion"),
+        SetupSpec(label="exclusion random", kind=:boscia, name="exclusion_criterion_random"),
+        SetupSpec(label="exclusion tighter tol", kind=:boscia, name="exclusion_criterion_tighter_tol"),
+    ],
+    "pruning" => [
+        SetupSpec(label="baseline", kind=:boscia, name="baseline"),
+        SetupSpec(label="eigenvalue pruning", kind=:boscia, name="eigenvalue_based_pruning"),
+        SetupSpec(label="rank pruning", kind=:boscia, name="rank_based_pruning"),
+    ],
+    "scipsdp" => [
+        SetupSpec(label="baseline", kind=:boscia, name="baseline"),
+        SetupSpec(label="SCIPSDP OA", kind=:scipsdp, name="oa"),
+        SetupSpec(label="SCIPSDP BnB", kind=:scipsdp, name="bnb"),
+    ],
+)
 
-            df_full_ind = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_independent_non_grouped.csv")))
-            df_ind = select(df_full_ind, [:ratio, :timeBoscia, :terminationBoscia, :timeScip, :terminationScip, :timePajarito, :terminationPajarito, :timeCustomBB, :terminationCustomBB])
-            df_ind[df_ind.timeBoscia.>3600, :timeBoscia] .= 3600
-            df_ind[df_ind.timeScip.>3600, :timeScip] .= 3600
-            df_ind[df_ind.timePajarito.>3600, :timePajarito] .= 3600
-            df_ind[df_ind.timeCustomBB.>3600, :timeCustomBB] .= 3600
-        elseif corr 
-            df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_correlated_non_grouped.csv")))
-            df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timeScip, :terminationScip, :timePajarito, :terminationPajarito])
+function experiment_configs()
+    return [
+        ExperimentConfig(criterion="E", data_type="correlated", suffix="correlated__", file_tag="correlated"),
+        ExperimentConfig(criterion="E", data_type="independent", suffix="independent__", file_tag="independent"),
+        ExperimentConfig(criterion="AGC", data_type="correlated", suffix="correlated_connected", file_tag="correlated"),
+        ExperimentConfig(criterion="AGC", data_type="independent", suffix="independent_disconnected", file_tag="independent"),
+        ExperimentConfig(criterion="ACST", data_type="independent", suffix="independent__", file_tag="independent", formulations=["ACST", "ACSTS"]),
+    ]
+end
 
-            df[df.timeBoscia.>3600, :timeBoscia] .= 3600
-            df[df.timeScip.>3600, :timeScip] .= 3600
-            df[df.timePajarito.>3600, :timePajarito] .= 3600
-        else
-            df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_independent_non_grouped.csv")))
-            df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timeScip, :terminationScip, :timePajarito, :terminationPajarito])
-            df[df.timeBoscia.>3600, :timeBoscia] .= 3600
-            df[df.timeScip.>3600, :timeScip] .= 3600
-            df[df.timePajarito.>3600, :timePajarito] .= 3600
+function solver_prefix(spec::SetupSpec)
+    if spec.kind == :boscia
+        return spec.name == "baseline" ? "boscia__" : "boscia_$(spec.name)_"
+    elseif spec.kind == :scipsdp
+        return "scip_sdp_$(spec.name)_"
+    end
+    error("Unknown setup kind $(spec.kind)")
+end
+
+function candidate_dirs(spec::SetupSpec)
+    if spec.kind == :scipsdp
+        return [SCIPSDP_DIR]
+    end
+    dirs = String[]
+    if isnothing(spec.subdir)
+        push!(dirs, BOSCIA_DIR)
+    else
+        push!(dirs, joinpath(BOSCIA_DIR, spec.subdir))
+        push!(dirs, BOSCIA_DIR)
+    end
+    return unique(filter(isdir, dirs))
+end
+
+function file_regex(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::String=cfg.criterion)
+    prefix = solver_prefix(spec)
+    separator = endswith(cfg.suffix, "_") ? "" : "_"
+    return Regex("^" * prefix * criterion_name * "_optimality_" * cfg.suffix * separator * raw"(\d+)_(\d+)_(\d+)_(\d+)\.csv$")
+end
+
+function parse_float(value, default=NaN)
+    if value === missing || isempty(strip(string(value)))
+        return default
+    end
+    parsed = tryparse(Float64, string(value))
+    return isnothing(parsed) ? default : parsed
+end
+
+function load_record(path::String)
+    df = DataFrame(CSV.File(path))
+    nrow(df) == 0 && error("No rows in $(path)")
+    row = df[1, :]
+    time = parse_float(getproperty(row, :time), TIME_LIMIT)
+    termination = string(getproperty(row, :termination))
+    solution = if :scaled_solution in propertynames(row)
+        parse_float(getproperty(row, :scaled_solution))
+    elseif :solution in propertynames(row)
+        parse_float(getproperty(row, :solution))
+    else
+        NaN
+    end
+    return RunRecord(time=min(time, TIME_LIMIT), termination=termination, solution=solution, path=path)
+end
+
+function is_e_allowed(m::Int, n::Int, N::Int)
+    m in (170, 200) && return false
+    return N != fld(3 * n, 4)
+end
+
+function keep_instance(criterion_name::String, key::NTuple{4, Int})
+    m, n, N, _ = key
+    criterion_name == "E" || return true
+    return is_e_allowed(m, n, N)
+end
+
+termination_is_optimal(termination::AbstractString) = strip(termination) == "OPTIMAL"
+
+function is_solved(record::RunRecord)
+    return termination_is_optimal(record.termination) && isfinite(record.time) && record.time <= TIME_LIMIT
+end
+
+function collect_runs(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::String=cfg.criterion)
+    regex = file_regex(spec, cfg, criterion_name)
+    runs = Dict{NTuple{4, Int}, RunRecord}()
+    for dir in candidate_dirs(spec)
+        for fname in readdir(dir)
+            match_obj = match(regex, fname)
+            isnothing(match_obj) && continue
+            key = Tuple(parse(Int, part) for part in match_obj.captures)::NTuple{4, Int}
+            keep_instance(criterion_name, key) || continue
+            haskey(runs, key) && continue
+            runs[key] = load_record(joinpath(dir, fname))
         end
-    elseif criterion == "D" || criterion == "A"
-        if both
-            df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_correlated_non_grouped.csv")))
-            df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timePajarito, :terminationPajarito, :timeCustomBB, :terminationCustomBB])
+    end
+    return runs
+end
 
-            df[df.timeBoscia.>3600, :timeBoscia] .= 3600
-            df[df.timePajarito.>3600, :timePajarito] .= 3600
-            df[df.timeCustomBB.>3600,:timeCustomBB] .= 3600
+function quasioptimal_keys(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord}})
+    labels = collect(keys(run_maps))
+    all_keys = Set{NTuple{4, Int}}()
+    for runs in values(run_maps), key in keys(runs)
+        push!(all_keys, key)
+    end
 
-            df_full_ind = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_independent_non_grouped.csv")))
-            df_ind = select(df_full_ind, [:ratio, :timeBoscia, :terminationBoscia, :timePajarito, :terminationPajarito, :timeCustomBB, :terminationCustomBB])
-
-            df_ind[df_ind.timeBoscia.>3600, :timeBoscia] .= 3600
-            df_ind[df_ind.timePajarito.>3600, :timePajarito] .= 3600
-            df_ind[df.timeCustomBB.>3600,:timeCustomBB] .= 3600
-        elseif corr 
-            df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_correlated_non_grouped.csv")))
-            df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timePajarito, :terminationPajarito])
-
-            df[df.timeBoscia.>3600, :timeBoscia] .= 3600
-            df[df.timePajarito.>3600, :timePajarito] .= 3600
-            df[df.timeCustomBB.>3600,:timeCustomBB] .= 3600
-        else
-            df_full = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/Results/" * criterion * "_optimality_independent_non_grouped.csv")))
-            df = select(df_full, [:ratio, :timeBoscia, :terminationBoscia, :timePajarito, :terminationPajarito])
-
-            df[df.timeBoscia.>3600, :timeBoscia] .= 3600
-            df[df.timePajarito.>3600, :timePajarito] .= 3600
-            df[df.timeCustomBB.>3600,:timeCustomBB] .= 3600
+    flagged = Dict(label => Set{NTuple{4, Int}}() for label in labels)
+    for key in all_keys
+        best = Inf
+        for label in labels
+            record = get(run_maps[label], key, nothing)
+            record === nothing && continue
+            isfinite(record.solution) || continue
+            best = min(best, record.solution)
+        end
+        isfinite(best) || continue
+        tol = max(REL_TOL * abs(best), ABS_TOL)
+        for label in labels
+            record = get(run_maps[label], key, nothing)
+            record === nothing && continue
+            termination_is_optimal(record.termination) || continue
+            isfinite(record.solution) || continue
+            if record.solution > best + tol
+                push!(flagged[label], key)
+            end
         end
     end
-
-    colors = ["b", "m", "c", "r", "g", "y", "k", "peru"]
-    markers = ["o", "s", "^", "P", "X", "H", "D"]
-    linestyle = ["-", ":", "-.", "--"]
-
-    PyPlot.matplotlib[:rc]("text", usetex=true)
-    PyPlot.matplotlib[:rc]("font", size=9, family="cursive")
-    PyPlot.matplotlib[:rc]("axes", labelsize=12)
-    PyPlot.matplotlib[:rc]("text.latex", preamble=raw"""
-    \usepackage{libertine}
-    \usepackage{libertinust1math}
-    """)
-
-    if criterion in ["A","D"]
-        fig, axs = plt.subplots(3, sharex=true, sharey=true, figsize=(6.5,4.5))
-    else
-        fig, axs = plt.subplots(4, sharex=true, sharey=true, figsize=(6.5,6.5))
-    end
-
-    linewidth = 2
-
-    df_boscia_ind = deepcopy(df_ind)
-    filter!(row -> !(row.terminationBoscia == 0),  df_boscia_ind)
-    x_boscia_ind = time ? sort(df_boscia_ind[!,"timeBoscia"]) : sort(df_boscia_ind[!,"ratio"])
-    Boscia_plot = axs[1].plot(x_boscia_ind, 1:nrow(df_boscia_ind), label="Boscia independent", color=colors[1], marker=markers[1], markevery=0.1, linestyle=linestyle[2], linewidth=linewidth)
-
-    df_boscia = deepcopy(df)
-    filter!(row -> !(row.terminationBoscia == 0),  df_boscia)
-    x_boscia = time ? sort(df_boscia[!,"timeBoscia"]) : sort(df_boscia[!,"ratio"])
-    Boscia_plot = axs[1].plot(x_boscia, 1:nrow(df_boscia), label="Boscia correlated", color=colors[6], marker=markers[4], markevery=0.1, linestyle=linestyle[1], linewidth=linewidth)
-    axs[1].grid()
-
-   df_pajarito_ind = deepcopy(df_ind)
-    filter!(row -> !(row.terminationPajarito == 0),  df_pajarito_ind)
-    x_pajarito_ind = time ? sort(df_pajarito_ind[!,"timePajarito"]) : sort(df_pajarito_ind[!,"ratio"])
-    Pajarito_plot= axs[2].plot(x_pajarito_ind, 1:nrow(df_pajarito_ind), label="Pajarito independent", color=colors[2], marker=markers[3], markevery=0.1, linestyle=linestyle[2], linewidth=linewidth) 
-
-    df_pajarito = deepcopy(df)
-    filter!(row -> !(row.terminationPajarito == 0),  df_pajarito)
-    x_pajarito = time ? sort(df_pajarito[!,"timePajarito"]) : sort(df_pajarito[!,"ratio"])
-    Pajarito_plot= axs[2].plot(x_pajarito, 1:nrow(df_pajarito), label="Pajarito correlated", color=colors[7], marker=markers[6], markevery=0.1, linestyle=linestyle[2], linewidth=linewidth)
-    axs[2].grid()
-
-    
-    if criterion == "AF" || criterion == "DF"
-       df_scip_ind = deepcopy(df_ind)
-        filter!(row -> !(row.terminationScip == 0),  df_scip_ind)   
-        x_scip_ind = time ? sort(df_scip_ind[!, "timeScip"]) : sort(df_scip_ind[!,"ratio"])  
-        SCIP_plot =axs[3].plot(x_scip_ind, 1:nrow(df_scip_ind), label="SCIP+OA independent", color=colors[end], marker=markers[2], markevery=0.1, linestyle=linestyle[2], linewidth=linewidth) 
-
-        df_scip = deepcopy(df)
-        filter!(row -> !(row.terminationScip == 0),  df_scip)   
-        x_scip = time ? sort(df_scip[!,"timeScip"]) : sort(df_scip[!,"ratio"])  
-        SCIP_plot =axs[3].plot(x_scip, 1:nrow(df_scip), label="SCIP+OA correlated", color=colors[5], marker=markers[7], markevery=0.1, linestyle=linestyle[4],linewidth=linewidth)
-
-        axs[3].grid()
-        axs[3].legend(loc="lower right")#, bbox_to_anchor=(0.5, -0.3), fontsize=12,fancybox=true, shadow=false, ncol=2) 
-    end   
-
-   k = criterion in ["AF","DF"] ? 4 : 3
-    df_bb_ind = deepcopy(df_ind)
-    filter!(row -> !(row.terminationCustomBB == 0),  df_bb_ind)   
-    x_bb_ind = time ? sort(df_bb_ind[!, "timeCustomBB"]) : sort(df_bb_ind[!,"ratio"])  
-    BB_plot =axs[k].plot(x_bb_ind, 1:nrow(df_bb_ind), label="Custom BnB independent", color=colors[4], marker=markers[4], markevery=0.1, linestyle=linestyle[2], linewidth=linewidth) 
-
-    df_bb = deepcopy(df)
-    filter!(row -> !(row.terminationCustomBB == 0),  df_bb)   
-    x_bb = time ? sort(df_bb[!,"timeCustomBB"]) : sort(df_bb[!,"ratio"])  
-    SCIP_plot =axs[k].plot(x_bb, 1:nrow(df_bb), label="Custom BnB correlated", color=colors[3], marker=markers[5], markevery=0.1, linestyle=linestyle[3], linewidth=linewidth)
-
-    axs[k].grid()
-    axs[k].legend(loc="lower right")#, bbox_to_anchor=(0.5, -0.3), fontsize=12,fancybox=true, shadow=false, ncol=2) 
-
-    axs[2].set_ylabel("Solved instances", loc="center")
-    if time
-        xlabel("Time")
-    else
-        xlabel("Ratio of eigenvalues")
-    end
-
-    axs[1].legend(loc="lower right")#, bbox_to_anchor=(0.5, -0.3), fontsize=12, fancybox=true, shadow=false, ncol=2)
-    axs[2].legend(loc="lower right")#, bbox_to_anchor=(0.5, -0.3), fontsize=12,fancybox=true, shadow=false, ncol=2)
-
-    fig.tight_layout()
-
-    type  = corr ? "correlated" : "independent"
-    by_what = time ? "time" : "ratio"
-
-    file = ""
-    if both
-        file = "../csv/plots/" * criterion * "_" * by_what * ".pdf"
-    else
-        file = "../csv/plots/" * criterion * "_"  * type * "_"  * by_what * ".pdf"
-    end
-
-    PyPlot.savefig(file)
-    end
+    return flagged
 end
 
-"""
-Plot for the curavture constant
-"""
-function plot_curvature()
-
-    colors = ["b", "m", "c", "r", "g", "y", "k", "peru"]
-    markers = ["o", "s", "^", "P", "X", "H", "D"]
-    linestyle = ["-", ":", "-.", "--"]
-
-    PyPlot.matplotlib[:rc]("text", usetex=true)
-    PyPlot.matplotlib[:rc]("font", size=12, family="cursive")
-    PyPlot.matplotlib[:rc]("axes", labelsize=14)
-    PyPlot.matplotlib[:rc]("text.latex", preamble=raw"""
-    \usepackage{libertine}
-    \usepackage{libertinust1math}
-    """)
-
-    fig = plt.figure(figsize=(6.5,6.5))
-    ax = fig.add_subplot(111)
-
-    function quadratic(a,x)
-        return a*x.^2
+function solved_times(runs::Dict{NTuple{4, Int}, RunRecord}, flagged::Set{NTuple{4, Int}})
+    times = Float64[]
+    for (key, record) in runs
+        key in flagged && continue
+        is_solved(record) || continue
+        push!(times, min(record.time, TIME_LIMIT))
     end
-
-    # lb, time 
-    x = collect(-5:0.5:5)
-    ax.plot(x, quadratic(0.1,x), label="a=0.1", color=colors[1], marker=markers[1], markevery=0.1, alpha=.5, linestyle=linestyle[2])
-    ax.plot(x, quadratic(0.7,x), label="a=0.7", color=colors[end], marker=markers[2], markevery=0.1, alpha=.5, linestyle=linestyle[3])
-    ax.plot(x, quadratic(1.0,x), label="a=1.0", color=colors[2], marker=markers[3], markevery=0.1, alpha=.5, linestyle=linestyle[1])
-    ax.plot(x, quadratic(1.5,x), label="a=1.5", color=colors[3], marker=markers[4], markevery=0.1, alpha=.5, linestyle=linestyle[4])
-    ax.plot(x, quadratic(4.0,x), label="a=4.0", color=colors[4], marker=markers[5], markevery=0.1, alpha=.5, linestyle=linestyle[2])
-    ax.plot(x, quadratic(10.0,x), label="a=10.0", color=colors[5], marker=markers[6], markevery=0.1, alpha=.5, linestyle=linestyle[3])
-
-    ylabel("y")
-    xlabel("x")
-    ax.grid()
-
-   ax.legend(loc="upper center", fontsize=12, #, bbox_to_anchor=(0.5, -0.2)
-   fancybox=true, shadow=false, ncol=3)
-    fig.tight_layout()
-    file = joinpath(@__DIR__, "../csv/plots/example_curvature.pdf")
-    PyPlot.savefig(file)
+    sort!(times)
+    return times
 end
 
-function plot_progress_dual_gap(corr, criterion, seed, m, n)
+function step_xy(times::Vector{Float64})
+    if isempty(times)
+        return [1.0, TIME_LIMIT], [0, 0]
+    end
+    x0 = max(minimum(times) / 2, 1e-3)
+    x = vcat(x0, times, TIME_LIMIT)
+    y = vcat(0, collect(1:length(times)), length(times))
+    return x, y
+end
 
-    type = corr ? "correlated" : "independent"
-    direc = corr ? "correlated/" : "linearly_independent/"
+function plot_path(family::String, cfg::ExperimentConfig)
+    mkpath(OUT_DIR)
+    return joinpath(OUT_DIR, "$(cfg.criterion)_$(cfg.file_tag)_$(family).pdf")
+end
 
-    colors = ["b", "m", "c", "r", "g", "y", "k", "peru"]
-    markers = ["o", "s", "^", "P", "X", "H", "D"]
-    linestyle = ["-", ":", "-.", "--"]
+function style_triplets(n::Int)
+    colors = [:blue, :red, :green, :purple, :orange, :brown]
+    markers = [:circle, :rect, :utriangle, :diamond, :pentagon, :xcross]
+    linestyles = [:solid, :dash, :dashdot, :dot, :solid, :dash]
+    return [(colors[i], markers[i], linestyles[i]) for i in 1:n]
+end
 
-    PyPlot.matplotlib[:rc]("text", usetex=true)
-    PyPlot.matplotlib[:rc]("font", size=12, family="cursive")
-    PyPlot.matplotlib[:rc]("axes", labelsize=14)
-    PyPlot.matplotlib[:rc]("text.latex", preamble=raw"""
-    \usepackage{libertine}
-    \usepackage{libertinust1math}
-    """)
+function total_instance_count(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord}}, labels::Vector{String})
+    instance_keys = Set{NTuple{4, Int}}()
+    for label in labels, key in keys(run_maps[label])
+        push!(instance_keys, key)
+    end
+    return length(instance_keys)
+end
 
+function formulations_for_family(cfg::ExperimentConfig, family::String)
+    if isempty(cfg.formulations)
+        return [cfg.criterion]
+    end
+    family == "scipsdp" && return [cfg.criterion]
+    return cfg.formulations
+end
 
-    df = DataFrame(CSV.File(joinpath(@__DIR__, "../csv/full_runs_boscia/boscia_" *  criterion * "_optimality_" * type * "_" * string(m) * "-" * string(n) * "_" * string(seed) * ".csv")))
+function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true)
+    specs = get(FAMILY_DEFS, family, nothing)
+    specs === nothing && error("Unknown family $(family)")
 
-    df[!, :time] = df[!,:time]./1000
+    formulations = formulations_for_family(cfg, family)
+    use_formulation_suffix = length(formulations) > 1
+    run_maps = Dict{String, Dict{NTuple{4, Int}, RunRecord}}()
+    series_entries = Tuple{String, String}[]
+    for criterion_name in formulations
+        formulation_suffix = use_formulation_suffix ? " ($(criterion_name))" : ""
+        for spec in specs
+            series_label = spec.label * formulation_suffix
+            run_maps[series_label] = collect_runs(spec, cfg, criterion_name)
+            push!(series_entries, (series_label, spec.label))
+        end
+    end
+    present_labels = [series_label for (series_label, _) in series_entries if !isempty(run_maps[series_label])]
+    if length(present_labels) < 2
+        verbose && println("Skipping $(family) / $(cfg.criterion) / $(cfg.data_type): fewer than two setups with runs.")
+        return false
+    end
 
-    fig, axs = plt.subplots(1,2, sharex=false, sharey=false, figsize=(13.0,4.5))
+    flagged = quasioptimal_keys(run_maps)
+    total_instances = total_instance_count(run_maps, present_labels)
+    plt = plot(
+        xscale=:log10,
+        xlim=(1.0, TIME_LIMIT),
+        ylim=(0, max(total_instances, 1)),
+        xlabel="Time (s)",
+        ylabel="Solved instances",
+        grid=true,
+        legend=:topleft,
+        size=(760, 420),
+    )
 
-    axs[1].plot(df[!,"time"], df[!,"lowerBound"], label="Lower bound", color=colors[1], marker=markers[1], markevery=0.1, alpha=.5, linestyle=linestyle[3])
-    axs[1].plot(df[!,"time"], df[!,"upperBound"], label="Incumbent", color=colors[end], marker=markers[2], markevery=0.1, alpha=.5, linestyle=linestyle[1])
-            
-    axs[1].set_ylabel("Lower bound")
-    axs[1].set_xlabel("Time (s)")
-    axs[1].legend(loc="upper center", bbox_to_anchor=(0.5, -0.3), fontsize=12, fancybox=true, shadow=false, ncol=2)
-    axs[1].grid()
-            
-    # lb, time 
-    axs[2].plot(df[!,"time"], df[!,"upperBound"] - df[!,"lowerBound"], label="Dual Gap", color=colors[2], marker=markers[3], markevery=0.1, alpha=.5, linestyle=linestyle[1])
-            
-    axs[2].set_ylabel("Dual Gap")
-    axs[2].set_xlabel("Time (s)")
-    axs[2].legend(loc="upper center", bbox_to_anchor=(0.5, -0.3), fontsize=12, fancybox=true, shadow=false, ncol=2)
-    #ax.set_xscale("log")
-    axs[2].grid()
+    base_styles = Dict(spec.label => style for (spec, style) in zip(specs, style_triplets(length(specs))))
+    for (series_label, base_label) in series_entries
+        runs = run_maps[series_label]
+        isempty(runs) && continue
+        times = solved_times(runs, flagged[series_label])
+        x, y = step_xy(times)
+        color, marker, linestyle = base_styles[base_label]
+        if use_formulation_suffix && endswith(series_label, "(ACSTS)")
+            linestyle = :dash
+        end
+        plot!(
+            plt,
+            x,
+            y,
+            label=series_label,
+            color=color,
+            linestyle=linestyle,
+            marker=marker,
+            linewidth=2,
+            markersize=4,
+            seriestype=:steppost,
+        )
+    end
 
-    fig.tight_layout()
-    file = joinpath(@__DIR__, "../csv/plots/Dual_Gap_Plots/progress_dual_"  * criterion * "-" * type * "_" * string(m) * "_" * string(n) * "_" * string(seed) * ".pdf")
-    PyPlot.savefig(file)
-
+    out = plot_path(family, cfg)
+    savefig(plt, out)
+    verbose && println("Wrote $(out)")
     return true
 end
+
+function parse_arg_list(args::Vector{String}, flag::String, default::Vector{String})
+    idx = findfirst(==(flag), args)
+    isnothing(idx) && return default
+    idx == length(args) && error("Expected comma-separated value after $(flag)")
+    return String[strip(part) for part in split(args[idx + 1], ",") if !isempty(strip(part))]
+end
+
+function selected_configs(criteria::AbstractVector{<:AbstractString}, data_types::AbstractVector{<:AbstractString})
+    return [
+        cfg for cfg in experiment_configs()
+        if cfg.criterion in criteria && cfg.data_type in data_types
+    ]
+end
+
+function main(args=ARGS)
+    families = parse_arg_list(args, "--families", collect(keys(FAMILY_DEFS)))
+    criteria = parse_arg_list(args, "--criteria", unique([cfg.criterion for cfg in experiment_configs()]))
+    data_types = parse_arg_list(args, "--data-types", unique([cfg.data_type for cfg in experiment_configs()]))
+
+    configs = selected_configs(criteria, data_types)
+    isempty(configs) && error("No experiment configurations selected.")
+
+    generated = 0
+    for family in families
+        haskey(FAMILY_DEFS, family) || error("Unknown family $(family)")
+        for cfg in configs
+            generated += generate_plot(family, cfg) ? 1 : 0
+        end
+    end
+
+    println("Generated $(generated) termination plots in $(OUT_DIR)")
+end
+
+main()
