@@ -2,12 +2,25 @@ using CSV
 using DataFrames
 using Plots
 
+include(joinpath(@__DIR__, "..", "ODWB", "colours.jl"))
+
 const TIME_LIMIT = 3600.0
 const BOSCIA_DIR = joinpath(@__DIR__, "..", "ODWB", "csv", "Boscia")
 const SCIPSDP_DIR = joinpath(@__DIR__, "..", "ODWB", "csv", "SCIPSDP")
 const OUT_DIR = joinpath(@__DIR__, "termination_plots")
 const REL_TOL = 0.05
 const ABS_TOL = 1e-6
+
+rgb_hex(c::NTuple{3, <:Real}) = "#" * join((uppercase(string(v, base=16, pad=2)) for v in round.(Int, 255 .* collect(c))), "")
+
+const CB_PALETTE = [
+    rgb_hex(cb_blue),
+    rgb_hex(cb_burgundy),
+    rgb_hex(cb_green_sea),
+    rgb_hex(cb_purple),
+    rgb_hex(cb_brown),
+    rgb_hex(cb_clay),
+]
 
 Base.@kwdef struct SetupSpec
     label::String
@@ -50,7 +63,7 @@ const FAMILY_DEFS = Dict(
         SetupSpec(label="rank pruning", kind=:boscia, name="rank_based_pruning"),
     ],
     "scipsdp" => [
-        SetupSpec(label="baseline", kind=:boscia, name="baseline"),
+        SetupSpec(label="Boscia", kind=:boscia, name="baseline"),
         SetupSpec(label="SCIPSDP OA", kind=:scipsdp, name="oa"),
         SetupSpec(label="SCIPSDP BnB", kind=:scipsdp, name="bnb"),
     ],
@@ -64,6 +77,28 @@ function experiment_configs()
         ExperimentConfig(criterion="AGC", data_type="independent", suffix="independent_disconnected", file_tag="independent"),
         ExperimentConfig(criterion="ACST", data_type="independent", suffix="independent__", file_tag="independent", formulations=["ACST", "ACSTS"]),
     ]
+end
+
+function scipsdp_boscia_spec(cfg::ExperimentConfig)
+    if cfg.criterion == "ACST"
+        return SetupSpec(label="Boscia", kind=:boscia, name="baseline")
+    elseif cfg.criterion == "AGC"
+        return SetupSpec(label="Boscia", kind=:boscia, name="eigenvalue_based_pruning")
+    elseif cfg.criterion == "E" && cfg.data_type == "correlated"
+        return SetupSpec(label="Boscia", kind=:boscia, name="eigenvalue_based_pruning")
+    elseif cfg.criterion == "E" && cfg.data_type == "independent"
+        return SetupSpec(label="Boscia", kind=:boscia, name="reduced_spectrum", subdir="reduced_spectrum_half")
+    end
+    return SetupSpec(label="Boscia", kind=:boscia, name="baseline")
+end
+
+function family_specs(family::String, cfg::ExperimentConfig)
+    specs = get(FAMILY_DEFS, family, nothing)
+    specs === nothing && error("Unknown family $(family)")
+    if family == "scipsdp"
+        return [scipsdp_boscia_spec(cfg), specs[2], specs[3]]
+    end
+    return specs
 end
 
 function solver_prefix(spec::SetupSpec)
@@ -210,7 +245,7 @@ function plot_path(family::String, cfg::ExperimentConfig)
 end
 
 function style_triplets(n::Int)
-    colors = [:blue, :red, :green, :purple, :orange, :brown]
+    colors = CB_PALETTE
     markers = [:circle, :rect, :utriangle, :diamond, :pentagon, :xcross]
     linestyles = [:solid, :dash, :dashdot, :dot, :solid, :dash]
     return [(colors[i], markers[i], linestyles[i]) for i in 1:n]
@@ -233,8 +268,7 @@ function formulations_for_family(cfg::ExperimentConfig, family::String)
 end
 
 function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true)
-    specs = get(FAMILY_DEFS, family, nothing)
-    specs === nothing && error("Unknown family $(family)")
+    specs = family_specs(family, cfg)
 
     formulations = formulations_for_family(cfg, family)
     use_formulation_suffix = length(formulations) > 1
