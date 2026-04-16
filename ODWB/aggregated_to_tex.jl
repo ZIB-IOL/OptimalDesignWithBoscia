@@ -119,7 +119,6 @@ const METRIC_CONFIG = [
     ("time_std_wrt_geom", "time std", "0.2f", :numeric, nothing),
     ("rel_gap_geom_mean_unsolved", "rel. gap", "0.2e", :scientific, :min),
     ("failed_instances", "failed", "d", :int, nothing),
-    ("quasi_optimal", "quasi optimal", "d", :int, nothing),
     ("avg_lmo_calls", "LMO", "d", :int, nothing),
     ("avg_nodes", "nodes", "d", :int, nothing),
     ("avg_cuts", "cuts", "d", :int, nothing),
@@ -219,6 +218,22 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
             best_per_col[m_idx, dim_idx] = best_dir == :max ? maximum(numeric) : minimum(numeric)
         end
     end
+    # Column-level flags used to suppress specific bolding in edge cases:
+    # 1) If all setups time out (pct_solved == 0 for all), do not bold `% sol.` / `time (s)`.
+    # 2) If any setup solved all (pct_solved == 100), do not bold `rel. gap`.
+    all_timeout_col = fill(false, n_col_vals)
+    any_full_solved_col = fill(false, n_col_vals)
+    pct_idx = findfirst(==("pct_solved"), metrics)
+    if pct_idx !== nothing
+        for dim_idx in 1:n_col_vals
+            vals = [rows[dim_idx][2 + (s - 1) * n_metrics + pct_idx - 1] for s in 1:n_solvers]
+            numeric = [v for v in vals if v isa Number && isfinite(v)]
+            if !isempty(numeric)
+                all_timeout_col[dim_idx] = all(v -> isapprox(v, 0.0; atol=1e-9), numeric)
+                any_full_solved_col[dim_idx] = any(v -> isapprox(v, 100.0; atol=1e-9), numeric)
+            end
+        end
+    end
     # Transposed: columns = row_vals (dimension or N_construction), rows = solver blocks with one row per metric
     col_spec = "ll" * repeat("r", n_col_vals)
     println(io, "\\begin{tabular}{", col_spec, "}")
@@ -242,7 +257,13 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
                 cell = format_cell(val, fmt)
                 best = best_per_col[metric_local_idx, dim_idx]
                 if best_dir !== nothing && best !== missing && val isa Number && isfinite(val)
-                    if (best_dir == :max && isapprox(val, best, rtol=1e-9)) || (best_dir == :min && isapprox(val, best, rtol=1e-9))
+                    allow_bold = true
+                    if key in ("pct_solved", "time_geom_mean") && all_timeout_col[dim_idx]
+                        allow_bold = false
+                    elseif key == "rel_gap_geom_mean_unsolved" && any_full_solved_col[dim_idx]
+                        allow_bold = false
+                    end
+                    if allow_bold && ((best_dir == :max && isapprox(val, best, rtol=1e-9)) || (best_dir == :min && isapprox(val, best, rtol=1e-9)))
                         cell = "\\textbf{$cell}"
                     end
                 end

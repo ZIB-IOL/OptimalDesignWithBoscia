@@ -116,8 +116,9 @@ const BOSCIA_DIR = joinpath(CSV_BASE, "Boscia")
 # Single-run: boscia__E_optimality_<type>__m_n_N_seed.csv (connection empty for E-opt)
 const BOSCIA_DELIM = ';'
 const BOSCIA_DEFAULT_E_FOLDER = "reduced_spectrum"
-const BOSCIA_DEFAULT_AGC_FOLDER = "reduced_spectrum"
-const BOSCIA_DEFAULT_ACST_FOLDER = "reduced_spectrum"
+const BOSCIA_DEFAULT_E_SUBDIR = "reduced_spectrum_half"
+const BOSCIA_DEFAULT_AGC_FOLDER = "baseline"
+const BOSCIA_DEFAULT_ACST_FOLDER = "rank_based_pruning"
 
 function boscia_single_filename(corr::Bool, m::Int, n::Int, N::Int, seed::Int)
     type = corr ? "correlated" : "independent"
@@ -246,15 +247,25 @@ end
 
 function merge_boscia_group(corr::Bool; verbose=true)
     type_str = corr ? "correlated" : "independent"
-    group_name = "Boscia E $type_str cont (from $(BOSCIA_DEFAULT_E_FOLDER))"
+    source_label = corr ? "baseline" : BOSCIA_DEFAULT_E_FOLDER
+    group_name = "Boscia E $type_str cont (from $(source_label))"
     if verbose
         println("\n--- $group_name ---")
     end
     key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
     missing_list = Tuple{Int,Int,Int,Int}[]
     for (m, n, N, seed) in ALL_KEYS
-        fname = boscia_prefixed_single_filename(BOSCIA_DEFAULT_E_FOLDER, corr, m, n, N, seed)
-        path = joinpath(BOSCIA_DIR, fname)
+        path = if corr
+            joinpath(BOSCIA_DIR, boscia_single_filename(corr, m, n, N, seed))
+        else
+            fname = boscia_prefixed_single_filename(BOSCIA_DEFAULT_E_FOLDER, corr, m, n, N, seed)
+            p = joinpath(BOSCIA_DIR, BOSCIA_DEFAULT_E_SUBDIR, fname)
+            if !isfile(p)
+                # Fallback for legacy layout where reduced_spectrum files are directly in BOSCIA_DIR.
+                p = joinpath(BOSCIA_DIR, fname)
+            end
+            p
+        end
         df = read_boscia_single(path)
         if df !== nothing
             key_to_row[(m, n, N, seed)] = df
@@ -670,14 +681,14 @@ end
 function merge_boscia_agc_group(connected::Bool, corr::Bool; verbose=true)
     type_str = corr ? "correlated" : "independent"
     conn_str = connected ? "connected" : "disconnected"
-    group_name = "Boscia AGC $type_str $conn_str (from $(BOSCIA_DEFAULT_AGC_FOLDER))"
+    group_name = "Boscia AGC $type_str $conn_str (baseline)"
     if verbose
         println("\n--- $group_name ---")
     end
     key_to_row = Dict{Tuple{Int,Int,Int,Int}, DataFrame}()
     missing_list = Tuple{Int,Int,Int,Int}[]
     for (m, n, N, seed) in ALL_KEYS_AGC
-        fname = boscia_agc_prefixed_single_filename(BOSCIA_DEFAULT_AGC_FOLDER, corr, connected, m, n, N, seed)
+        fname = boscia_agc_single_filename(corr, connected, m, n, N, seed)
         path = joinpath(BOSCIA_DIR, fname)
         df = read_boscia_single(path)
         if df !== nothing

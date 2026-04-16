@@ -749,8 +749,8 @@ function combined_table_spanning_tree_unified(;
     drop_scaled_solution::Bool=true,
 )
     loaders = Any[]
-    # ACST (matrix / hyperplane-aware formulation)
-    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", nothing, "ACST (Boscia)"))
+    # ACST default row uses rank-based pruning data (reported as ACST (Boscia) in tables).
+    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (Boscia)"))
     push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (rank pruning)"))
     if all_boscia_variants
         for (f, lab) in BOSCIA_EXCLUSION_VARIANTS
@@ -758,17 +758,7 @@ function combined_table_spanning_tree_unified(;
             push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACST", f, acst_lab))
         end
     end
-    # ACSTS (probability / simple LMO formulation)
-    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACSTS", nothing, "ACSTS (Boscia)"))
-    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACSTS", "rank_based_pruning", "ACSTS (rank pruning)"))
-    push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACSTS", "exclusion_criterion", "ACSTS (excl.)"))
-    if all_boscia_variants
-        for (f, lab) in BOSCIA_EXCLUSION_VARIANTS
-            f == "exclusion_criterion" && continue
-            acsts_lab = replace(lab, "Boscia" => "ACSTS", count=1)
-            push!(loaders, () -> load_and_normalize_boscia_acst_variant("ACSTS", f, acsts_lab))
-        end
-    end
+    # ACSTS intentionally omitted per current reporting preference.
     dfs = DataFrame[]
     for loader in loaders
         df = loader()
@@ -790,7 +780,7 @@ function combined_table_spanning_tree_unified(;
 end
 
 function combined_table_spanning_tree_acst_reduced_vs_baseline(; verbose::Bool=false)
-    d_red = load_and_normalize_boscia_acst_variant("ACST", nothing, "ACST (Boscia)")
+    d_red = load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (Boscia)")
     d_base = load_and_normalize_boscia_acst_variant("ACST", "baseline", "ACST (baseline)")
     (d_red === nothing || d_base === nothing) && return nothing
     common = [:seed, :dimension, :N, :numberOfParameters, :N_construction, :time, :solution, :scaled_solution, :dual_gap, :termination, :solver, :rel_gap, :solved, :failed, :nodes, :ncalls, :n_cuts_applied, :n_sdp_iters]
