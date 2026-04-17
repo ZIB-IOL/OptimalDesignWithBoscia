@@ -281,11 +281,15 @@ function is_failed(termination, solution, solution_source)
     return solution isa Number && !isfinite(solution) || solution >= 1e30
 end
 
-# Geometric mean; skip non-finite and non-positive
+# Geometric mean with +1s shift; skip non-finite and non-positive.
+# Returned in seconds by shifting back:
+#   exp(mean(log.(x .+ 1))) - 1
+const TIME_GEOM_SHIFT = 1.0
+
 function geom_mean(v)
     x = [e for e in v if isfinite(e) && e isa Number && e > 0]
     isempty(x) && return missing
-    return exp(sum(log, x) / length(x))
+    return exp(sum(log, x .+ TIME_GEOM_SHIFT) / length(x)) - TIME_GEOM_SHIFT
 end
 
 # N construction label from (n, N): same formulas as merge_single_runs_to_csv / run_optimal_design

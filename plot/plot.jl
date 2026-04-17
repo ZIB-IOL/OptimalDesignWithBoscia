@@ -50,15 +50,14 @@ const OFFICIAL_KEY_CACHE = Dict{Tuple{String, String}, Set{NTuple{4, Int}}}()
 const FAMILY_DEFS = Dict(
     "reduced_spectrum" => [
         SetupSpec(label="baseline", kind=:boscia, name="baseline"),
-        SetupSpec(label="reduced spectrum", kind=:boscia, name="reduced_spectrum", subdir="reduced_spectrum_half"),
-        SetupSpec(label="optimal reduced spectrum", kind=:boscia, name="optimal_reduced_spectrum"),
+        SetupSpec(label="truncated gradient", kind=:boscia, name="reduced_spectrum", subdir="reduced_spectrum_half"),
     ],
     "exclusion" => [
         SetupSpec(label="baseline", kind=:boscia, name="baseline"),
-        SetupSpec(label="dual exclusion", kind=:boscia, name="dual_exclusion_criterion"),
-        SetupSpec(label="exclusion", kind=:boscia, name="exclusion_criterion"),
-        SetupSpec(label="exclusion random", kind=:boscia, name="exclusion_criterion_random"),
-        SetupSpec(label="exclusion tighter tol", kind=:boscia, name="exclusion_criterion_tighter_tol"),
+        SetupSpec(label="dual fixing", kind=:boscia, name="dual_exclusion_criterion"),
+        SetupSpec(label="fixings", kind=:boscia, name="exclusion_criterion"),
+        SetupSpec(label="fixings random", kind=:boscia, name="exclusion_criterion_random"),
+        SetupSpec(label="fixings tighter tol", kind=:boscia, name="exclusion_criterion_tighter_tol"),
     ],
     "pruning" => [
         SetupSpec(label="baseline", kind=:boscia, name="baseline"),
@@ -144,7 +143,7 @@ end
 function load_record(path::String)
     df = DataFrame(CSV.File(path))
     nrow(df) == 0 && error("No rows in $(path)")
-    row = df[1, :]
+    row = df[end, :]
     time = parse_float(getproperty(row, :time), TIME_LIMIT)
     termination = string(getproperty(row, :termination))
     solution = if :scaled_solution in propertynames(row)
@@ -168,8 +167,24 @@ function keep_instance(criterion_name::String, key::NTuple{4, Int})
     return is_e_allowed(m, n, N)
 end
 
-function merged_csv_candidates(criterion_name::String)
-    if criterion_name == "ACST"
+function merged_csv_candidates(criterion_name::String, cfg::ExperimentConfig)
+    if criterion_name == "E"
+        type = cfg.data_type == "correlated" ? "correlated" : "independent"
+        return [
+            joinpath(BOSCIA_DIR, "boscia_eigenvalue_based_pruning_E_optimality_$(type)_merged.csv"),
+            joinpath(BOSCIA_DIR, "boscia_baseline_E_optimality_$(type)_merged.csv"),
+            joinpath(SCIPSDP_DIR, "scip_sdp_oa_E_optimality_$(type)_merged.csv"),
+            joinpath(SCIPSDP_DIR, "scip_sdp_bnb_E_optimality_$(type)_merged.csv"),
+        ]
+    elseif criterion_name == "AGC"
+        suffix = cfg.data_type == "correlated" ? "correlated_connected" : "independent_disconnected"
+        return [
+            joinpath(BOSCIA_DIR, "boscia_eigenvalue_based_pruning_AGC_optimality_$(suffix)_merged.csv"),
+            joinpath(BOSCIA_DIR, "boscia_baseline_AGC_optimality_$(suffix)_merged.csv"),
+            joinpath(SCIPSDP_DIR, "scip_sdp_oa_AGC_optimality_$(suffix)_merged.csv"),
+            joinpath(SCIPSDP_DIR, "scip_sdp_bnb_AGC_optimality_$(suffix)_merged.csv"),
+        ]
+    elseif criterion_name == "ACST"
         return [
             joinpath(BOSCIA_DIR, "boscia_baseline_ACST_optimality_independent_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_rank_based_pruning_ACST_optimality_independent_merged.csv"),
@@ -189,7 +204,7 @@ function official_instance_keys(criterion_name::String, cfg::ExperimentConfig)
     cache_key = (criterion_name, cfg.data_type)
     get!(OFFICIAL_KEY_CACHE, cache_key) do
         keys = Set{NTuple{4, Int}}()
-        for path in merged_csv_candidates(criterion_name)
+        for path in merged_csv_candidates(criterion_name, cfg)
             isfile(path) || continue
             for row in CSV.File(path)
                 key = (
@@ -207,7 +222,7 @@ end
 
 function keep_plot_instance(cfg::ExperimentConfig, criterion_name::String, key::NTuple{4, Int})
     keep_instance(criterion_name, key) || return false
-    if criterion_name in ("ACST", "ACSTS")
+    if criterion_name in ("E", "AGC", "ACST", "ACSTS")
         official_keys = official_instance_keys(criterion_name, cfg)
         return isempty(official_keys) || (key in official_keys)
     end
@@ -217,7 +232,7 @@ end
 termination_is_optimal(termination::AbstractString) = strip(termination) == "OPTIMAL"
 
 function is_solved(record::RunRecord)
-    return termination_is_optimal(record.termination) && isfinite(record.time) && record.time <= TIME_LIMIT
+    return termination_is_optimal(record.termination) && isfinite(record.time) && record.time < TIME_LIMIT
 end
 
 function collect_runs(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::String=cfg.criterion)
@@ -232,6 +247,64 @@ function collect_runs(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::St
             haskey(runs, key) && continue
             runs[key] = load_record(joinpath(dir, fname))
         end
+    end
+    return runs
+end
+
+function merged_csv_path_for_spec(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::String)
+    if spec.kind == :scipsdp
+        if criterion_name == "E"
+            path_cont = joinpath(SCIPSDP_DIR, "scip_sdp_$(spec.name)_E_optimality_$(cfg.data_type)_cont_merged.csv")
+            path_plain = joinpath(SCIPSDP_DIR, "scip_sdp_$(spec.name)_E_optimality_$(cfg.data_type)_merged.csv")
+            path = isfile(path_cont) ? path_cont : path_plain
+            return isfile(path) ? path : nothing
+        end
+        suffix = if criterion_name == "AGC"
+            cfg.data_type == "correlated" ? "correlated_connected" : "independent_disconnected"
+        elseif criterion_name == "ACST"
+            "independent"
+        else
+            return nothing
+        end
+        path = joinpath(SCIPSDP_DIR, "scip_sdp_$(spec.name)_$(criterion_name)_optimality_$(suffix)_merged.csv")
+        return isfile(path) ? path : nothing
+    end
+
+    if spec.kind == :boscia
+        suffix = if criterion_name == "E"
+            cfg.data_type
+        elseif criterion_name == "AGC"
+            cfg.data_type == "correlated" ? "correlated_connected" : "independent_disconnected"
+        elseif criterion_name in ("ACST", "ACSTS")
+            "independent"
+        else
+            return nothing
+        end
+        folder = spec.name == "baseline" ? "baseline" : spec.name
+        path = joinpath(BOSCIA_DIR, "boscia_$(folder)_$(criterion_name)_optimality_$(suffix)_merged.csv")
+        return isfile(path) ? path : nothing
+    end
+    return nothing
+end
+
+function collect_runs_from_merged(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::String=cfg.criterion)
+    path = merged_csv_path_for_spec(spec, cfg, criterion_name)
+    isnothing(path) && return collect_runs(spec, cfg, criterion_name)
+    delim = spec.kind == :scipsdp ? ',' : ';'
+    runs = Dict{NTuple{4, Int}, RunRecord}()
+    for row in CSV.File(path; delim=delim)
+        key = (
+            Int(row.numberOfExperiments),
+            Int(row.numberOfParameters),
+            Int(row.N),
+            Int(row.seed),
+        )::NTuple{4, Int}
+        keep_plot_instance(cfg, criterion_name, key) || continue
+        haskey(runs, key) && continue
+        termination = string(row.termination)
+        time = parse_float(getproperty(row, :time), TIME_LIMIT)
+        solution = hasproperty(row, :scaled_solution) ? parse_float(getproperty(row, :scaled_solution)) : NaN
+        runs[key] = RunRecord(time=min(time, TIME_LIMIT), termination=termination, solution=solution, path=path)
     end
     return runs
 end
@@ -380,7 +453,7 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
         formulation_suffix = use_formulation_suffix ? " ($(criterion_name))" : ""
         for spec in specs
             series_label = spec.label * formulation_suffix
-            run_maps[series_label] = collect_runs(spec, cfg, criterion_name)
+            run_maps[series_label] = family == "scipsdp" ? collect_runs_from_merged(spec, cfg, criterion_name) : collect_runs(spec, cfg, criterion_name)
             push!(series_entries, (series_label, spec.label))
         end
     end
