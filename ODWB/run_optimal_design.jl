@@ -9,12 +9,12 @@ using CSV
 # For debugging
 
 ENV["MODE"] = "Boscia"
-ENV["CRITERION"] = "ACST"
+ENV["CRITERION"] = "E"
 ENV["TYPE"] = "IND"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "optimal_reduced_spectrum"
+ENV["OPTION"] = "record_eigenvalue"
 ENV["N"] = "one"
-ENV["DIMENSION"] = "10"
+ENV["DIMENSION"] = "30"
 
 #ENV["JULIA_DEBUG"] = "Boscia"
 
@@ -148,6 +148,7 @@ for k in ratio_para
                             reduced_spectrum = option in ["reduced_spectrum"],
                             full_reduced_spectrum = option in ["optimal_reduced_spectrum"],
                             clip_mu_resolution = false, #criterion in ["ACST", "ACSTS"] ? true : false,
+                            record_eigenvalue = option == "record_eigenvalue",
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
@@ -199,7 +200,7 @@ for k in ratio_para
                     else 
                         error("Invalid mode!")
                     end
-                catch e
+                catch 
                     println(e)
                     error_file = criterion * "_opt_" * mode * "_" * type * "_" * "_" * option * ".txt" 
                     open(error_file,"a") do io
