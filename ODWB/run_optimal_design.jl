@@ -7,7 +7,7 @@ using CSV
 
 
 # For debugging
-
+#=
 ENV["MODE"] = "Boscia"
 ENV["CRITERION"] = "E"
 ENV["TYPE"] = "IND"
@@ -15,7 +15,7 @@ ENV["SEED"] = "1"
 ENV["OPTION"] = "record_eigenvalue"
 ENV["N"] = "one"
 ENV["DIMENSION"] = "30"
-
+=#
 #ENV["JULIA_DEBUG"] = "Boscia"
 
 """
