@@ -289,8 +289,8 @@ function write_tex_table(io, row_vals, metrics, rows, row_col::Symbol, title::St
 end
 
 const OVERALL_SUMMARY_SPECS = [
-    ("E corr.", "correlated_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
-    ("E ind.", "independent_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+    ("EOD corr.", "correlated_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
+    ("EOD ind.", "independent_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
     ("AGC corr.", "agc_correlated_connected_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
     ("AGC ind.", "agc_independent_disconnected_by_dimension.csv", Dict("Boscia" => "Boscia", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
     ("ACST", "spanning_tree_acst_rank_pruning_vs_scipsdp_independent_by_dimension.csv", Dict("Boscia" => "ACST (Boscia)", "SCIPSDP_oa" => "SCIPSDP_oa", "SCIPSDP_bnb" => "SCIPSDP_bnb")),
