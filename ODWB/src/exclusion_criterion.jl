@@ -581,7 +581,7 @@ function build_branch_callback_mem(
                 push!(number_pruned_nodes, node.id => prune_left + prune_right)
                 processed_pruning_nodes += 1
             end
-        elseif eigenvalue_based_pruning && node.depth > Int(N)
+        #=elseif eigenvalue_based_pruning && node.depth > Int(N)
             # Collect free indices without allocating a fresh vector.
             free_count = 0
             @inbounds for i in 1:m
@@ -616,6 +616,23 @@ function build_branch_callback_mem(
             prune_right = right_eig < -tree.incumbent
             if prune_left || prune_right
                 @show n, rank(M_0), free_count, N_star, left_eig, right_eig, prune_left, prune_right
+                push!(number_pruned_nodes, node.id => prune_left + prune_right)
+                processed_pruning_nodes += 1
+            end
+            =#
+        elseif eigenvalue_based_pruning && N_star < n
+            println("Perform eigenvalue-based pruning.")
+            # down branch
+            F_l = eigen(M_0)
+            bound_left = F_l.values[N_star + 1]
+
+            F_r = eigen(M_0 + A[vdix, :] * A[vdix, :]')
+            bound_right = F_r.values[N_star + 1]
+
+            prune_left = bound_left < -tree.incumbent
+            prune_right = bound_right < -tree.incumbent
+            if prune_left || prune_right
+                @show n, rank(M_0), N_star, bound_left, bound_right, prune_left, prune_right
                 push!(number_pruned_nodes, node.id => prune_left + prune_right)
                 processed_pruning_nodes += 1
             end
