@@ -420,7 +420,7 @@ function solve_opt(
         @show N
         settings.branch_and_bound[:verbose] = verbose
         settings.branch_and_bound[:time_limit] = time_limit
-        x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
+        @suppress_err x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
     else
         _, active_set, S = build_start_point2(A, m, n, N, ub)
         line_search = ls_secant ? FrankWolfe.Secant(domain_oracle=domain_oracle) : FrankWolfe.MonotonicGenericStepsize(FrankWolfe.Adaptive(), domain_oracle)

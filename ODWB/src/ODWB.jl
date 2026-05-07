@@ -34,6 +34,7 @@ using Dualization
 using JSON
 using Graphs
 using Arpack
+using Suppressor
 
 import MathOptSetDistances
 const MOD = MathOptSetDistances
