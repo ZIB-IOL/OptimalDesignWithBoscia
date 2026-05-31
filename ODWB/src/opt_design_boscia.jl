@@ -97,6 +97,7 @@ function solve_opt(
     relative_gap_tolerance=1e-2,
     eigenvalue_based_pruning=false,
     reduced_spectrum=false,
+    reduced_percentage=1,
     clip_mu_resolution=false,
     full_reduced_spectrum=false,
     record_eigenvalue=false,
@@ -253,7 +254,7 @@ function solve_opt(
     elseif criterion == "DF"
         f, grad! = build_d_criterion(A, true, C=C, long_run=long_runs)
     elseif criterion in ["E","AGC", "ACST", "ACSTS"]
-        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum)
+        f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum, reduced_percentage=reduced_percentage)
     elseif criterion == "EF"
         f, sub_grad!, generate_smoothing_function = build_e_criterion(A, L=C)
     elseif criterion == "GTI"
@@ -322,6 +323,19 @@ function solve_opt(
         #@show node.local_bounds.lower_bounds    
         #@show node.local_bounds.upper_bounds
     end
+    function build_node_callback(m, n, A, reduced_percentage)
+        # maximum eigenvalue of (AA') hadamard multiplied with itself
+        op_norm = maximum(eigvals((A * A').^2))
+        cut_off = Int(floor(n/reduced_percentage))
+        return function node_callback(tree, node, μ, x, primal, dual_gap, fw_status, atoms_set)
+            X = A' * diagm(x) * A
+            @show x, sum(isnan.(x)) > 0
+            @show X
+            λ = eigvals(X)
+            correction = 2 * op_norm * (n - cut_off) * exp(- (λ[end] - λ[cut_off])/μ) 
+            dual_gap += correction
+        end
+    end
 
     fw_variant = use_BPCG ? Boscia.BlendedPairwiseConditionalGradient() : Boscia.DecompositionInvariantConditionalGradient()
 
@@ -389,6 +403,7 @@ function solve_opt(
         settings.smoothing[:best_sol_by_original] = best_sol_by_original
         settings.smoothing[:resolve_integer_solution] = resolve_integer_solution
         settings.smoothing[:clip_mu_resolution] = clip_mu_resolution
+        settings.smoothing[:node_callback] = reduced_spectrum ? build_node_callback(m, n, A, reduced_percentage) : nothing
 
         settings.frank_wolfe[:max_fw_iter] = 5000
         settings.frank_wolfe[:line_search] = line_search
@@ -536,46 +551,50 @@ function solve_opt(
             ""
         end =#
 
-        folder = if reduced_spectrum
-            "reduced_spectrum"
-        elseif full_reduced_spectrum
-            "optimal_reduced_spectrum"
-        elseif rank_based_pruning
-            "rank_based_pruning"
-        elseif eigenvalue_based_pruning
-            "eigenvalue_based_pruning"
-        elseif use_exclusion_criterion
-            "exclusion_criterion"
-        #elseif !use_sub_grad_info
-        #    "no_sub_grad_info"
-        #elseif use_sub_grad_info && !best_sol_by_original 
-         #   "sub_grad_info_no_best_sol"
-       # elseif best_sol_by_original && resolve_integer_solution
-       #     "best_sol_resolve_integer" 
-      #  elseif best_sol_by_original
-       #     "best_sol_by_original"
-       # elseif resolve_integer_solution
-       #     "resolve_integer_solution"
-        elseif use_exclusion_criterion && n_random > 0
-            "exclusion_criterion_random"
-        elseif use_exclusion_criterion && start_epsilon == 1e-4 && min_epsilon == 1e-7
-            "exclusion_criterion_tighter_tol"
-        elseif use_exclusion_criterion 
-            "exclusion_criterion"
-        elseif mu_testing
-            string(smoothing_start) * "_" * string(smoothing_decay) * "_" * string(smoothing_min)
-        elseif use_heuristics && options_run
-            "heuristics"
-        elseif use_follow_subgradient_heu && options_run
-            "follow_subgradient"
-        elseif use_pipage_heu && options_run
-            "pipage_rounding"
-        elseif use_sr_rounding_heu && options_run
-            "sr_rounding"
-        elseif use_fedorov_heu && options_run
-            "fedorov"
-        else
-            ""
+        folder = ""
+
+        if options_run
+            folder = if reduced_spectrum
+                "reduced_spectrum" * "_" * string(reduced_percentage)
+            elseif full_reduced_spectrum
+                "optimal_reduced_spectrum"
+            elseif rank_based_pruning
+                "rank_based_pruning"
+            elseif eigenvalue_based_pruning
+                "eigenvalue_based_pruning"
+            elseif use_exclusion_criterion
+                "exclusion_criterion"
+            #elseif !use_sub_grad_info
+            #    "no_sub_grad_info"
+            #elseif use_sub_grad_info && !best_sol_by_original 
+            #   "sub_grad_info_no_best_sol"
+        # elseif best_sol_by_original && resolve_integer_solution
+        #     "best_sol_resolve_integer" 
+        #  elseif best_sol_by_original
+        #     "best_sol_by_original"
+        # elseif resolve_integer_solution
+        #     "resolve_integer_solution"
+            elseif use_exclusion_criterion && n_random > 0
+                "exclusion_criterion_random"
+            elseif use_exclusion_criterion && start_epsilon == 1e-4 && min_epsilon == 1e-7
+                "exclusion_criterion_tighter_tol"
+            elseif use_exclusion_criterion 
+                "exclusion_criterion"
+            elseif mu_testing
+                string(smoothing_start) * "_" * string(smoothing_decay) * "_" * string(smoothing_min)
+            elseif use_heuristics && options_run
+                "heuristics"
+            elseif use_follow_subgradient_heu && options_run
+                "follow_subgradient"
+            elseif use_pipage_heu && options_run
+                "pipage_rounding"
+            elseif use_sr_rounding_heu && options_run
+                "sr_rounding"
+            elseif use_fedorov_heu && options_run
+                "fedorov"
+            else
+                ""
+            end
         end
 
         @show folder
