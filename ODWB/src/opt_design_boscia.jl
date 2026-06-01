@@ -101,6 +101,7 @@ function solve_opt(
     clip_mu_resolution=false,
     full_reduced_spectrum=false,
     record_eigenvalue=false,
+    depthfirstsearch=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -387,6 +388,7 @@ function solve_opt(
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
+        settings.branch_and_bound[:traverse_strategy] = depthfirstsearch ? Boscia.BiasedDepthFirstSearch(true) : Boscia.BestFirstSearch()
 
         settings.tolerances[:rel_dual_gap] = relative_gap_tolerance
         settings.tolerances[:dual_gap] = N < n ? 1e-4 : 1e-6
@@ -564,6 +566,8 @@ function solve_opt(
                 "eigenvalue_based_pruning"
             elseif use_exclusion_criterion
                 "exclusion_criterion"
+            elseif depthfirstsearch
+                "depthfirstsearch"
             #elseif !use_sub_grad_info
             #    "no_sub_grad_info"
             #elseif use_sub_grad_info && !best_sol_by_original 
