@@ -85,7 +85,6 @@ function solve_opt(
     connected=true,
     mu_testing=false,
     tightened=false,
-    scale = Inf,
     start_epsilon=1e-2,
     min_epsilon=1e-6,
     n_random=10,
@@ -102,6 +101,7 @@ function solve_opt(
     full_reduced_spectrum=false,
     record_eigenvalue=false,
     depthfirstsearch=false,
+    scaled_input=false,
 )
     type = corr ? "correlated" : "independent"
     
@@ -128,8 +128,9 @@ function solve_opt(
         A, _, N, ub, _ = build_data(seed, m, n, false, corr; scaling_C=long_runs, zero_one=zero_one)
     end
 
-    A = isfinite(scale) ? scale * A : A
-
+    A_orig = copy(A)
+    scale = minimum(eigvals(A' * A))
+    A = scaled_input ? scale * A : A
     # parameter tunning
     if !options_run
         use_heuristics = true
@@ -502,10 +503,12 @@ function solve_opt(
 
     if log_trace
         f_check, _ = criterion in ["AF", "GTIF"] ? build_general_trace(A, p, true, C=C) : build_general_trace(A, p, false)
+    elseif scaled_input
+        f_check = build_e_criterion(A_orig, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum, reduced_percentage=reduced_percentage)
     else
         f_check = f
     end
-    scaled_solution = x !== nothing ? isfinite(scale) ? f_check(x) / scale^2 : f_check(x) : Inf
+    scaled_solution = x !== nothing ? f_check(x) : Inf
     @show scaled_solution
     @show result[:solution_source]
     nodes_with_tightening = processed_tightening_nodes[]
@@ -556,8 +559,12 @@ function solve_opt(
         folder = ""
 
         if options_run
-            folder = if reduced_spectrum
+            folder = if reduced_spectrum && scaled_input
+                "reduced_spectrum" * "_" * string(reduced_percentage) * "_scaled"
+            elseif reduced_spectrum 
                 "reduced_spectrum" * "_" * string(reduced_percentage)
+            elseif scaled_input
+                "scaled_input"
             elseif full_reduced_spectrum
                 "optimal_reduced_spectrum"
             elseif rank_based_pruning
