@@ -383,10 +383,29 @@ function choose_reduced_spectrum(sigma_max, eig_vals, μ, epsilon, n)
     return n
 end
 
+function choose_reduced_spectrum2(sigma_max, eig_vals, μ, epsilon, n)
+    (!isfinite(sigma_max) || sigma_max <= 0) && return n
+    partial_rhs = 4 * sigma_max^2 / (3/4 * epsilon - μ * log(n))
+    shift = eig_vals[n]
+    for i in 2:(n-1)
+        @show i, eig_vals[i], shift, μ
+        #lhs = eig_vals[i] - shift
+        lhs = shift - eig_vals[i]
+        @assert partial_rhs >= 0 "partial_rhs is negative: $(partial_rhs) epsilon - μ log(n) is negative: $(3/4 * epsilon - μ * log(n)), epsilon: $(epsilon), μ: $(μ), log(n): $(log(n))"
+        rhs = μ * log((n - i) * partial_rhs)
+        @show i, lhs, rhs
+        if lhs >= rhs
+            println("Cut off verified.")
+            return i
+        end
+    end
+    return n
+end
+
 """
 Build the E-criterion and its smoothed version.
 """
-function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectrum=false, corr=false, full_reduced_spectrum=false)
+function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectrum=false, corr=false, full_reduced_spectrum=false, reduced_percentage=1)
     m, n = size(A)
     # FW line search may evaluate slightly outside [0,1]^m; that can make A'diag(x)A (and eigen) explode.
     gram = Symmetric(A' * A)
@@ -438,6 +457,18 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
         return false
     end
 
+    function verfiy_cut_off2(λ, k, sigma_max, μ, epsilon)
+        lhs = λ[k] - λ[1]
+        rhs = μ * log((n-r) * 4 * sigma_max^2/ (3/4 * epsilon - μ * log(n)))
+        if lhs >= rhs
+            println("Cut off verified.")
+            return true
+        end
+        return false
+    end
+    
+    k = Int(floor(n/reduced_percentage))
+    @show n, k
     function generate_smoothing_function(μ; epsilon=1e-6, node_level=Inf)
         function f_mu(x)
             X = inf_matrix(x)
@@ -450,25 +481,23 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
         function grad_mu!(storage, x)
             X = inf_matrix(x)
            # λ, V = eigen(X)
-            k = n
             if reduced_spectrum
-                k = Int(floor(n/3))
                 λ, V = Arpack.eigs(X, nev=k, which=:SM)
-                if !verify_cut_off(reverse(λ), k, sigma_max, μ, epsilon)
-                    λ, V = eigen(X)
-                    λ = reverse(λ)
-                    V = reverse(V, dims=2)
-                    k = n
-                end
+                #if !verify_cut_off2(reverse(λ), k, sigma_max, μ, epsilon)
+                #    λ, V = eigen(X)
+                   # λ = reverse(λ)
+                   # V = reverse(V, dims=2)
+                 #   k = n
+                #end
             elseif full_reduced_spectrum
                 k = n
                 Y = issparse(X) ? Matrix(X) : X
                 λ, V = eigen(Y)
-                λ = reverse(λ)
-                V = reverse(V, dims=2)
+                # λ = reverse(λ)
+               # V = reverse(V, dims=2)
                 if node_level > m/5
-                    k = choose_reduced_spectrum(sigma_max, λ, μ, epsilon, n)
-                    k = k < n  ? k + 1 : k
+                    k = choose_reduced_spectrum2(sigma_max, λ, μ, epsilon, n)
+                   # k = k < n  ? k + 1 : k
                 end
             else
                 k = n
