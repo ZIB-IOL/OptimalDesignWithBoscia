@@ -39,8 +39,10 @@ using Suppressor
 import MathOptSetDistances
 const MOD = MathOptSetDistances
 
+# Path to SCIP /home/htc/dhendryc/SCRATCH/research_projects/scipoptsuite-10.0.1/build
 # path local /Users/deborah/mosek/mosek/11.0/tools/platform/osxaarch64/bin
 # path cluster /software/mosek/10.2/tools/platform/linux64x86
+# new path on cluster /software/mosek/11.1/tools/platform/linux64x86
 using Mosek 
 using MosekTools
 
