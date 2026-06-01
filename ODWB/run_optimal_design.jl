@@ -8,13 +8,13 @@ using CSV
 
 # For debugging
 #=
-ENV["MODE"] = "Boscia"
+ENV["MODE"] = "SCIPSDP_bnb"
 ENV["CRITERION"] = "E"
-ENV["TYPE"] = "IND"
+ENV["TYPE"] = "CORR"
 ENV["SEED"] = "1"
-ENV["OPTION"] = "record_eigenvalue"
+ENV["OPTION"] = "baseline"
 ENV["N"] = "one"
-ENV["DIMENSION"] = "30"
+ENV["DIMENSION"] = "50"
 =#
 #ENV["JULIA_DEBUG"] = "Boscia"
 
@@ -39,27 +39,13 @@ ratio_para = criterion in ["E", "EF", "AGC", "ACST", "ACSTS"] ? [1] : [4,10]
 time_limit = 3600 # one hour time limit
 seeds = seed == 0 ? criterion in ["ACST", "ACSTS"] ? collect(1:3) : collect(1:5) : [seed]
 
-if option == "mu_testing"
-    starts = [m/50, exp10(-200/m)]
-    decays = [1.0, 0.9, 0.7]
-elseif criterion == "AGC"
-    starts = corr ? [m/200] : [m/100]
-    decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
-elseif option == "reduced_spectrum"
-    starts = corr ? [m/10] : [m/100]
-    decays = [0.7]
-else
-    starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
-    decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.8]
-end
-
-
 @show criterion, mode, corr
 
 if !(criterion in ["A", "D", "DF", "AF", "E", "EF", "AGC", "ACST", "ACSTS"])
     error("Invalid criterion!")
 end
 for k in ratio_para
+    # compute n and N based on criterion and N_construct
     n = if criterion== "AGC"
         Int(floor(m/3))
     else
@@ -70,8 +56,6 @@ for k in ratio_para
         # `solve_opt` recomputes m = size(A,1) from the instance; keep m = n*(n-1)÷2 here so LMO matches K_n.
         n = m
         global m = Int(n * (n - 1) / 2)
-        global starts = option == "reduced_spectrum" ? [n / 10] : [n / 25]
-        global decays = [0.8]
     end
     N = if criterion == "AGC"
         Int(floor(m/2))
@@ -88,22 +72,57 @@ for k in ratio_para
     else
         error("Invalid N_construct!")
     end
+
+    # fix starts, decays and mins for the smoothing
+    start_epsilon = if option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third"]
+        1e-2
+    elseif option == "exclusion_criterion_tighter_tol"
+        1e-4
+    else
+        1e-2
+    end
+    min_epsilon = if option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third"]
+        1e-6
+    elseif option == "exclusion_criterion_tighter_tol"
+        1e-7
+    else
+        1e-6
+    end
+    if option == "mu_testing"
+        starts = [m/50, exp10(-200/m)]
+        decays = [1.0, 0.9, 0.7]
+        smoothing_min = exp10(-20/m)
+    elseif option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled", "scaled_input"]
+        #starts = corr ? [m/100] : [m/100]
+        starts = [m/100]
+        decays = [0.8]
+        #smoothing_min = corr ? exp10(-50/m) : exp10(-100/m)
+        smoothing_min = exp10(-100/m)
+    elseif criterion == "AGC"
+        starts = corr ? [m/200] : [m/100]
+        decays = corr ? m in [80, 100] ? [0.9] : [0.7] : [0.9]
+        smoothing_min = N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
+    elseif criterion in ["ACST", "ACSTS"]
+        starts = option == "reduced_spectrum" ? [n / 10] : [n / 25]
+        decays = [0.8]
+        smoothing_min = option == "reduced_spectrum" ? max(1e-4, exp10(-min(40, m) / max(m, 1))) : max(1e-4, exp10(-min(80, m) / max(m, 1)))
+    else
+        starts = N_construct == "rank_deficient" && !corr ? [m/5] : [m/10] 
+        decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.9]
+        smoothing_min = exp10(-20/m)
+    end
+    reduced_percentage = if option == "reduced_spectrum_half"
+        2
+    elseif option == "reduced_spectrum_third"
+        3
+    else
+        1
+    end
     for seed in seeds
         for decay in decays
             for start in starts
                 if decay != 1.0 && start == exp10(-200/m)
                     continue
-                end
-                smoothing_min = if criterion == "AGC"
-                   N_construct == "rank_deficient" ? exp10(-100/m) : m in [80, 100] ? exp10(-300/m) : exp10(-400/m)
-                elseif option == "reduced_spectrum" && criterion in ["ACST", "ACSTS"]
-                    max(1e-4, exp10(-min(40, m) / max(m, 1)))
-                elseif criterion in ["ACST", "ACSTS"]
-                    max(1e-4, exp10(-min(80, m) / max(m, 1)))
-                elseif option == "reduced_spectrum"
-                    corr ? exp10(-50/m) : exp10(-100/m)
-                else
-                   exp10(-20/m)
                 end
                 @show m, n, N, seed, decay, start, smoothing_min
                 try
@@ -132,10 +151,10 @@ for k in ratio_para
                             connected = criterion == "AGC" ? corr : true,
                             tightened = option in ["tightened", "tightened_scaled"],
                             scale = option == "tightened_scaled" ? 0.5 : Inf,
-                            fw_verbose = false,
+                            fw_verbose = true,
                             n_random = option == "exclusion_criterion_random" ? 10 : 0,
-                            start_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-4 : 1e-2,
-                            min_epsilon = option == "exclusion_criterion_tighter_tol" ? 1e-7 : 1e-6,
+                            start_epsilon = start_epsilon,
+                            min_epsilon = min_epsilon,
                             use_base_graph = criterion in ["ACST", "ACSTS"] ? option == "use_base_graph" : false,
                             use_BPCG = criterion in ["ACST", "ACSTS"] ? true : false,
                             ls_secant = criterion in ["ACST", "ACSTS"] ? true : false,
@@ -145,10 +164,13 @@ for k in ratio_para
                             rank_based_pruning = option in ["rank_based_pruning", "reduced_spectrum", "optimal_reduced_spectrum"] && criterion in ["ACST", "ACSTS", "AGC"],
                             relative_gap_tolerance = 5e-2,
                             eigenvalue_based_pruning = option == "eigenvalue_based_pruning",
-                            reduced_spectrum = option in ["reduced_spectrum"],
+                            reduced_spectrum = option in ["reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third"],
+                            reduced_percentage = reduced_percentage,
                             full_reduced_spectrum = option in ["optimal_reduced_spectrum"],
                             clip_mu_resolution = false, #criterion in ["ACST", "ACSTS"] ? true : false,
                             record_eigenvalue = option == "record_eigenvalue",
+                            depthfirstsearch = option in ["depth_first_search"],
+                            scaled_input = option in ["scaled_input", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled"],
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
