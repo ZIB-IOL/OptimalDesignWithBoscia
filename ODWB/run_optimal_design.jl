@@ -150,7 +150,7 @@ for k in ratio_para
                             mu_testing=option == "mu_testing",
                             connected = criterion == "AGC" ? corr : true,
                             tightened = option in ["tightened", "tightened_scaled"],
-                            scale = option == "tightened_scaled" ? 0.5 : Inf,
+                            #scale = option == "tightened_scaled" ? 0.5 : Inf,
                             fw_verbose = true,
                             n_random = option == "exclusion_criterion_random" ? 10 : 0,
                             start_epsilon = start_epsilon,
@@ -222,7 +222,7 @@ for k in ratio_para
                     else 
                         error("Invalid mode!")
                     end
-                catch 
+                catch e
                     println(e)
                     error_file = criterion * "_opt_" * mode * "_" * type * "_" * "_" * option * ".txt" 
                     open(error_file,"a") do io
