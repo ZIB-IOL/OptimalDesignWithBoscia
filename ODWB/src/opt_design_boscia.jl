@@ -331,8 +331,8 @@ function solve_opt(
         cut_off = Int(floor(n/reduced_percentage))
         return function node_callback(tree, node, μ, x, primal, dual_gap, fw_status, atoms_set)
             X = A' * diagm(x) * A
-            @show x, sum(isnan.(x)) > 0
-            @show X
+            #@show x, sum(isnan.(x)) > 0
+            #@show X
             λ = eigvals(X)
             correction = 2 * op_norm * (n - cut_off) * exp(- (λ[end] - λ[cut_off])/μ) 
             dual_gap += correction
@@ -504,7 +504,7 @@ function solve_opt(
     if log_trace
         f_check, _ = criterion in ["AF", "GTIF"] ? build_general_trace(A, p, true, C=C) : build_general_trace(A, p, false)
     elseif scaled_input
-        f_check = build_e_criterion(A_orig, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum, reduced_percentage=reduced_percentage)
+        f_check ,_, _ = build_e_criterion(A_orig, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum, reduced_percentage=reduced_percentage)
     else
         f_check = f
     end
