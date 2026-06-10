@@ -1,7 +1,7 @@
 # SCIP SDP: Use SCIP-SDP when possible via CBF round-trip (avoids checkVarsLocks assertion).
 # Fallback: Pajarito (HiGHS+Hypatia) when use_scip_sdp=false.
 
-function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true, tightened=false, scale=Inf)
+function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, N=-Inf, connected=true, tightened=false, scaled_input=false)
     if criterion == "EF" 
         A, C, N, ub, _ = build_data(seed, m, n, true, corr, zero_one=zero_one, N=N)
     elseif criterion == "AGC"
@@ -16,7 +16,8 @@ function _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one=false, 
         A, _, N, ub, _ = build_data(seed, m, n, false, corr, zero_one=zero_one, N=N)
         C = nothing
     end
-    A = isfinite(scale) ? scale * A : A
+    scale = minimum(eigvals(A' * A))
+    A = scaled_input ? A / scale : A
     model = Model()
     @variable(model, x[1:m])
     JuMP.set_integer.(x)
@@ -100,6 +101,7 @@ function solve_opt_scip_sdp(
     disable_crossover_heuristic=false,
     disable_heuristics=false,
     extra_scip_params=Dict{String,Any}(),
+    scaled_input=false,
     )
     if !(criterion in ["E", "EF", "AGC","ACST"])
         error("SCIP SDP can currently only handle E-optimal, EF-optimal, AGC and ACST problems")
@@ -108,7 +110,7 @@ function solve_opt_scip_sdp(
     @assert SCIP.have_scip_sdp "SCIP-SDP required. Set SCIP_SDP_OPTDIR and rebuild SCIP."
     # CBF round-trip: avoids checkVarsLocks assertion when vars appear in SDP + linear constraints
     model, x_lin, x_mat = if criterion in ["E", "EF", "AGC"]
-        mod, xv, _t = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scale)
+        mod, xv, _t = _build_eopt_model_for_cbf(seed, m, n, criterion, corr; zero_one, N, connected, tightened, scaled_input)
         (mod, xv, nothing)
     else
         mod, _γ, xm = algebraic_connectivity_model(
@@ -229,7 +231,7 @@ function solve_opt_scip_sdp(
             n_sdp_iters=something(diagnostics.n_sdp_iters, missing),
         )
         connection = criterion == "AGC" ? connected ? "connected" : "disconnected" : ""
-        scaled = isfinite(scale) ? "_scaled_$(scale)_" : ""
+        scaled = scaled_input ? "_scaled_" : ""
         tighten = tightened ? "_tightened_" : ""
         file_name = joinpath(@__DIR__, "../csv/SCIPSDP/scip_sdp_$(run_mode)_$(criterion)$(scaled)_optimality_$(corr ? "correlated" : "independent")_$(connection)$(tighten)_$(m)_$(n)_$(N)_$(seed).csv")
         isfile(file_name) ? CSV.write(file_name, df, append=false) : CSV.write(file_name, df, writeheader=true)
