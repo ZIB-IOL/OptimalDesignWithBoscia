@@ -15,6 +15,10 @@ date;hostname;id;pwd
 echo 'Activating virtual environment'
 source ~/.bashrc  # Load the .bashrc
 
+# Force MOSEK runtime/license settings for non-interactive Slurm shells.
+export MOSEKBINDIR="/software/mosek/11.1/tools/platform/linux64x86/bin"
+export MOSEKLM_LICENSE_FILE="27007@solice01.zib.de"
+
 #echo 'Enabling Internet Access'
 export https_proxy=http://squid.zib.de:3128
 export http_proxy=http://squid.zib.de:3128
