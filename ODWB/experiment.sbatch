@@ -3,14 +3,26 @@
 #SBATCH --time=0-12:00:00 # Specify a Time limit in the format days-hrs:min:sec. Use sinfo to see node time limits
 #SBATCH --chdir=/home/htc/dhendryc/SCRATCH/research_projects/OptimalDesignWithBoscia/ODWB # Navigate to the working directory where your script lies
 #SBATCH --partition=big  # Specify the desired partition, e.g. gpu, cpu or big (GPU is reserved for ML stuff)
-## We want to run on htc-cmp[501-519], exclude all others. Must match partition Nodes exactly (partition has 123-139,141-148 not 123-148).
-#SBATCH --exclude=htc-cmp[007-008,011-013,101-121,123-130]
+## Use feature constraints (IT recommendation) for reproducible hardware.
+#SBATCH --constraint=Intel&Gold6338&Infiniband
+## Request large-memory nodes explicitly.
+#SBATCH --mem=900G
 ## for the exclusive run: SBATCH --exclusive
 #SBATCH --mail-user=dhendryc@zib.de
 #SBATCH --mail-type=FAIL
 
 echo 'Getting node information'
 date;hostname;id;pwd
+echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
+echo "SLURM_JOB_NODELIST: ${SLURM_JOB_NODELIST}"
+echo "SLURM_CPUS_PER_TASK: ${SLURM_CPUS_PER_TASK}"
+echo "SLURM_MEM_PER_NODE: ${SLURM_MEM_PER_NODE}"
+echo "SLURM_MEM_PER_CPU: ${SLURM_MEM_PER_CPU}"
+
+echo 'Hardware summary'
+scontrol show node "${SLURMD_NODENAME}" | awk '{for (i=1; i<=NF; i++) if ($i ~ /^(NodeName|Arch|CPUTot|RealMemory|AvailableFeatures)=/) printf "%s ", $i; print ""}'
+lscpu | awk -F: '/Model name|CPU MHz|CPU max MHz|CPU min MHz|Socket\(s\)|Core\(s\) per socket|Thread\(s\) per core/ {gsub(/^[ \t]+/, "", $2); print $1 ": " $2}'
+free -h
 
 echo 'Activating virtual environment'
 source ~/.bashrc  # Load the .bashrc
@@ -49,7 +61,13 @@ export DIMENSION=$4
 export SEED=$5
 export OPTION=$6
 export N=$7
-julia --project run_optimal_design.jl &> cb_$1_$2_$4_$3_$5_$6_$7_$SLURM_JOB_ID.txt
+LOGFILE="cb_$1_$2_$4_$3_$5_$6_$7_$SLURM_JOB_ID.txt"
+
+# Include runtime resource usage report (CPU time, max RSS, page faults, etc.).
+(/usr/bin/time -v julia --project run_optimal_design.jl) &> "${LOGFILE}"
+
+echo 'Accounting summary'
+sacct -j "${SLURM_JOB_ID}" --format=JobID,State,Elapsed,TotalCPU,CPUTime,ReqMem,MaxRSS,MaxVMSize,NNodes,NCPUS
 
 # Finish the script
 exit 0
