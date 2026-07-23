@@ -45,8 +45,8 @@ num_experiments = [80, 100, 150, 200]
 criteria = ["AGC"]
 data_types = ["IND","CORR"]
 solvers = ["Boscia"]
-seeds = [1,2,3,4,5]
-options = ["optimal_reduced_spectrum"]
+seeds = [0]
+options = ["reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled", "scaled_input", "depth_first_search"] 
 N_construct = ["one"] 
 
 for criterion in criteria
@@ -75,8 +75,8 @@ num_experiments = [10, 12, 15, 25, 40, 60, 100]
 criteria = ["ACST", "ACSTS"]
 data_types = ["IND"]
 solvers = ["Boscia"]
-seeds = [1,2,3]
-options = ["optimal_reduced_spectrum"]
+seeds = [0]
+options = ["reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled", "scaled_input", "depth_first_search"] 
 N_construct = ["one"] 
 
 # create instances
@@ -99,3 +99,4 @@ for criterion in criteria
         end
     end
 end
+
