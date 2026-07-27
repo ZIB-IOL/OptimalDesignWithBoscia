@@ -104,6 +104,7 @@ function solve_opt(
     scaled_input=false,
 )
     type = corr ? "correlated" : "independent"
+    L = nothing
     
     if criterion in ["AF","DF","GTIF"]
         A, C, N, ub, _ = build_data(seed, m, n, true, corr; scaling_C=long_runs && criterion != "AF" && criterion != "DF")
@@ -129,8 +130,18 @@ function solve_opt(
     end
 
     A_orig = copy(A)
-    scale = minimum(eigvals(A' * A))
-    A = scaled_input ? A / scale : A
+    L_orig = L === nothing ? nothing : copy(L)
+    # E-opt: scale from A'A. AGC/ACST: scale from L + A'A (objective uses L + A'DA).
+    # Densify if needed: sparse A makes A'A sparse and eigvals! has no SparseMatrixCSC method.
+    gram = L === nothing ? A' * A : L + A' * A
+    scale = minimum(eigvals(issparse(gram) ? Matrix(gram) : gram))
+    if scaled_input
+        A = A / scale
+        # Homogeneous scaling: L + A'DA → (L + A'DA) / scale^2
+        if L !== nothing
+            L = L / scale^2
+        end
+    end
     # parameter tunning
     if !options_run
         use_heuristics = true
@@ -325,14 +336,20 @@ function solve_opt(
         #@show node.local_bounds.lower_bounds    
         #@show node.local_bounds.upper_bounds
     end
-    function build_node_callback(m, n, A, reduced_percentage)
+    function build_node_callback(m, n, A, reduced_percentage; L=nothing)
         # maximum eigenvalue of (AA') hadamard multiplied with itself
-        op_norm = maximum(eigvals((A * A').^2))
+        # Densify: for AGC/ACST, A is sparse and eigvals! has no SparseMatrixCSC method.
+        AA_t = A * A'
+        AA_t = issparse(AA_t) ? Matrix(AA_t) : AA_t
+        op_norm = maximum(eigvals(AA_t.^2))
         cut_off = Int(floor(n/reduced_percentage))
         return function node_callback(tree, node, μ, x, primal, dual_gap, fw_status, atoms_set)
-            X = A' * diagm(x) * A
-            #@show x, sum(isnan.(x)) > 0
-            #@show X
+            # E-opt: A'DA. AGC/ACST: L + A'DA (same convention as build_e_criterion).
+            D = Diagonal(x)
+            X = L === nothing ? A' * D * A : L + A' * D * A
+            X = issparse(X) ? Matrix(X) : X
+            @show x, sum(isnan.(x)) > 0
+            @show X
             λ = eigvals(X)
             correction = 2 * op_norm * (n - cut_off) * exp(- (λ[end] - λ[cut_off])/μ) 
             dual_gap += correction
@@ -406,7 +423,7 @@ function solve_opt(
         settings.smoothing[:best_sol_by_original] = best_sol_by_original
         settings.smoothing[:resolve_integer_solution] = resolve_integer_solution
         settings.smoothing[:clip_mu_resolution] = clip_mu_resolution
-        settings.smoothing[:node_callback] = reduced_spectrum ? build_node_callback(m, n, A, reduced_percentage) : nothing
+        settings.smoothing[:node_callback] = reduced_spectrum ? build_node_callback(m, n, A, reduced_percentage; L=L) : nothing
 
         settings.frank_wolfe[:max_fw_iter] = 5000
         settings.frank_wolfe[:line_search] = line_search
@@ -504,7 +521,7 @@ function solve_opt(
     if log_trace
         f_check, _ = criterion in ["AF", "GTIF"] ? build_general_trace(A, p, true, C=C) : build_general_trace(A, p, false)
     elseif scaled_input
-        f_check ,_, _ = build_e_criterion(A_orig, L=L, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum, reduced_percentage=reduced_percentage)
+        f_check, _, _ = build_e_criterion(A_orig, L=L_orig, tightened=tightened, N=N, reduced_spectrum=reduced_spectrum, corr=corr, full_reduced_spectrum=full_reduced_spectrum, reduced_percentage=reduced_percentage)
     else
         f_check = f
     end
