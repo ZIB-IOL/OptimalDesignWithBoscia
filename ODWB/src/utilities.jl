@@ -43,6 +43,30 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false, N
     return A, C, N, ub, C_hat
 end
 
+"""
+    estimate_design_lambda_scale(A, N; L=nothing, n_samples=50, rng=Random.default_rng())
+
+Estimate a typical information-matrix λ_min by sampling random feasible 0-1 designs
+with exactly `N` selected experiments. Used to scale FW smoothing parameters (μ)
+to the instance spectrum (option `scaled_mu` / `*_scaled_mu`).
+"""
+function estimate_design_lambda_scale(A, N; L=nothing, n_samples::Int=50, rng=Random.default_rng())
+    m = size(A, 1)
+    N_int = Int(round(N))
+    @assert 1 <= N_int <= m "N=$N_int out of range for m=$m"
+    λs = Vector{Float64}(undef, n_samples)
+    for i in 1:n_samples
+        S = randperm(rng, m)[1:N_int]
+        X = A[S, :]' * A[S, :]
+        if L !== nothing
+            X = X + L
+        end
+        Xd = issparse(X) ? Matrix(X) : X
+        λs[i] = eigmin(Symmetric(Xd))
+    end
+    return median(λs)
+end
+
 function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero_one=false, N=-Inf)
     rng = StableRNG(seed)
     if corr 
