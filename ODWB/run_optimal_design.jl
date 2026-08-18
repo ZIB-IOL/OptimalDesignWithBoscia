@@ -228,6 +228,7 @@ for k in ratio_para
                     open(error_file,"a") do io
                         println(io, seed, " ", m, " ", N, " ", mode, " ", start, " ", decay, " : ", e)
                     end
+                    showerror(stdout, e, catch_backtrace())
                 end
             end
         end
