@@ -339,6 +339,24 @@ function solve_opt(
         end
     end
 
+    function build_fw_callback(A, m, n)
+        return function fw_callback(state, vertex_set, kwargs...)
+            if state.t > 1
+                if !isfinite(state.primal) || !isfinite(state.dual_gap)
+                    @show state.t, state.primal, state.dual_gap
+                    @show state.x 
+                    @show state.v 
+                    @show state.d 
+                    @show state.gamma
+                    @show state.gradient
+                    @show eigvals(A' * diagm(state.x) * A)
+                end
+                @assert isfinite(state.primal) "state.primal = $(state.primal) is not finite"
+                @assert isfinite(state.dual_gap) "state.dual_gap = $(state.dual_gap) is not finite"
+            end
+        end
+    end
+
     fw_variant = use_BPCG ? Boscia.BlendedPairwiseConditionalGradient() : Boscia.DecompositionInvariantConditionalGradient()
 
     if criterion in ["AF","DF","GTIF"]
@@ -414,6 +432,7 @@ function solve_opt(
         settings.frank_wolfe[:lazy_tolerance] = lazy_tolerance
         settings.frank_wolfe[:lazy] = false
         settings.frank_wolfe[:variant] = fw_variant
+        settings.frank_wolfe[:fw_callback] = build_fw_callback(A, m, n)
 
         settings.tightening[:dual_tightening] = use_tightening
         settings.tightening[:global_dual_tightening] = use_tightening
