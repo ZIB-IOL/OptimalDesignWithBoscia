@@ -1,30 +1,25 @@
 ## Script for running sbatch
 
-### For the solver comparison
-
-# Instance settings
-# A- and D-Optimal Designs
-#num_experiments = [50,60,80,100,120]
-#criteria = ["D", "A", "DF", "AF"]
-#data_types = ["CORR", "IND"]
-#solvers = ["Boscia", "Pajarito", "SCIP", "Custom", "SOCP"]
-
-# E-Opimal Design
-
 # ---------------------------------------------------------------------------
-# E-Optimal Design — CORR (incomplete reduced spectrum + all scaled options)
+# E-Optimal — scaled_mu A/B (idea A: μ ∝ typical design λ_min)
+# Compare reduced_spectrum_half vs reduced_spectrum_half_scaled_mu on IND (+ CORR).
+# Trajectories:
+#   boscia_reduced_spectrum_2_...           (existing option)
+#   boscia_reduced_spectrum_2_scaled_mu_... (new option)
 # ---------------------------------------------------------------------------
 num_experiments = [50, 80, 100, 120, 150]
 criteria = ["E"]
-data_types = ["CORR"]
+data_types = ["IND", "CORR"]
 solvers = ["Boscia"]
 seeds = [0]
 options = [
     "reduced_spectrum_half",
+    "reduced_spectrum_half_scaled_mu",
     "reduced_spectrum_third",
-    "reduced_spectrum_half_scaled",
-    "reduced_spectrum_third_scaled",
+    "reduced_spectrum_third_scaled_mu",
     "scaled_input",
+    "baseline"
+
 ]
 N_construct = ["one", "log"]
 
@@ -47,7 +42,7 @@ for criterion in criteria
     end
 end
 
-# ---------------------------------------------------------------------------
+#= ---------------------------------------------------------------------------
 # AGC — all options missing
 # ---------------------------------------------------------------------------
 num_experiments = [80, 100, 150, 200]
@@ -120,3 +115,4 @@ for criterion in criteria
         end
     end
 end
+=#
