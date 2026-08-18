@@ -102,6 +102,10 @@ function solve_opt(
     record_eigenvalue=false,
     depthfirstsearch=false,
     scaled_input=false,
+    scale_smoothing_mu=false,
+    mu_scale_c_start=0.15,
+    mu_scale_c_min=0.003,
+    mu_scale_n_samples=50,
 )
     type = corr ? "correlated" : "independent"
     L = nothing
@@ -141,6 +145,20 @@ function solve_opt(
         if L !== nothing
             L = L / scale^2
         end
+    end
+    # Scale FW smoothing μ to the instance spectrum (idea A). Coefficients match
+    # CORR-like μ/λ ratios that already work; IND gets much smaller absolute μ.
+    if scale_smoothing_mu
+        λ_hat = estimate_design_lambda_scale(
+            A, N;
+            L=L,
+            n_samples=mu_scale_n_samples,
+            rng=Random.MersenneTwister(seed + 997),
+        )
+        λ_hat = max(λ_hat, eps(Float64))
+        smoothing_start = mu_scale_c_start * λ_hat
+        smoothing_min = mu_scale_c_min * λ_hat
+        @show λ_hat, smoothing_start, smoothing_min, mu_scale_c_start, mu_scale_c_min
     end
     # parameter tunning
     if !options_run
@@ -595,7 +613,15 @@ function solve_opt(
         folder = ""
 
         if options_run
-            folder = if reduced_spectrum && scaled_input
+            folder = if reduced_spectrum && scaled_input && scale_smoothing_mu
+                "reduced_spectrum" * "_" * string(reduced_percentage) * "_scaled_scaled_mu"
+            elseif reduced_spectrum && scale_smoothing_mu
+                "reduced_spectrum" * "_" * string(reduced_percentage) * "_scaled_mu"
+            elseif scaled_input && scale_smoothing_mu
+                "scaled_input_scaled_mu"
+            elseif scale_smoothing_mu
+                "scaled_mu"
+            elseif reduced_spectrum && scaled_input
                 "reduced_spectrum" * "_" * string(reduced_percentage) * "_scaled"
             elseif reduced_spectrum 
                 "reduced_spectrum" * "_" * string(reduced_percentage)
