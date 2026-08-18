@@ -504,9 +504,20 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
                 Y = issparse(X) ? Matrix(X) : X
                 λ, V = eigen(Y)
             end
-            frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
+            #frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))
+            #frac = -exp(-LogExpFunctions.logsumexp(-λ[1:k] ./ μ))
+            #println("frac: $(frac), \n μ: $(μ), \n λ: $(λ[1:k])")
             add_on = tightened ? μ/(n - N + 1) * norm.(eachrow(A), 2).^2 : 0.0
-            storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:, j]).^2 , -λ[j]/ μ)  for j in 1:k) .+ add_on
+            #storage .= frac * sum(LogExpFunctions.xexpy.((A * V[:, j]).^2 , -λ[j]/ μ)  for j in 1:k) .+ add_on
+
+            # soft max version
+            log_z = LogExpFunctions.logsumexp(-λ[1:k] ./ μ)
+            storage .= 0.0
+            for j in 1:k
+                wj = exp(-λ[j] / μ - log_z)   # ∈ (0,1]
+                storage .-= wj .* (A * V[:, j]).^2
+            end
+            storage .+= add_on
             return storage
         end
         return f_mu, grad_mu!
