@@ -74,14 +74,14 @@ for k in ratio_para
     end
 
     # fix starts, decays and mins for the smoothing
-    start_epsilon = if option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third"]
+    start_epsilon = if option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled_mu", "reduced_spectrum_third_scaled_mu"]
         1e-2
     elseif option == "exclusion_criterion_tighter_tol"
         1e-4
     else
         1e-2
     end
-    min_epsilon = if option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third"]
+    min_epsilon = if option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled_mu", "reduced_spectrum_third_scaled_mu"]
         1e-6
     elseif option == "exclusion_criterion_tighter_tol"
         1e-7
@@ -92,11 +92,11 @@ for k in ratio_para
         starts = [m/50, exp10(-200/m)]
         decays = [1.0, 0.9, 0.7]
         smoothing_min = exp10(-20/m)
-    elseif option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled", "scaled_input"]
-        #starts = corr ? [m/100] : [m/100]
+    elseif option in ["reduced_spectrum", "optimal_reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled", "scaled_input", "scaled_mu", "reduced_spectrum_half_scaled_mu", "reduced_spectrum_third_scaled_mu"]
+        # starts/smoothing_min are placeholders when scale_smoothing_mu is on;
+        # solve_opt overwrites them from a λ̂ estimate of the design spectrum.
         starts = [m/100]
         decays = [0.8]
-        #smoothing_min = corr ? exp10(-50/m) : exp10(-100/m)
         smoothing_min = exp10(-100/m)
     elseif criterion == "AGC"
         starts = corr ? [m/200] : [m/100]
@@ -111,20 +111,21 @@ for k in ratio_para
         decays = N_construct == "log" ? [0.9] : N_construct == "rank_deficient" ? [0.7] : [0.9]
         smoothing_min = exp10(-20/m)
     end
-    reduced_percentage = if option == "reduced_spectrum_half"
+    reduced_percentage = if option in ["reduced_spectrum_half", "reduced_spectrum_half_scaled", "reduced_spectrum_half_scaled_mu"]
         2
-    elseif option == "reduced_spectrum_third"
+    elseif option in ["reduced_spectrum_third", "reduced_spectrum_third_scaled", "reduced_spectrum_third_scaled_mu"]
         3
     else
         1
     end
+    scale_smoothing_mu = option in ["scaled_mu", "reduced_spectrum_half_scaled_mu", "reduced_spectrum_third_scaled_mu"]
     for seed in seeds
         for decay in decays
             for start in starts
                 if decay != 1.0 && start == exp10(-200/m)
                     continue
                 end
-                @show m, n, N, seed, decay, start, smoothing_min
+                @show m, n, N, seed, decay, start, smoothing_min, scale_smoothing_mu
                 try
                     if mode == "Boscia"
                         ODWB.solve_opt(
@@ -164,13 +165,14 @@ for k in ratio_para
                             rank_based_pruning = option in ["rank_based_pruning", "reduced_spectrum", "optimal_reduced_spectrum"] && criterion in ["ACST", "ACSTS", "AGC"],
                             relative_gap_tolerance = 5e-2,
                             eigenvalue_based_pruning = option == "eigenvalue_based_pruning",
-                            reduced_spectrum = option in ["reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third"],
+                            reduced_spectrum = option in ["reduced_spectrum", "reduced_spectrum_half", "reduced_spectrum_third", "reduced_spectrum_half_scaled_mu", "reduced_spectrum_third_scaled_mu"],
                             reduced_percentage = reduced_percentage,
                             full_reduced_spectrum = option in ["optimal_reduced_spectrum"],
                             clip_mu_resolution = false, #criterion in ["ACST", "ACSTS"] ? true : false,
                             record_eigenvalue = option == "record_eigenvalue",
                             depthfirstsearch = option in ["depth_first_search"],
                             scaled_input = option in ["scaled_input", "reduced_spectrum_half_scaled", "reduced_spectrum_third_scaled"],
+                            scale_smoothing_mu = scale_smoothing_mu,
                             )
                     elseif mode == "SCIP"
                         if criterion in ["A", "D", "E", "EF"]
