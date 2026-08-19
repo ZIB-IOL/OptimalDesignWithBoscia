@@ -354,7 +354,7 @@ function solve_opt(
         #@show node.local_bounds.lower_bounds    
         #@show node.local_bounds.upper_bounds
     end
-    function build_node_callback(m, n, A, reduced_percentage; L=nothing)
+    function build_node_callback(m, n, A, reduced_percentage, reduced_spectrum; L=nothing)
         # maximum eigenvalue of (AA') hadamard multiplied with itself
         # Densify: for AGC/ACST, A is sparse and eigvals! has no SparseMatrixCSC method.
         AA_t = A * A'
@@ -363,18 +363,22 @@ function solve_opt(
         cut_off = Int(floor(n/reduced_percentage))
         return function node_callback(tree, node, μ, x, primal, dual_gap, fw_status, atoms_set)
             # E-opt: A'DA. AGC/ACST: L + A'DA (same convention as build_e_criterion).
-            D = Diagonal(x)
-            X = L === nothing ? A' * D * A : L + A' * D * A
-            X = issparse(X) ? Matrix(X) : X
-            @show x, sum(isnan.(x)) > 0
-            @show X
-            λ = eigvals(X)
-            correction = 2 * op_norm * (n - cut_off) * exp(- (λ[end] - λ[cut_off])/μ) 
-            dual_gap += correction
+            if reduced_spectrum
+                D = Diagonal(x)
+                X = L === nothing ? A' * D * A : L + A' * D * A
+                X = issparse(X) ? Matrix(X) : X
+                @show x, sum(isnan.(x)) > 0
+                @show X
+                λ = eigvals(X)
+                correction = 2 * op_norm * (n - cut_off) * exp(- (λ[end] - λ[cut_off])/μ) 
+                dual_gap += correction
+            end
+
+            @show tree.incumbent
         end
     end
 
-    function build_fw_callback(A, m, n)
+    function build_fw_callback(A, m, n, N)
         return function fw_callback(state, vertex_set, kwargs...)
             if state.t > 1
                 if !isfinite(state.primal) || !isfinite(state.dual_gap)
@@ -389,6 +393,8 @@ function solve_opt(
                 @assert isfinite(state.primal) "state.primal = $(state.primal) is not finite"
                 @assert isfinite(state.dual_gap) "state.dual_gap = $(state.dual_gap) is not finite"
             end
+           # @show sum(state.v) == N 
+           # @show f(state.v), f(state.x)
         end
     end
 
@@ -459,7 +465,7 @@ function solve_opt(
         settings.smoothing[:best_sol_by_original] = best_sol_by_original
         settings.smoothing[:resolve_integer_solution] = resolve_integer_solution
         settings.smoothing[:clip_mu_resolution] = clip_mu_resolution
-        settings.smoothing[:node_callback] = reduced_spectrum ? build_node_callback(m, n, A, reduced_percentage; L=L) : nothing
+        settings.smoothing[:node_callback] = build_node_callback(m, n, A, reduced_percentage, reduced_spectrum; L=L)
 
         settings.frank_wolfe[:max_fw_iter] = 5000
         settings.frank_wolfe[:line_search] = line_search
@@ -467,7 +473,7 @@ function solve_opt(
         settings.frank_wolfe[:lazy_tolerance] = lazy_tolerance
         settings.frank_wolfe[:lazy] = false
         settings.frank_wolfe[:variant] = fw_variant
-        settings.frank_wolfe[:fw_callback] = build_fw_callback(A, m, n)
+        settings.frank_wolfe[:fw_callback] = build_fw_callback(A, m, n, N)
 
         settings.tightening[:dual_tightening] = use_tightening
         settings.tightening[:global_dual_tightening] = use_tightening
