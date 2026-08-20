@@ -684,7 +684,9 @@ function solve_opt(
         if criterion in ["GTI","GTIF"]
             criterion = criterion * "_" * string(Int64(p*100))
         end
-        scaled = isfinite(scale) ? "_scaled_$(scale)_" : ""
+        # Only tag filenames when input was actually scaled (scaled_input).
+        # `scale` is always computed for diagnostics; embedding it otherwise is misleading.
+        scaled = scaled_input && isfinite(scale) ? "_scaled_$(scale)_" : ""
 
         if full_callback
             lb_list = result[:list_lb]
@@ -709,7 +711,12 @@ function solve_opt(
         idx = findfirst(x -> x == result[:primal_objective], ub_list)
         optimal_time = result[:list_time][idx]
         # CSV file for the results of all instances.
-        scaled_solution = isfinite(scale) ? result[:primal_objective] /scale^2 : result[:primal_objective]
+        # `scaled_solution` already set above via f_check (original-space objective when
+        # scaled_input; otherwise same as solution). Do not divide by scale^2 unless
+        # input was scaled — that incorrectly rewrites unscaled runs.
+        if !scaled_input
+            scaled_solution = result[:primal_objective]
+        end
         df = DataFrame(
             seed=seed, 
             numberOfExperiments=m, 
