@@ -49,22 +49,44 @@ end
 Estimate a typical information-matrix λ_min by sampling random feasible 0-1 designs
 with exactly `N` selected experiments. Used to scale FW smoothing parameters (μ)
 to the instance spectrum (option `scaled_mu` / `*_scaled_mu`).
+
+The information matrix matches the criterion:
+- E-opt: `A'DA`
+- AGC / ACST / ACSTS: `L + A'DA` (pass the base Laplacian/`L` via `L=`)
+
+Random `N`-subsets can be singular (especially ACST, where feasible points are
+trees). Near-zero samples are discarded when possible; if too few remain, we fall
+back to the continuous proxy `λ_min(L + (N/m) A'A)` (or `(N/m) A'A` if `L` is absent).
 """
-function estimate_design_lambda_scale(A, N; L=nothing, n_samples::Int=50, rng=Random.default_rng())
+function estimate_design_lambda_scale(A, N; L=nothing, n_samples::Int=50, rng=Random.default_rng(),
+                                      λ_tol::Float64=1e-8)
     m = size(A, 1)
     N_int = Int(round(N))
     @assert 1 <= N_int <= m "N=$N_int out of range for m=$m"
-    λs = Vector{Float64}(undef, n_samples)
-    for i in 1:n_samples
+    λs = Float64[]
+    sizehint!(λs, n_samples)
+    for _ in 1:n_samples
         S = randperm(rng, m)[1:N_int]
-        X = A[S, :]' * A[S, :]
+        AS = A[S, :]
+        X = AS' * AS
         if L !== nothing
-            X = X + L
+            X = L + X
         end
-        Xd = issparse(X) ? Matrix(X) : X
-        λs[i] = eigmin(Symmetric(Xd))
+        Xd = issparse(X) ? Matrix(X) : Matrix(X isa Symmetric ? X.data : X)
+        λ = eigmin(Symmetric(Xd))
+        if isfinite(λ) && λ > λ_tol
+            push!(λs, λ)
+        end
     end
-    return median(λs)
+    if !isempty(λs)
+        return median(λs)
+    end
+    # Fallback: continuous relaxation scale (avoids μ≈0 when all random supports are singular).
+    gram = A' * A
+    X = L === nothing ? (N_int / m) * gram : L + (N_int / m) * gram
+    Xd = issparse(X) ? Matrix(X) : Matrix(X isa Symmetric ? X.data : X)
+    λ_fb = eigmin(Symmetric(Xd))
+    return max(λ_fb, λ_tol, eps(Float64))
 end
 
 function build_integer_data(seed, m, n, fusion, corr; scaling_C=false, M=5, zero_one=false, N=-Inf)
@@ -506,7 +528,10 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
             X = inf_matrix(x)
            # λ, V = eigen(X)
             if reduced_spectrum
-                λ, V = Arpack.eigs(X, nev=k, which=:SM)
+                # Arpack needs a plain dense/sparse matrix; Symmetric(L+A'DA) from AGC/ACST
+                # may be sparse-backed when L is absent, so materialize once.
+                Y = X isa LinearAlgebra.Symmetric ? Matrix(X.data) : (issparse(X) ? Matrix(X) : X)
+                λ, V = Arpack.eigs(Y, nev=k, which=:SM)
                 #if !verify_cut_off2(reverse(λ), k, sigma_max, μ, epsilon)
                 #    λ, V = eigen(X)
                    # λ = reverse(λ)
@@ -515,7 +540,7 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
                 #end
             elseif full_reduced_spectrum
                 k = n
-                Y = issparse(X) ? Matrix(X) : X
+                Y = X isa LinearAlgebra.Symmetric ? Matrix(X.data) : (issparse(X) ? Matrix(X) : X)
                 λ, V = eigen(Y)
                 # λ = reverse(λ)
                # V = reverse(V, dims=2)
@@ -525,7 +550,7 @@ function build_e_criterion(A; L=nothing, tightened=false, N=Inf, reduced_spectru
                 end
             else
                 k = n
-                Y = issparse(X) ? Matrix(X) : X
+                Y = X isa LinearAlgebra.Symmetric ? Matrix(X.data) : (issparse(X) ? Matrix(X) : X)
                 λ, V = eigen(Y)
             end
             #frac = - 1/exp(LogExpFunctions.logsumexp(-λ ./ μ))

@@ -146,8 +146,9 @@ function solve_opt(
             L = L / scale^2
         end
     end
-    # Scale FW smoothing μ to the instance spectrum (idea A). Coefficients match
-    # CORR-like μ/λ ratios that already work; IND gets much smaller absolute μ.
+    # Scale FW smoothing μ to the instance spectrum (idea A). Uses L+A'DA when L
+    # is present (AGC/ACST/ACSTS); otherwise A'DA (E-opt). Coefficients match
+    # CORR-like μ/λ ratios that already work; IND / small-λ instances get smaller μ.
     if scale_smoothing_mu
         λ_hat = estimate_design_lambda_scale(
             A, N;
@@ -158,7 +159,7 @@ function solve_opt(
         λ_hat = max(λ_hat, eps(Float64))
         smoothing_start = mu_scale_c_start * λ_hat
         smoothing_min = mu_scale_c_min * λ_hat
-        @show λ_hat, smoothing_start, smoothing_min, mu_scale_c_start, mu_scale_c_min
+        @show criterion, λ_hat, smoothing_start, smoothing_min, mu_scale_c_start, mu_scale_c_min
     end
     # parameter tunning
     if !options_run
