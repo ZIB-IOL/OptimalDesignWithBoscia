@@ -1,0 +1,751 @@
+{
+  "grid": "E-opt m\u2208{50,80,100,120,150}, N\u2208{one,log}, seeds 1..5, types IND+CORR",
+  "notes": [
+    "Solved = Boscia termination contains OPTIMAL (5% rel gap).",
+    "Mean time averages all runs (incl. 3600s timeouts).",
+    "Dual gap for unsolved = Boscia dual_gap field (absolute).",
+    "Suboptimal vs SCIPSDP_bnb: Boscia objective worse than SCIP scaled_solution by >max(1e-4, 0.1% |SCIP|); SCIP OPTIMAL only as ground truth.",
+    "Missing IND scaled_* mostly from FieldError(Nothing,:source) in Boscia postsolve when custom fw_callback blocked vertex incumbents (fixed since)."
+  ],
+  "overall": {
+    "baseline": {
+      "n": 99,
+      "n_solved": 24,
+      "pct_solved": 24.2,
+      "mean_time": 2927.0,
+      "mean_time_solved": 822.5,
+      "n_unsolved": 75,
+      "mean_dual_gap_unsolved": 11.4247,
+      "mean_rel_gap_unsolved": 0.5311
+    },
+    "reduced_spectrum_half": {
+      "n": 100,
+      "n_solved": 30,
+      "pct_solved": 30.0,
+      "mean_time": 2822.6,
+      "mean_time_solved": 1008.0,
+      "n_unsolved": 70,
+      "mean_dual_gap_unsolved": 11.1301,
+      "mean_rel_gap_unsolved": 0.345
+    },
+    "reduced_spectrum_third": {
+      "n": 100,
+      "n_solved": 4,
+      "pct_solved": 4.0,
+      "mean_time": 3493.9,
+      "mean_time_solved": 939.9,
+      "n_unsolved": 96,
+      "mean_dual_gap_unsolved": 29.7183,
+      "mean_rel_gap_unsolved": 0.8987
+    },
+    "scaled_mu": {
+      "n": 84,
+      "n_solved": 41,
+      "pct_solved": 48.8,
+      "mean_time": 2357.0,
+      "mean_time_solved": 1053.0,
+      "n_unsolved": 43,
+      "mean_dual_gap_unsolved": 18.0013,
+      "mean_rel_gap_unsolved": 0.2014
+    },
+    "reduced_spectrum_half_scaled_mu": {
+      "n": 67,
+      "n_solved": 24,
+      "pct_solved": 35.8,
+      "mean_time": 2552.6,
+      "mean_time_solved": 675.6,
+      "n_unsolved": 43,
+      "mean_dual_gap_unsolved": 20.4758,
+      "mean_rel_gap_unsolved": 0.1936
+    },
+    "reduced_spectrum_third_scaled_mu": {
+      "n": 82,
+      "n_solved": 2,
+      "pct_solved": 2.4,
+      "mean_time": 3519.7,
+      "mean_time_solved": 292.9,
+      "n_unsolved": 80,
+      "mean_dual_gap_unsolved": 37.1038,
+      "mean_rel_gap_unsolved": 0.9014
+    }
+  },
+  "corr_only": {
+    "baseline": {
+      "n": 50,
+      "n_solved": 24,
+      "pct_solved": 48.0,
+      "mean_time": 2266.8,
+      "mean_time_solved": 822.5,
+      "n_unsolved": 26,
+      "mean_dual_gap_unsolved": 31.2395,
+      "mean_rel_gap_unsolved": 0.2145
+    },
+    "reduced_spectrum_half": {
+      "n": 50,
+      "n_solved": 25,
+      "pct_solved": 50.0,
+      "mean_time": 2178.9,
+      "mean_time_solved": 757.7,
+      "n_unsolved": 25,
+      "mean_dual_gap_unsolved": 30.1935,
+      "mean_rel_gap_unsolved": 0.2133
+    },
+    "reduced_spectrum_third": {
+      "n": 50,
+      "n_solved": 4,
+      "pct_solved": 8.0,
+      "mean_time": 3387.2,
+      "mean_time_solved": 939.9,
+      "n_unsolved": 46,
+      "mean_dual_gap_unsolved": 60.7667,
+      "mean_rel_gap_unsolved": 0.5092
+    },
+    "scaled_mu": {
+      "n": 50,
+      "n_solved": 27,
+      "pct_solved": 54.0,
+      "mean_time": 2161.1,
+      "mean_time_solved": 935.4,
+      "n_unsolved": 23,
+      "mean_dual_gap_unsolved": 33.4367,
+      "mean_rel_gap_unsolved": 0.2511
+    },
+    "reduced_spectrum_half_scaled_mu": {
+      "n": 50,
+      "n_solved": 21,
+      "pct_solved": 42.0,
+      "mean_time": 2317.2,
+      "mean_time_solved": 545.8,
+      "n_unsolved": 29,
+      "mean_dual_gap_unsolved": 30.2122,
+      "mean_rel_gap_unsolved": 0.2164
+    },
+    "reduced_spectrum_third_scaled_mu": {
+      "n": 50,
+      "n_solved": 2,
+      "pct_solved": 4.0,
+      "mean_time": 3467.7,
+      "mean_time_solved": 292.9,
+      "n_unsolved": 48,
+      "mean_dual_gap_unsolved": 61.1824,
+      "mean_rel_gap_unsolved": 0.5047
+    }
+  },
+  "ind_only": {
+    "baseline": {
+      "n": 49,
+      "n_solved": 0,
+      "pct_solved": 0.0,
+      "mean_time": 3600.6,
+      "mean_time_solved": null,
+      "n_unsolved": 49,
+      "mean_dual_gap_unsolved": 0.9107,
+      "mean_rel_gap_unsolved": 0.6991
+    },
+    "reduced_spectrum_half": {
+      "n": 50,
+      "n_solved": 5,
+      "pct_solved": 10.0,
+      "mean_time": 3466.4,
+      "mean_time_solved": 2259.6,
+      "n_unsolved": 45,
+      "mean_dual_gap_unsolved": 0.5393,
+      "mean_rel_gap_unsolved": 0.4182
+    },
+    "reduced_spectrum_third": {
+      "n": 50,
+      "n_solved": 0,
+      "pct_solved": 0.0,
+      "mean_time": 3600.7,
+      "mean_time_solved": null,
+      "n_unsolved": 50,
+      "mean_dual_gap_unsolved": 1.1538,
+      "mean_rel_gap_unsolved": 1.257
+    },
+    "scaled_mu": {
+      "n": 34,
+      "n_solved": 14,
+      "pct_solved": 41.2,
+      "mean_time": 2645.0,
+      "mean_time_solved": 1279.8,
+      "n_unsolved": 20,
+      "mean_dual_gap_unsolved": 0.2505,
+      "mean_rel_gap_unsolved": 0.1442
+    },
+    "reduced_spectrum_half_scaled_mu": {
+      "n": 17,
+      "n_solved": 3,
+      "pct_solved": 17.6,
+      "mean_time": 3244.8,
+      "mean_time_solved": 1584.0,
+      "n_unsolved": 14,
+      "mean_dual_gap_unsolved": 0.3075,
+      "mean_rel_gap_unsolved": 0.1465
+    },
+    "reduced_spectrum_third_scaled_mu": {
+      "n": 32,
+      "n_solved": 0,
+      "pct_solved": 0.0,
+      "mean_time": 3600.8,
+      "mean_time_solved": null,
+      "n_unsolved": 32,
+      "mean_dual_gap_unsolved": 0.9859,
+      "mean_rel_gap_unsolved": 1.4963
+    }
+  },
+  "paired_corr": {
+    "baseline_vs_scaled_mu": {
+      "pairs": 50,
+      "both_solved": 23,
+      "only_scaled_solved": 4,
+      "only_base_solved": 1,
+      "median_time_ratio_scaled_over_base": 0.508,
+      "mean_time_base": 2266.8,
+      "mean_time_scaled": 2161.1
+    },
+    "half_vs_half_scaled_mu": {
+      "pairs": 50,
+      "both_solved": 21,
+      "only_scaled_solved": 0,
+      "only_base_solved": 4,
+      "median_time_ratio_scaled_over_base": 2.142,
+      "mean_time_base": 2178.9,
+      "mean_time_scaled": 2317.2
+    },
+    "third_vs_third_scaled_mu": {
+      "pairs": 50,
+      "both_solved": 2,
+      "only_scaled_solved": 0,
+      "only_base_solved": 2,
+      "median_time_ratio_scaled_over_base": 3.836,
+      "mean_time_base": 3387.2,
+      "mean_time_scaled": 3467.7
+    }
+  },
+  "subopt": {
+    "baseline": {
+      "n_compared": 61,
+      "n_subopt": 25,
+      "pct_subopt": 41.0,
+      "mean_obj_diff": 0.8979
+    },
+    "reduced_spectrum_half": {
+      "n_compared": 62,
+      "n_subopt": 25,
+      "pct_subopt": 40.3,
+      "mean_obj_diff": 2.0214
+    },
+    "reduced_spectrum_third": {
+      "n_compared": 62,
+      "n_subopt": 53,
+      "pct_subopt": 85.5,
+      "mean_obj_diff": 8.6967
+    },
+    "scaled_mu": {
+      "n_compared": 61,
+      "n_subopt": 18,
+      "pct_subopt": 29.5,
+      "mean_obj_diff": 1.7134
+    },
+    "reduced_spectrum_half_scaled_mu": {
+      "n_compared": 50,
+      "n_subopt": 22,
+      "pct_subopt": 44.0,
+      "mean_obj_diff": 2.3296
+    },
+    "reduced_spectrum_third_scaled_mu": {
+      "n_compared": 56,
+      "n_subopt": 49,
+      "pct_subopt": 87.5,
+      "mean_obj_diff": 11.0996
+    }
+  },
+  "missing": {
+    "total": 68,
+    "by_option_type": {
+      "baseline|independent": 1,
+      "scaled_mu|independent": 16,
+      "reduced_spectrum_half_scaled_mu|independent": 33,
+      "reduced_spectrum_third_scaled_mu|independent": 18
+    },
+    "instances": [
+      {
+        "option": "baseline",
+        "type": "independent",
+        "m": 80,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 50,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 50,
+        "nlab": "log",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 50,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 50,
+        "nlab": "one",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 50,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 80,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 80,
+        "nlab": "log",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 80,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 80,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 80,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 80,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "log",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "log",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_half_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "log",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "log",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "log",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 2
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 4
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 5
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "reduced_spectrum_third_scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 50,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 100,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 2
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 120,
+        "nlab": "one",
+        "seed": 5
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "log",
+        "seed": 1
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 1
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 2
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 3
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 4
+      },
+      {
+        "option": "scaled_mu",
+        "type": "independent",
+        "m": 150,
+        "nlab": "one",
+        "seed": 5
+      }
+    ],
+    "likely_cause": "FieldError(Nothing, :source) in Boscia postsolve \u2014 custom fw_callback replaced built-in vertex incumbent registration. IND scaled_* logs from that batch were cleaned; CORR rerun is complete (0 missing). Baseline IND m=80 N=one seed=1 also missing (no CSV)."
+  }
+}
