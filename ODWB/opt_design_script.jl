@@ -1,21 +1,25 @@
-## Script for running sbatch
+## Script for running sbatch — production `optimized` presets
+#
+# OPTION=optimized picks criterion×type hyperparameters and writes CSVs as
+#   boscia_optimized_<criterion>_optimality_...
+# so baseline / A/B folders are never overwritten.
+#
+# Presets:
+#   E CORR   — eigenvalue pruning + scaled_mu
+#   E IND    — scaled_mu
+#   AGC CORR — eigenvalue pruning
+#   AGC IND  — reduced_spectrum_half + scaled_mu
+#   ACST/ACSTS — rank_based_pruning + reduced_spectrum_half
 
 # ---------------------------------------------------------------------------
-# E-Optimal — IND (+ optional CORR): scaled_mu A/B and reduced spectrum
+# E-Optimal — IND + CORR
 # ---------------------------------------------------------------------------
 num_experiments = [50, 80, 100, 120, 150]
 criteria = ["E"]
-data_types = ["IND"] #["IND", "CORR"]
+data_types = ["IND", "CORR"]
 solvers = ["Boscia"]
 seeds = [0]
-options = [
-    "baseline",
-    "reduced_spectrum_half",
-    "reduced_spectrum_third",
-    "scaled_mu",
-    "reduced_spectrum_half_scaled_mu",
-    "reduced_spectrum_third_scaled_mu",
-]
+options = ["optimized"]
 N_construct = ["one", "log"]
 
 for criterion in criteria
@@ -38,21 +42,14 @@ for criterion in criteria
 end
 
 # ---------------------------------------------------------------------------
-# AGC — reduced spectrum + scaled_mu (L + A'DA spectrum for μ)
+# AGC — IND + CORR
 # ---------------------------------------------------------------------------
 num_experiments = [80, 100, 150, 200]
 criteria = ["AGC"]
 data_types = ["IND", "CORR"]
 solvers = ["Boscia"]
 seeds = [0]
-options = [
-    "baseline",
-    "reduced_spectrum_half",
-    "reduced_spectrum_third",
-    "scaled_mu",
-    "reduced_spectrum_half_scaled_mu",
-    "reduced_spectrum_third_scaled_mu",
-]
+options = ["optimized"]
 N_construct = ["one"]
 
 for criterion in criteria
@@ -82,14 +79,7 @@ criteria = ["ACST", "ACSTS"]
 data_types = ["IND"]
 solvers = ["Boscia"]
 seeds = [0]
-options = [
-    "baseline",
-    "reduced_spectrum_half",
-    "reduced_spectrum_third",
-    "scaled_mu",
-    "reduced_spectrum_half_scaled_mu",
-    "reduced_spectrum_third_scaled_mu",
-]
+options = ["optimized"]
 N_construct = ["one"]
 
 for criterion in criteria

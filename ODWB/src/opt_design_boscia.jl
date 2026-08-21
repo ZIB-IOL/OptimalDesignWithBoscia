@@ -106,6 +106,8 @@ function solve_opt(
     mu_scale_c_start=0.15,
     mu_scale_c_min=0.003,
     mu_scale_n_samples=50,
+    # When true, CSV prefix is always `optimized` (does not overwrite baseline / A/B runs).
+    optimized_run=false,
 )
     type = corr ? "correlated" : "independent"
     L = nothing
@@ -619,7 +621,10 @@ function solve_opt(
 
         folder = ""
 
-        if options_run
+        if optimized_run
+            # Dedicated production prefix: never collides with baseline (`boscia__…`) or A/B option folders.
+            folder = "optimized"
+        elseif options_run
             folder = if reduced_spectrum && scaled_input && scale_smoothing_mu
                 "reduced_spectrum" * "_" * string(reduced_percentage) * "_scaled_scaled_mu"
             elseif reduced_spectrum && scale_smoothing_mu

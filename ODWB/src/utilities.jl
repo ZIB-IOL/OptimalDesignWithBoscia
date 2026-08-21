@@ -44,6 +44,70 @@ function build_data(seed, m, n, fusion, corr; scaling_C=false, zero_one=false, N
 end
 
 """
+    optimized_preset(criterion, corr) -> NamedTuple
+
+Production hyperparameters for `OPTION=optimized`. CSVs are written with prefix
+`optimized` (see `solve_opt` `optimized_run`), so they never overwrite baseline
+or A/B option runs.
+
+Presets (from current experiments):
+- E CORR: eigenvalue pruning + μ-scaling
+- E IND: μ-scaling
+- AGC CORR: eigenvalue pruning (baseline smoothing)
+- AGC IND: half reduced spectrum + μ-scaling
+- ACST / ACSTS: rank pruning + half reduced spectrum
+"""
+function optimized_preset(criterion::AbstractString, corr::Bool)
+    if criterion == "E"
+        if corr
+            return (
+                scale_smoothing_mu = true,
+                reduced_spectrum = false,
+                reduced_percentage = 1,
+                eigenvalue_based_pruning = true,
+                rank_based_pruning = false,
+            )
+        else
+            return (
+                scale_smoothing_mu = true,
+                reduced_spectrum = false,
+                reduced_percentage = 1,
+                eigenvalue_based_pruning = false,
+                rank_based_pruning = false,
+            )
+        end
+    elseif criterion == "AGC"
+        if corr
+            return (
+                scale_smoothing_mu = false,
+                reduced_spectrum = false,
+                reduced_percentage = 1,
+                eigenvalue_based_pruning = true,
+                rank_based_pruning = false,
+            )
+        else
+            return (
+                scale_smoothing_mu = true,
+                reduced_spectrum = true,
+                reduced_percentage = 2,
+                eigenvalue_based_pruning = false,
+                rank_based_pruning = false,
+            )
+        end
+    elseif criterion in ("ACST", "ACSTS")
+        return (
+            scale_smoothing_mu = false,
+            reduced_spectrum = true,
+            reduced_percentage = 2,
+            eigenvalue_based_pruning = false,
+            rank_based_pruning = true,
+        )
+    else
+        error("No optimized preset for criterion=$(criterion)")
+    end
+end
+
+"""
     estimate_design_lambda_scale(A, N; L=nothing, n_samples=50, rng=Random.default_rng())
 
 Estimate a typical information-matrix λ_min by sampling random feasible 0-1 designs
