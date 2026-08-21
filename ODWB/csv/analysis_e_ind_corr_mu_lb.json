@@ -1,0 +1,265 @@
+{
+  "notes": [
+    "Grid: E-opt m in {50,80,100,120,150}, N in {one,log}, seeds 1-5",
+    "Solved = Boscia OPTIMAL (5% rel gap). Mean time includes timeouts.",
+    "LB = solution - dual_gap (minimization). Valid if LB <= SCIP_obj + 0.05*|SCIP_obj|.",
+    "Primal subopt: Boscia solution worse than SCIP OPTIMAL by >5% of |SCIP|.",
+    "Missing: 7 IND rs_half+mu, 10 IND rs_third+mu"
+  ],
+  "IND": {
+    "perf": [
+      {
+        "opt": "baseline",
+        "n": 50,
+        "pct": 0.0,
+        "time": 3602.2,
+        "gap_u": 0.8995,
+        "rel_u": 0.6847
+      },
+      {
+        "opt": "rs_half",
+        "n": 50,
+        "pct": 10.0,
+        "time": 3492.4,
+        "gap_u": 0.5728,
+        "rel_u": 0.457
+      },
+      {
+        "opt": "rs_third",
+        "n": 50,
+        "pct": 0.0,
+        "time": 3600.5,
+        "gap_u": 1.1656,
+        "rel_u": 1.2022
+      },
+      {
+        "opt": "scaled_mu",
+        "n": 50,
+        "pct": 28.0,
+        "time": 2895.6,
+        "gap_u": 0.3141,
+        "rel_u": 0.248
+      },
+      {
+        "opt": "rs_half+mu",
+        "n": 43,
+        "pct": 11.6,
+        "time": 3468.2,
+        "gap_u": 0.3706,
+        "rel_u": 0.3186
+      },
+      {
+        "opt": "rs_third+mu",
+        "n": 40,
+        "pct": 0.0,
+        "time": 3600.1,
+        "gap_u": 0.9737,
+        "rel_u": 1.1904
+      }
+    ],
+    "paired": {
+      "base_vs_mu": {
+        "pairs": 50,
+        "only_mu": 14,
+        "only_base": 0,
+        "pct_base": 0,
+        "pct_mu": 28,
+        "mean_t_base": 3602.2,
+        "mean_t_mu": 2895.6
+      },
+      "half_vs_half_mu": {
+        "pairs": 43,
+        "both": 4,
+        "only_mu": 1,
+        "only_base": 1,
+        "med_ratio": 1.072,
+        "pct_base": 11.6,
+        "pct_mu": 11.6
+      },
+      "third_vs_third_mu": {
+        "pairs": 40,
+        "both": 0,
+        "only_mu": 0,
+        "only_base": 0,
+        "pct_base": 0,
+        "pct_mu": 0
+      }
+    },
+    "lb_vs_scip_opt": {
+      "all_valid": true,
+      "n_per_opt": {
+        "baseline": 27,
+        "rs_half": 27,
+        "rs_third": 27,
+        "scaled_mu": 27,
+        "rs_half+mu": 25,
+        "rs_third+mu": 24
+      }
+    },
+    "primal_subopt_5pct": [
+      {
+        "opt": "baseline",
+        "n": 27,
+        "sub": 10,
+        "pct": 37.0
+      },
+      {
+        "opt": "rs_half",
+        "n": 27,
+        "sub": 6,
+        "pct": 22.2
+      },
+      {
+        "opt": "rs_third",
+        "n": 27,
+        "sub": 21,
+        "pct": 77.8
+      },
+      {
+        "opt": "scaled_mu",
+        "n": 27,
+        "sub": 0,
+        "pct": 0.0
+      },
+      {
+        "opt": "rs_half+mu",
+        "n": 25,
+        "sub": 5,
+        "pct": 20.0
+      },
+      {
+        "opt": "rs_third+mu",
+        "n": 24,
+        "sub": 18,
+        "pct": 75.0
+      }
+    ]
+  },
+  "CORR": {
+    "perf": [
+      {
+        "opt": "baseline",
+        "n": 50,
+        "pct": 48.0,
+        "time": 2266.8,
+        "gap_u": 31.2395,
+        "rel_u": 0.2145
+      },
+      {
+        "opt": "rs_half",
+        "n": 50,
+        "pct": 50.0,
+        "time": 2178.9,
+        "gap_u": 30.1935,
+        "rel_u": 0.2133
+      },
+      {
+        "opt": "rs_third",
+        "n": 50,
+        "pct": 8.0,
+        "time": 3387.2,
+        "gap_u": 60.7667,
+        "rel_u": 0.5092
+      },
+      {
+        "opt": "scaled_mu",
+        "n": 50,
+        "pct": 54.0,
+        "time": 2161.1,
+        "gap_u": 33.4367,
+        "rel_u": 0.2511
+      },
+      {
+        "opt": "rs_half+mu",
+        "n": 50,
+        "pct": 42.0,
+        "time": 2317.2,
+        "gap_u": 30.2122,
+        "rel_u": 0.2164
+      },
+      {
+        "opt": "rs_third+mu",
+        "n": 50,
+        "pct": 4.0,
+        "time": 3467.7,
+        "gap_u": 61.1824,
+        "rel_u": 0.5047
+      }
+    ],
+    "paired": {
+      "base_vs_mu": {
+        "pairs": 50,
+        "both": 23,
+        "only_mu": 4,
+        "only_base": 1,
+        "med_ratio": 0.508,
+        "pct_base": 48,
+        "pct_mu": 54
+      },
+      "half_vs_half_mu": {
+        "pairs": 50,
+        "both": 21,
+        "only_mu": 0,
+        "only_base": 4,
+        "med_ratio": 2.142,
+        "pct_base": 50,
+        "pct_mu": 42
+      },
+      "third_vs_third_mu": {
+        "pairs": 50,
+        "both": 2,
+        "only_mu": 0,
+        "only_base": 2,
+        "med_ratio": 3.836,
+        "pct_base": 8,
+        "pct_mu": 4
+      }
+    },
+    "lb_vs_scip_opt": {
+      "all_valid": true,
+      "n": 35
+    },
+    "primal_subopt_5pct": [
+      {
+        "opt": "baseline",
+        "n": 35,
+        "sub": 0,
+        "pct": 0.0
+      },
+      {
+        "opt": "rs_half",
+        "n": 35,
+        "sub": 0,
+        "pct": 0.0
+      },
+      {
+        "opt": "rs_third",
+        "n": 35,
+        "sub": 16,
+        "pct": 45.7
+      },
+      {
+        "opt": "scaled_mu",
+        "n": 35,
+        "sub": 0,
+        "pct": 0.0
+      },
+      {
+        "opt": "rs_half+mu",
+        "n": 35,
+        "sub": 0,
+        "pct": 0.0
+      },
+      {
+        "opt": "rs_third+mu",
+        "n": 35,
+        "sub": 21,
+        "pct": 60.0
+      }
+    ]
+  },
+  "missing": {
+    "rs_half+mu_IND": 7,
+    "rs_third+mu_IND": 10
+  }
+}
