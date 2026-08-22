@@ -4,7 +4,9 @@
       500,
       1000,
       2000,
-      5000
+      5000,
+      8000,
+      10000
     ],
     "seeds": [
       1,
@@ -15,20 +17,20 @@
       "one",
       "log"
     ],
-    "expected_per_type": 24
+    "expected_per_m": 6
   },
   "coverage": {
     "IND": {
-      "expected": 24,
-      "boscia": 24,
+      "expected": 36,
+      "boscia": 36,
       "scip_bnb": 22,
-      "scip_oa": 24
+      "scip_oa": 36
     },
     "CORR": {
-      "expected": 24,
-      "boscia": 24,
+      "expected": 36,
+      "boscia": 36,
       "scip_bnb": 17,
-      "scip_oa": 24
+      "scip_oa": 36
     }
   },
   "per_dimension": {
@@ -40,17 +42,14 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 2.259725,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 3.6957,
         "SCIP_bnb_rel_mean": 1.016532,
         "SCIP_bnb_rel_n": 6,
         "SCIP_bnb_gap_mean": 1.716519,
         "SCIP_bnb_gap_n": 6,
-        "SCIP_bnb_primal_max_mean": 4.1531,
         "SCIP_oa_rel_mean": 2.751527,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 2.853363,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 3.1042
+        "SCIP_oa_gap_n": 6
       },
       {
         "m": 1000,
@@ -59,17 +58,14 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 4.160142,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 4.9723,
         "SCIP_bnb_rel_mean": 1.750316,
         "SCIP_bnb_rel_n": 6,
         "SCIP_bnb_gap_mean": 3.1849,
         "SCIP_bnb_gap_n": 6,
-        "SCIP_bnb_primal_max_mean": 5.8389,
         "SCIP_oa_rel_mean": 8.043735,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 6.538472,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 2.6365
+        "SCIP_oa_gap_n": 6
       },
       {
         "m": 2000,
@@ -78,17 +74,14 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 7.020125,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 6.9258,
         "SCIP_bnb_rel_mean": 3.930205,
         "SCIP_bnb_rel_n": 6,
         "SCIP_bnb_gap_mean": 6.224076,
         "SCIP_bnb_gap_n": 6,
-        "SCIP_bnb_primal_max_mean": 7.5635,
         "SCIP_oa_rel_mean": 11.388566,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 10.184173,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 3.9723
+        "SCIP_oa_gap_n": 6
       },
       {
         "m": 5000,
@@ -97,17 +90,46 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 13.102484,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 11.1406,
         "SCIP_bnb_rel_mean": 2.874052,
         "SCIP_bnb_rel_n": 4,
         "SCIP_bnb_gap_mean": 12.750471,
         "SCIP_bnb_gap_n": 4,
-        "SCIP_bnb_primal_max_mean": 18.6094,
         "SCIP_oa_rel_mean": 12.445199,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 18.248548,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 7.2671
+        "SCIP_oa_gap_n": 6
+      },
+      {
+        "m": 8000,
+        "type": "IND",
+        "Boscia_rel_mean": 7.633524,
+        "Boscia_rel_n": 6,
+        "Boscia_gap_mean": 17.459853,
+        "Boscia_gap_n": 6,
+        "SCIP_bnb_rel_mean": null,
+        "SCIP_bnb_rel_n": 0,
+        "SCIP_bnb_gap_mean": null,
+        "SCIP_bnb_gap_n": 0,
+        "SCIP_oa_rel_mean": 14.774746,
+        "SCIP_oa_rel_n": 6,
+        "SCIP_oa_gap_mean": 25.528356,
+        "SCIP_oa_gap_n": 6
+      },
+      {
+        "m": 10000,
+        "type": "IND",
+        "Boscia_rel_mean": 8.015855,
+        "Boscia_rel_n": 6,
+        "Boscia_gap_mean": 20.172641,
+        "Boscia_gap_n": 6,
+        "SCIP_bnb_rel_mean": null,
+        "SCIP_bnb_rel_n": 0,
+        "SCIP_bnb_gap_mean": null,
+        "SCIP_bnb_gap_n": 0,
+        "SCIP_oa_rel_mean": 14.321753,
+        "SCIP_oa_rel_n": 6,
+        "SCIP_oa_gap_mean": 29.264899,
+        "SCIP_oa_gap_n": 6
       }
     ],
     "CORR": [
@@ -118,17 +140,14 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 909.472651,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 1940.0564,
         "SCIP_bnb_rel_mean": 0.799105,
         "SCIP_bnb_rel_n": 6,
         "SCIP_bnb_gap_mean": 663.999525,
         "SCIP_bnb_gap_n": 6,
-        "SCIP_bnb_primal_max_mean": 2141.5486,
         "SCIP_oa_rel_mean": 3.243469,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 1608.416845,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 1234.0573
+        "SCIP_oa_gap_n": 6
       },
       {
         "m": 1000,
@@ -137,17 +156,14 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 3652.764779,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 5387.6867,
         "SCIP_bnb_rel_mean": 1.564715,
         "SCIP_bnb_rel_n": 6,
         "SCIP_bnb_gap_mean": 2993.657065,
         "SCIP_bnb_gap_n": 6,
-        "SCIP_bnb_primal_max_mean": 5931.0826,
         "SCIP_oa_rel_mean": 11.799969,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 6766.361983,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 2312.2305
+        "SCIP_oa_gap_n": 6
       },
       {
         "m": 2000,
@@ -156,17 +172,14 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 13259.852133,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 14705.0607,
         "SCIP_bnb_rel_mean": 4.929175,
         "SCIP_bnb_rel_n": 5,
         "SCIP_bnb_gap_mean": 11295.418711,
         "SCIP_bnb_gap_n": 5,
-        "SCIP_bnb_primal_max_mean": 13128.7687,
         "SCIP_oa_rel_mean": 10.460671,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 18485.291621,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 10163.9608
+        "SCIP_oa_gap_n": 6
       },
       {
         "m": 5000,
@@ -175,22 +188,50 @@
         "Boscia_rel_n": 6,
         "Boscia_gap_mean": 63867.738595,
         "Boscia_gap_n": 6,
-        "Boscia_primal_max_mean": 58244.1545,
         "SCIP_bnb_rel_mean": null,
         "SCIP_bnb_rel_n": 0,
         "SCIP_bnb_gap_mean": null,
         "SCIP_bnb_gap_n": 0,
-        "SCIP_bnb_primal_max_mean": null,
         "SCIP_oa_rel_mean": 14.707461,
         "SCIP_oa_rel_n": 6,
         "SCIP_oa_gap_mean": 86465.774899,
-        "SCIP_oa_gap_n": 6,
-        "SCIP_oa_primal_max_mean": 44385.5801
+        "SCIP_oa_gap_n": 6
+      },
+      {
+        "m": 8000,
+        "type": "CORR",
+        "Boscia_rel_mean": 7.214577,
+        "Boscia_rel_n": 6,
+        "Boscia_gap_mean": 139608.940807,
+        "Boscia_gap_n": 6,
+        "SCIP_bnb_rel_mean": null,
+        "SCIP_bnb_rel_n": 0,
+        "SCIP_bnb_gap_mean": null,
+        "SCIP_bnb_gap_n": 0,
+        "SCIP_oa_rel_mean": 18.970206,
+        "SCIP_oa_rel_n": 6,
+        "SCIP_oa_gap_mean": 218455.133714,
+        "SCIP_oa_gap_n": 6
+      },
+      {
+        "m": 10000,
+        "type": "CORR",
+        "Boscia_rel_mean": 7.622623,
+        "Boscia_rel_n": 6,
+        "Boscia_gap_mean": 199710.317462,
+        "Boscia_gap_n": 6,
+        "SCIP_bnb_rel_mean": null,
+        "SCIP_bnb_rel_n": 0,
+        "SCIP_bnb_gap_mean": null,
+        "SCIP_bnb_gap_n": 0,
+        "SCIP_oa_rel_mean": 15.703687,
+        "SCIP_oa_rel_n": 6,
+        "SCIP_oa_gap_mean": 324977.41483,
+        "SCIP_oa_gap_n": 6
       }
     ]
   },
   "n_violations": 0,
   "violations_top": [],
-  "violations_by_pair": {},
-  "note": "Gaps in minimization space. Boscia dual = scaled_solution - dual_gap. SCIP dual_min = -dual_bound. Relative gaps as reported (Boscia rel_dual_gap, SCIP rel_gap). Consistency: dual_A <= primal_B (min sense) within tol."
+  "note": "Extended to m=8000,10000. Gaps in min-space. Consistency: dual_A <= primal_B."
 }
