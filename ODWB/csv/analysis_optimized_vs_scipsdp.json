@@ -1,0 +1,220 @@
+{
+  "method": "SCIP solve% and geom times from csv/aggregated (paper tables). Optimized Boscia from boscia_optimized_* singles (missing=failed; arith mean time with missing as 3600s). Note: raw SCIP CORR singles currently have more OPTIMALs than aggregated (E CORR bnb 35/50 vs 25/50).",
+  "scip_source": "csv/aggregated/{correlated,independent,agc_*}_by_dimension.csv dimension=-1",
+  "time_limit": 3600.0,
+  "results": {
+    "E_IND": {
+      "boscia": {
+        "n_expected": 50,
+        "n_present": 50,
+        "n_missing": 0,
+        "solved_n": 14,
+        "solved_pct": 28.0,
+        "mean_time": 2933.4,
+        "mean_rel_u": 0.2479,
+        "median_rel_u": 0.1401,
+        "n_unsolved": 36,
+        "source": "optimized singles"
+      },
+      "scip_bnb": {
+        "n_expected": 50,
+        "n_present": 50,
+        "n_missing": 0,
+        "solved_n": 27,
+        "solved_pct": 54.0,
+        "time_geom_mean": 655.9971,
+        "rel_gap_geom_mean_unsolved": 0.127092,
+        "n_unsolved": 23,
+        "source": "aggregated/independent_by_dimension.csv"
+      },
+      "scip_oa": {
+        "n_expected": 50,
+        "n_present": 50,
+        "n_missing": 0,
+        "solved_n": 15,
+        "solved_pct": 30.0,
+        "time_geom_mean": 1007.5003,
+        "rel_gap_geom_mean_unsolved": 0.263234,
+        "n_unsolved": 35,
+        "source": "aggregated/independent_by_dimension.csv"
+      }
+    },
+    "E_CORR": {
+      "boscia": {
+        "n_expected": 50,
+        "n_present": 48,
+        "n_missing": 2,
+        "solved_n": 24,
+        "solved_pct": 48.0,
+        "mean_time": 2141.3,
+        "mean_rel_u": 0.2217,
+        "median_rel_u": 0.191,
+        "n_unsolved": 26,
+        "source": "optimized singles"
+      },
+      "scip_bnb": {
+        "n_expected": 50,
+        "n_present": 50,
+        "n_missing": 0,
+        "solved_n": 25,
+        "solved_pct": 50.0,
+        "time_geom_mean": 733.1725,
+        "rel_gap_geom_mean_unsolved": 0.066397,
+        "n_unsolved": 25,
+        "source": "aggregated/correlated_by_dimension.csv"
+      },
+      "scip_oa": {
+        "n_expected": 50,
+        "n_present": 50,
+        "n_missing": 0,
+        "solved_n": 29,
+        "solved_pct": 58.0,
+        "time_geom_mean": 162.5375,
+        "rel_gap_geom_mean_unsolved": 0.192938,
+        "n_unsolved": 21,
+        "source": "aggregated/correlated_by_dimension.csv"
+      }
+    },
+    "AGC_IND": {
+      "boscia": {
+        "n_expected": 20,
+        "n_present": 20,
+        "n_missing": 0,
+        "solved_n": 4,
+        "solved_pct": 20.0,
+        "mean_time": 3036.3,
+        "mean_rel_u": 0.1303,
+        "median_rel_u": 0.1098,
+        "n_unsolved": 16,
+        "source": "optimized singles"
+      },
+      "scip_bnb": {
+        "n_expected": 20,
+        "n_present": 20,
+        "n_missing": 0,
+        "solved_n": 9,
+        "solved_pct": 45.0,
+        "time_geom_mean": 1148.6696,
+        "rel_gap_geom_mean_unsolved": 0.068865,
+        "n_unsolved": 11,
+        "source": "aggregated/agc_independent_disconnected_by_dimension.csv"
+      },
+      "scip_oa": {
+        "n_expected": 20,
+        "n_present": 20,
+        "n_missing": 0,
+        "solved_n": 2,
+        "solved_pct": 10.0,
+        "time_geom_mean": 2304.4086,
+        "rel_gap_geom_mean_unsolved": 0.128174,
+        "n_unsolved": 18,
+        "source": "aggregated/agc_independent_disconnected_by_dimension.csv"
+      }
+    },
+    "AGC_CORR": {
+      "boscia": {
+        "n_expected": 20,
+        "n_present": 20,
+        "n_missing": 0,
+        "solved_n": 20,
+        "solved_pct": 100.0,
+        "mean_time": 40.3,
+        "mean_rel_u": null,
+        "median_rel_u": null,
+        "n_unsolved": 0
+      },
+      "scip_bnb": {
+        "n_expected": 20,
+        "n_present": 20,
+        "n_missing": 0,
+        "solved_n": 20,
+        "solved_pct": 100.0,
+        "mean_time": 50.3,
+        "mean_rel_u": null,
+        "median_rel_u": null,
+        "n_unsolved": 0
+      },
+      "scip_oa": {
+        "n_expected": 20,
+        "n_present": 20,
+        "n_missing": 0,
+        "solved_n": 20,
+        "solved_pct": 100.0,
+        "mean_time": 0.8,
+        "mean_rel_u": null,
+        "median_rel_u": null,
+        "n_unsolved": 0
+      }
+    },
+    "ACST_IND": {
+      "boscia": {
+        "n_expected": 21,
+        "n_present": 21,
+        "n_missing": 0,
+        "solved_n": 3,
+        "solved_pct": 14.3,
+        "mean_time": 3104.5,
+        "mean_rel_u": 21.7141,
+        "median_rel_u": 9.8049,
+        "n_unsolved": 18
+      },
+      "scip_bnb": {
+        "n_expected": 21,
+        "n_present": 17,
+        "n_missing": 4,
+        "solved_n": 0,
+        "solved_pct": 0.0,
+        "mean_time": 3600.0,
+        "mean_rel_u": 6.3648,
+        "median_rel_u": 1.4604,
+        "n_unsolved": 21
+      },
+      "scip_oa": {
+        "n_expected": 21,
+        "n_present": 14,
+        "n_missing": 7,
+        "solved_n": 0,
+        "solved_pct": 0.0,
+        "mean_time": 3600.2,
+        "mean_rel_u": 5.5328,
+        "median_rel_u": 5.4185,
+        "n_unsolved": 21
+      }
+    },
+    "ACSTS_IND": {
+      "boscia": {
+        "n_expected": 21,
+        "n_present": 21,
+        "n_missing": 0,
+        "solved_n": 3,
+        "solved_pct": 14.3,
+        "mean_time": 3115.9,
+        "mean_rel_u": 12.0271,
+        "median_rel_u": 2.6902,
+        "n_unsolved": 18
+      },
+      "scip_bnb": {
+        "n_expected": 21,
+        "n_present": 0,
+        "n_missing": 21,
+        "solved_n": 0,
+        "solved_pct": 0.0,
+        "mean_time": 3600.0,
+        "mean_rel_u": null,
+        "median_rel_u": null,
+        "n_unsolved": 21
+      },
+      "scip_oa": {
+        "n_expected": 21,
+        "n_present": 0,
+        "n_missing": 21,
+        "solved_n": 0,
+        "solved_pct": 0.0,
+        "mean_time": 3600.0,
+        "mean_rel_u": null,
+        "median_rel_u": null,
+        "n_unsolved": 21
+      }
+    }
+  }
+}
