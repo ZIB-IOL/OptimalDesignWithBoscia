@@ -64,7 +64,7 @@ function optimized_preset(criterion::AbstractString, corr::Bool)
                 scale_smoothing_mu = true,
                 reduced_spectrum = false,
                 reduced_percentage = 1,
-                eigenvalue_based_pruning = true,
+                eigenvalue_based_pruning = false,
                 rank_based_pruning = false,
             )
         else
