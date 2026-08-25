@@ -1,0 +1,37 @@
+setting,setting_label,case,case_label,pct_solved,mean_time,mean_gap,n_present,n_expected
+baseline,Baseline,E_corr,EOD corr.,48.0,2266.7823599999997,0.21446735632750552,50,50
+scaled_mu,Scaled $\mu$,E_corr,EOD corr.,54.0,2161.1308999999997,0.25112750489170677,50,50
+reduced_spectrum_2,Half spectrum,E_corr,EOD corr.,50.0,2178.86218,0.213321138769758,50,50
+reduced_spectrum_3,Third spectrum,E_corr,EOD corr.,8.0,3387.19466,0.5092184727005123,50,50
+reduced_spectrum_2_scaled_mu,Half spectrum + scaled $\mu$,E_corr,EOD corr.,42.0,2317.23552,0.216385083853347,50,50
+reduced_spectrum_3_scaled_mu,Third spectrum + scaled $\mu$,E_corr,EOD corr.,4.0,3467.7156400000003,0.5047110567752775,50,50
+baseline,Baseline,E_ind,EOD ind.,0.0,3600.0,0.6846644016775302,50,50
+scaled_mu,Scaled $\mu$,E_ind,EOD ind.,28.0,2895.64272,0.24803621161767747,50,50
+reduced_spectrum_2,Half spectrum,E_ind,EOD ind.,10.0,3491.9490600000004,0.45701352698829895,50,50
+reduced_spectrum_3,Third spectrum,E_ind,EOD ind.,0.0,3600.0,1.2021923979744726,50,50
+reduced_spectrum_2_scaled_mu,Half spectrum + scaled $\mu$,E_ind,EOD ind.,10.0,3486.5548200000003,0.31863669658710403,43,50
+reduced_spectrum_3_scaled_mu,Third spectrum + scaled $\mu$,E_ind,EOD ind.,0.0,3600.0,1.1904403035457929,40,50
+baseline,Baseline,AGC_corr,AGC corr.,100.0,40.52745,,20,20
+scaled_mu,Scaled $\mu$,AGC_corr,AGC corr.,70.0,1105.3401,0.05958815715317093,20,20
+reduced_spectrum_2,Half spectrum,AGC_corr,AGC corr.,90.0,769.8459999999999,0.06132493839297346,20,20
+reduced_spectrum_3,Third spectrum,AGC_corr,AGC corr.,70.0,1340.92895,0.05911782714733219,20,20
+reduced_spectrum_2_scaled_mu,Half spectrum + scaled $\mu$,AGC_corr,AGC corr.,70.0,1097.7980499999999,0.06065455632433009,20,20
+reduced_spectrum_3_scaled_mu,Third spectrum + scaled $\mu$,AGC_corr,AGC corr.,70.0,1260.0439,0.08596530849570072,20,20
+baseline,Baseline,AGC_ind,AGC ind.,10.0,3241.2402,0.2087156031504845,20,20
+scaled_mu,Scaled $\mu$,AGC_ind,AGC ind.,15.0,3212.0538,0.12586610675483131,20,20
+reduced_spectrum_2,Half spectrum,AGC_ind,AGC ind.,10.0,3241.0628,0.2271699304473158,20,20
+reduced_spectrum_3,Third spectrum,AGC_ind,AGC ind.,10.0,3330.97495,0.3106212523468591,20,20
+reduced_spectrum_2_scaled_mu,Half spectrum + scaled $\mu$,AGC_ind,AGC ind.,15.0,3080.0125500000004,0.12539274037902,20,20
+reduced_spectrum_3_scaled_mu,Third spectrum + scaled $\mu$,AGC_ind,AGC ind.,10.0,3240.5378499999997,0.12572619085252335,20,20
+baseline,Baseline,ACST,ACST,14.285714285714286,3223.6288095238097,15.448904452137059,21,21
+scaled_mu,Scaled $\mu$,ACST,ACST,0.0,3600.0,9.908881013380826,21,21
+reduced_spectrum_2,Half spectrum,ACST,ACST,14.285714285714286,3186.8345238095235,22.743659158135625,21,21
+reduced_spectrum_3,Third spectrum,ACST,ACST,4.761904761904762,3596.4823333333334,23.05123491424454,17,21
+reduced_spectrum_2_scaled_mu,Half spectrum + scaled $\mu$,ACST,ACST,0.0,3600.0,8.261849362161254,21,21
+reduced_spectrum_3_scaled_mu,Third spectrum + scaled $\mu$,ACST,ACST,0.0,3600.0,7.214869667906592,15,21
+baseline,Baseline,ACSTS,ACSTS,4.761904761904762,3487.05,5.555681108215595e14,21,21
+scaled_mu,Scaled $\mu$,ACSTS,ACSTS,0.0,3600.0,3.959340252329161e14,21,21
+reduced_spectrum_2,Half spectrum,ACSTS,ACSTS,4.761904761904762,3579.9623333333334,2.632282853476817e15,21,21
+reduced_spectrum_3,Third spectrum,ACSTS,ACSTS,0.0,3600.0,1.4232423042521782,9,21
+reduced_spectrum_2_scaled_mu,Half spectrum + scaled $\mu$,ACSTS,ACSTS,0.0,3600.0,3.764953449001351e14,21,21
+reduced_spectrum_3_scaled_mu,Third spectrum + scaled $\mu$,ACSTS,ACSTS,0.0,3600.0,2.985059410278924,9,21

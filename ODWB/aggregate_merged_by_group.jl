@@ -377,10 +377,8 @@ function load_and_normalize_boscia_rank_pruning(corr::Bool)
 end
 
 function load_and_normalize_boscia_for_scipsdp_e(corr::Bool)
-    if corr
-        return load_and_normalize_boscia_e_merged_folder("eigenvalue_based_pruning", "Boscia", corr)
-    end
-    return load_and_normalize_boscia(corr)
+    # Production tables: optimized Boscia presets (see OPTION=optimized / optimized_preset).
+    return load_and_normalize_boscia_e_merged_folder("optimized", "Boscia", corr)
 end
 
 function load_and_normalize_boscia_exclusion_variant(exclusion_folder::String, corr::Bool)
@@ -581,7 +579,8 @@ function load_and_normalize_boscia_agc_rank_pruning(corr::Bool, connected::Bool)
 end
 
 function load_and_normalize_boscia_for_scipsdp_agc(corr::Bool, connected::Bool)
-    return load_and_normalize_boscia_agc_merged_folder("eigenvalue_based_pruning", "Boscia", corr, connected)
+    # Production tables: optimized Boscia presets (see OPTION=optimized / optimized_preset).
+    return load_and_normalize_boscia_agc_merged_folder("optimized", "Boscia", corr, connected)
 end
 
 function load_and_normalize_boscia_agc_exclusion_variant(exclusion_folder::String, corr::Bool, connected::Bool)
@@ -828,7 +827,8 @@ function combined_table_spanning_tree_acst_rank_pruning_vs_scipsdp(;
     verbose::Bool=false,
     unified_df_with_scaled::Union{Nothing,DataFrame}=nothing,
 )
-    d1 = load_and_normalize_boscia_acst_variant("ACST", "rank_based_pruning", "ACST (Boscia)")
+    # Production tables: optimized Boscia ACST (folder still named rank_pruning_vs_scipsdp for path stability).
+    d1 = load_and_normalize_boscia_acst_variant("ACST", "optimized", "ACST (Boscia)")
     d1 === nothing && return nothing
     nrow(d1) == 0 && return nothing
     if !hasproperty(d1, :feasible)
@@ -849,7 +849,7 @@ function combined_table_spanning_tree_acst_rank_pruning_vs_scipsdp(;
 
     nfix = apply_cross_solver_primal_check_fixed_reference!(df, "ACST (Boscia)"; sense=:max)
     if verbose && nfix > 0
-        println("  SCIPSDP optimality guard vs ACST rank-pruning Boscia reference: invalidated $nfix rows.")
+        println("  SCIPSDP optimality guard vs ACST optimized Boscia reference: invalidated $nfix rows.")
     end
     if hasproperty(df, :scaled_solution)
         select!(df, Not(:scaled_solution))

@@ -3,8 +3,8 @@
 # Plot relative gap progress for ACST/ACSTS Boscia runs from callback logs.
 #
 # Requested comparison:
-# - ACST:  default, rank_based_pruning
-# - ACSTS: default, rank_based_pruning, exclusion_criterion
+# - ACST:  default, rank_based_pruning, eigenvalue_based_pruning
+# - ACSTS: default, rank_based_pruning, eigenvalue_based_pruning, exclusion_criterion
 #
 # Output:
 # - For n in {10,12} and seed in {1,2,3}, a figure with two panels:
@@ -112,14 +112,18 @@ function plot_one(n::Int, seed::Int; save::Bool = true)
     # Give every line a distinct color (no reuse), relying on the CB palette.
     col_acst_default = rgb(cb_blue)
     col_acst_rank = rgb(cb_purple)
+    col_acst_eigen = rgb(cb_green_sea)
     col_acsts_default = rgb(cb_rose)
     col_acsts_rank = rgb(cb_blue_green)
+    col_acsts_eigen = rgb(cb_clay)
     col_acsts_excl = rgb(cb_salmon_pink)
     series = [
         ("ACST default", "ACST", "baseline", :solid, col_acst_default),
         ("ACST rank-prune", "ACST", "rank_based_pruning", :dot, col_acst_rank),
+        ("ACST eigenvalue-prune", "ACST", "eigenvalue_based_pruning", :dashdot, col_acst_eigen),
         ("ACSTS default", "ACSTS", "baseline", :dash, col_acsts_default),
         ("ACSTS rank-prune", "ACSTS", "rank_based_pruning", :dash, col_acsts_rank),
+        ("ACSTS eigenvalue-prune", "ACSTS", "eigenvalue_based_pruning", :dashdot, col_acsts_eigen),
         ("ACSTS exclusion", "ACSTS", "exclusion_criterion", :dot, col_acsts_excl),
     ]
 
