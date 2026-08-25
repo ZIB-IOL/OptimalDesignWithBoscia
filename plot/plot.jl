@@ -29,11 +29,24 @@ const SCIPSDP_PALETTE = [
     rgb_hex(cb_green_sea),    # SCIPSDP BnB
 ]
 
-const SMOOTHING_ABLATION_PALETTE = [
+const ABLATION_PALETTE = [
     rgb_hex(cb_green_sea),
     rgb_hex(cb_salmon_pink),
     rgb_hex(cb_clay),
     rgb_hex(cb_blue_light),
+    rgb_hex(cb_burgundy),
+    rgb_hex(cb_lilac),
+]
+
+const PRUNING_PALETTE = [
+    rgb_hex(cb_green_sea),
+    rgb_hex(cb_salmon_pink),
+    rgb_hex(cb_burgundy),
+]
+
+const ACST_PRUNING_PALETTE = [
+    rgb_hex(cb_green_sea),
+    rgb_hex(cb_salmon_pink),
     rgb_hex(cb_burgundy),
     rgb_hex(cb_lilac),
 ]
@@ -440,7 +453,14 @@ end
 function style_triplets(n::Int; colors=CB_PALETTE)
     markers = [:circle, :rect, :utriangle, :diamond, :pentagon, :xcross]
     linestyles = [:solid, :dash, :dashdot, :dot, :solid, :dash]
-    return [(colors[i], markers[i], linestyles[i]) for i in 1:n]
+    return [
+        (
+            colors[mod1(i, length(colors))],
+            markers[mod1(i, length(markers))],
+            linestyles[mod1(i, length(linestyles))],
+        )
+        for i in 1:n
+    ]
 end
 
 function total_instance_count(run_maps::Dict{String, Dict{NTuple{4, Int}, RunRecord}}, labels::Vector{String})
@@ -508,21 +528,37 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
 
     colors = if family == "scipsdp"
         SCIPSDP_PALETTE
-    elseif family == "smoothing_ablation"
-        SMOOTHING_ABLATION_PALETTE
+    elseif family == "pruning"
+        PRUNING_PALETTE
     else
-        CB_PALETTE
+        ABLATION_PALETTE
     end
     base_styles = Dict(
         spec.label => style
         for (spec, style) in zip(specs, style_triplets(length(specs); colors))
     )
+    series_styles = if family == "pruning" && use_formulation_suffix
+        visible_entries = [
+            (series_label, base_label)
+            for (series_label, base_label) in series_entries
+            if !isempty(run_maps[series_label])
+        ]
+        Dict(
+            series_label => style
+            for ((series_label, _), style) in zip(
+                visible_entries,
+                style_triplets(length(visible_entries); colors=ACST_PRUNING_PALETTE),
+            )
+        )
+    else
+        Dict{String, Tuple{String, Symbol, Symbol}}()
+    end
     for (series_label, base_label) in series_entries
         runs = run_maps[series_label]
         isempty(runs) && continue
         times = solved_times(runs, flagged[series_label])
         x, y = step_xy(times)
-        color, marker, linestyle = base_styles[base_label]
+        color, marker, linestyle = get(series_styles, series_label, base_styles[base_label])
         if use_formulation_suffix && endswith(series_label, "(ACSTS)")
             linestyle = :dash
         end
