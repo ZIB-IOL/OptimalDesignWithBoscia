@@ -14,6 +14,8 @@ const SCIPSDP_DIR = joinpath(CSV_BASE, "SCIPSDP")
 const PAJARITO_DIR = joinpath(CSV_BASE, "Pajarito")
 
 const COLOURS_PATH = joinpath(ODWB_DIR, "colours.jl")
+isfile(COLOURS_PATH) || error("colours.jl not found at $COLOURS_PATH")
+include(COLOURS_PATH)
 
 isfinite_num(x) = x isa Number && isfinite(x)
 
@@ -120,15 +122,13 @@ function step_series_solved(times::Vector{Float64}; time_limit::Float64=TIME_LIM
 end
 
 function solver_colors()
-    isfile(COLOURS_PATH) || error("colours.jl not found at $COLOURS_PATH")
-    include(COLOURS_PATH)
     rgb(t) = RGB(t[1], t[2], t[3])
     # Use a stable mapping for the solvers used in tables
     return Dict{String,Any}(
-        "Boscia" => rgb(cb_blue),
-        "SCIPSDP_oa" => rgb(cb_green_sea),
-        "SCIPSDP_bnb" => rgb(cb_purple),
-        "ACST (Boscia)" => rgb(cb_blue),
+        "Boscia" => rgb(cb_green_lime),
+        "SCIPSDP_oa" => rgb(cb_salmon_pink),
+        "SCIPSDP_bnb" => rgb(cb_green_sea),
+        "ACST (Boscia)" => rgb(cb_green_lime),
         "ACST (rank pruning)" => rgb(cb_blue_green),
         "ACSTS (Boscia)" => rgb(cb_rose),
         "ACSTS (rank pruning)" => rgb(cb_brown),

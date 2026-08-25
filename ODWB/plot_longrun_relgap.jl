@@ -29,9 +29,9 @@ const OUT_DIRS = [
 
 rgb(t) = RGB(t[1], t[2], t[3])
 const SOLVER_STYLE = Dict(
-    "Boscia" => (color=rgb(cb_blue), label="Boscia"),
-    "SCIPSDP_oa" => (color=rgb(cb_green_sea), label="SCIPSDP (OA)"),
-    "SCIPSDP_bnb" => (color=rgb(cb_purple), label="SCIPSDP (B&B)"),
+    "Boscia" => (color=rgb(cb_green_lime), label="Boscia"),
+    "SCIPSDP_oa" => (color=rgb(cb_salmon_pink), label="SCIPSDP (OA)"),
+    "SCIPSDP_bnb" => (color=rgb(cb_green_sea), label="SCIPSDP (B&B)"),
 )
 const SOLVER_ORDER = ["Boscia", "SCIPSDP_oa", "SCIPSDP_bnb"]
 

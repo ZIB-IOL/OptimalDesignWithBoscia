@@ -23,6 +23,21 @@ const CB_PALETTE = [
     rgb_hex(cb_clay),
 ]
 
+const SCIPSDP_PALETTE = [
+    rgb_hex(cb_green_lime),   # Boscia
+    rgb_hex(cb_salmon_pink),  # SCIPSDP OA
+    rgb_hex(cb_green_sea),    # SCIPSDP BnB
+]
+
+const SMOOTHING_ABLATION_PALETTE = [
+    rgb_hex(cb_green_sea),
+    rgb_hex(cb_salmon_pink),
+    rgb_hex(cb_clay),
+    rgb_hex(cb_blue_light),
+    rgb_hex(cb_burgundy),
+    rgb_hex(cb_lilac),
+]
+
 Base.@kwdef struct SetupSpec
     label::String
     kind::Symbol
@@ -422,8 +437,7 @@ function plot_path(family::String, cfg::ExperimentConfig)
     return joinpath(OUT_DIR, "$(cfg.criterion)_$(cfg.file_tag)_$(family).pdf")
 end
 
-function style_triplets(n::Int)
-    colors = CB_PALETTE
+function style_triplets(n::Int; colors=CB_PALETTE)
     markers = [:circle, :rect, :utriangle, :diamond, :pentagon, :xcross]
     linestyles = [:solid, :dash, :dashdot, :dot, :solid, :dash]
     return [(colors[i], markers[i], linestyles[i]) for i in 1:n]
@@ -492,7 +506,17 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
         bottom_margin=16mm,
     )
 
-    base_styles = Dict(spec.label => style for (spec, style) in zip(specs, style_triplets(length(specs))))
+    colors = if family == "scipsdp"
+        SCIPSDP_PALETTE
+    elseif family == "smoothing_ablation"
+        SMOOTHING_ABLATION_PALETTE
+    else
+        CB_PALETTE
+    end
+    base_styles = Dict(
+        spec.label => style
+        for (spec, style) in zip(specs, style_triplets(length(specs); colors))
+    )
     for (series_label, base_label) in series_entries
         runs = run_maps[series_label]
         isempty(runs) && continue
