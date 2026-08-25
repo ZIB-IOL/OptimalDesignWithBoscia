@@ -48,9 +48,13 @@ end
 const OFFICIAL_KEY_CACHE = Dict{Tuple{String, String}, Set{NTuple{4, Int}}}()
 
 const FAMILY_DEFS = Dict(
-    "reduced_spectrum" => [
+    "smoothing_ablation" => [
         SetupSpec(label="baseline", kind=:boscia, name="baseline"),
-        SetupSpec(label="truncated gradient", kind=:boscia, name="reduced_spectrum", subdir="reduced_spectrum_half"),
+        SetupSpec(label="scaled μ", kind=:boscia, name="scaled_mu"),
+        SetupSpec(label="half spectrum", kind=:boscia, name="reduced_spectrum_2"),
+        SetupSpec(label="third spectrum", kind=:boscia, name="reduced_spectrum_3"),
+        SetupSpec(label="half spectrum + scaled μ", kind=:boscia, name="reduced_spectrum_2_scaled_mu"),
+        SetupSpec(label="third spectrum + scaled μ", kind=:boscia, name="reduced_spectrum_3_scaled_mu"),
     ],
     "exclusion" => [
         SetupSpec(label="baseline", kind=:boscia, name="baseline"),
@@ -82,16 +86,8 @@ function experiment_configs()
 end
 
 function scipsdp_boscia_spec(cfg::ExperimentConfig)
-    if cfg.criterion == "ACST"
-        return SetupSpec(label="Boscia", kind=:boscia, name="rank_based_pruning")
-    elseif cfg.criterion == "AGC"
-        return SetupSpec(label="Boscia", kind=:boscia, name="eigenvalue_based_pruning")
-    elseif cfg.criterion == "E" && cfg.data_type == "correlated"
-        return SetupSpec(label="Boscia", kind=:boscia, name="eigenvalue_based_pruning")
-    elseif cfg.criterion == "E" && cfg.data_type == "independent"
-        return SetupSpec(label="Boscia", kind=:boscia, name="reduced_spectrum", subdir="reduced_spectrum_half")
-    end
-    return SetupSpec(label="Boscia", kind=:boscia, name="baseline")
+    # Match production summary tables: optimized Boscia presets vs SCIPSDP.
+    return SetupSpec(label="Boscia", kind=:boscia, name="optimized")
 end
 
 function family_specs(family::String, cfg::ExperimentConfig)
@@ -129,7 +125,11 @@ end
 function file_regex(spec::SetupSpec, cfg::ExperimentConfig, criterion_name::String=cfg.criterion)
     prefix = solver_prefix(spec)
     separator = endswith(cfg.suffix, "_") ? "" : "_"
-    return Regex("^" * prefix * criterion_name * "_optimality_" * cfg.suffix * separator * raw"(\d+)_(\d+)_(\d+)_(\d+)\.csv$")
+    # Some μ-scaled runs record the input scaling between criterion and
+    # `_optimality`, e.g. `E_scaled_105.9__optimality_...`.
+    optional_scaling = raw"(?:_scaled_[^_]+_)?"
+    return Regex("^" * prefix * criterion_name * optional_scaling * "_optimality_" *
+                 cfg.suffix * separator * raw"(\d+)_(\d+)_(\d+)_(\d+)\.csv$")
 end
 
 function parse_float(value, default=NaN)
@@ -171,6 +171,7 @@ function merged_csv_candidates(criterion_name::String, cfg::ExperimentConfig)
     if criterion_name == "E"
         type = cfg.data_type == "correlated" ? "correlated" : "independent"
         return [
+            joinpath(BOSCIA_DIR, "boscia_optimized_E_optimality_$(type)_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_eigenvalue_based_pruning_E_optimality_$(type)_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_baseline_E_optimality_$(type)_merged.csv"),
             joinpath(SCIPSDP_DIR, "scip_sdp_oa_E_optimality_$(type)_merged.csv"),
@@ -179,6 +180,7 @@ function merged_csv_candidates(criterion_name::String, cfg::ExperimentConfig)
     elseif criterion_name == "AGC"
         suffix = cfg.data_type == "correlated" ? "correlated_connected" : "independent_disconnected"
         return [
+            joinpath(BOSCIA_DIR, "boscia_optimized_AGC_optimality_$(suffix)_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_eigenvalue_based_pruning_AGC_optimality_$(suffix)_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_baseline_AGC_optimality_$(suffix)_merged.csv"),
             joinpath(SCIPSDP_DIR, "scip_sdp_oa_AGC_optimality_$(suffix)_merged.csv"),
@@ -186,6 +188,7 @@ function merged_csv_candidates(criterion_name::String, cfg::ExperimentConfig)
         ]
     elseif criterion_name == "ACST"
         return [
+            joinpath(BOSCIA_DIR, "boscia_optimized_ACST_optimality_independent_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_baseline_ACST_optimality_independent_merged.csv"),
             joinpath(BOSCIA_DIR, "boscia_rank_based_pruning_ACST_optimality_independent_merged.csv"),
             joinpath(SCIPSDP_DIR, "scip_sdp_oa_ACST_optimality_independent_merged.csv"),
