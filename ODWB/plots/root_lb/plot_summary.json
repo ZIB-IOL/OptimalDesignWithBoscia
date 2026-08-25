@@ -1,0 +1,82 @@
+{
+  "E independent|baseline": {
+    "n_bnb": 50,
+    "n_oa": 50,
+    "bnb_tighter": 50,
+    "bnb_weaker": 0,
+    "oa_tighter": 49,
+    "oa_weaker": 1,
+    "mean_bnb": 1.4201844379434292,
+    "mean_oa": 0.9235700959434291
+  },
+  "E independent|optimized": {
+    "n_bnb": 50,
+    "n_oa": 50,
+    "bnb_tighter": 50,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 50,
+    "mean_bnb": 0.05493060512872191,
+    "mean_oa": -0.4416837368712782
+  },
+  "E correlated|baseline": {
+    "n_bnb": 50,
+    "n_oa": 40,
+    "bnb_tighter": 50,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 40,
+    "mean_bnb": 9.813957375121285,
+    "mean_oa": -57.37243867150953
+  },
+  "E correlated|optimized": {
+    "n_bnb": 50,
+    "n_oa": 40,
+    "bnb_tighter": 50,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 40,
+    "mean_bnb": 6.6157752474032305,
+    "mean_oa": -59.54015534257885
+  },
+  "AGC independent|baseline": {
+    "n_bnb": 20,
+    "n_oa": 20,
+    "bnb_tighter": 20,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 20,
+    "mean_bnb": 0.49195376795514284,
+    "mean_oa": -1.0021815820448572
+  },
+  "AGC independent|optimized": {
+    "n_bnb": 20,
+    "n_oa": 20,
+    "bnb_tighter": 20,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 20,
+    "mean_bnb": 0.24325939767019333,
+    "mean_oa": -1.2508759523298063
+  },
+  "AGC correlated|baseline": {
+    "n_bnb": 20,
+    "n_oa": 20,
+    "bnb_tighter": 20,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 20,
+    "mean_bnb": 0.38209043980852037,
+    "mean_oa": -0.9457979601914797
+  },
+  "AGC correlated|optimized": {
+    "n_bnb": 20,
+    "n_oa": 20,
+    "bnb_tighter": 20,
+    "bnb_weaker": 0,
+    "oa_tighter": 0,
+    "oa_weaker": 20,
+    "mean_bnb": 0.38279412398583457,
+    "mean_oa": -0.9450942760141654
+  }
+}
