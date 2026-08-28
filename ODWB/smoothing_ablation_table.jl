@@ -23,11 +23,11 @@ const OPTIMAL_TERMINATIONS = Set(["OPTIMAL", "GAPLIMIT", "OPTIMALITY_PROVED"])
 
 const SETTINGS = [
     ("baseline", "Baseline"),
-    ("scaled_mu", "Scaled \$\\mu\$"),
+    ("scaled_mu", "Adaptive \$\\mu\$"),
     ("reduced_spectrum_2", "Half spectrum"),
     ("reduced_spectrum_3", "Third spectrum"),
-    ("reduced_spectrum_2_scaled_mu", "Half spectrum + scaled \$\\mu\$"),
-    ("reduced_spectrum_3_scaled_mu", "Third spectrum + scaled \$\\mu\$"),
+    ("reduced_spectrum_2_scaled_mu", "Half spectrum + adaptive \$\\mu\$"),
+    ("reduced_spectrum_3_scaled_mu", "Third spectrum + adaptive \$\\mu\$"),
 ]
 
 const CASES = [
