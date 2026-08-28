@@ -3,8 +3,10 @@
 Relative-gap plots for long E-optimal runs (m = 500 … 10000).
 
 Compares Boscia (optimized) vs SCIPSDP OA / BnB.
-One figure per (data type × N construction), with dimension on the x-axis
-and a min–max band across seeds around the median relative gap.
+For each (data type × N construction), generates:
+- a dimension plot with a min–max band across seeds around the median gap;
+- a cumulative gap plot showing the percentage of all intended instances
+  solved to a given relative gap or better within the time limit.
 
 Usage:
   julia --project=. plot_longrun_relgap.jl
@@ -20,10 +22,12 @@ include(joinpath(@__DIR__, "colours.jl"))
 
 const TIME_LIMIT = 3600.0
 const LONG_DIMS = [500, 1000, 2000, 5000, 8000, 10000]
+const SEEDS = 1:3
+const EXPECTED_INSTANCES_PER_PANEL = length(LONG_DIMS) * length(SEEDS)
 const BOSCIA_DIR = joinpath(@__DIR__, "csv", "Boscia")
 const SCIPSDP_DIR = joinpath(@__DIR__, "csv", "SCIPSDP")
 const OUT_DIRS = [
-    joinpath(@__DIR__, "..", "plot", "longrun_relgap"),
+    joinpath(@__DIR__, "plots"),
     "/Users/deborah/Documents/research_projects/Smoothing-in-Boscia/paper",
 ]
 
@@ -126,7 +130,7 @@ function collect_longrun_rows(dtype::String)
     for m in LONG_DIMS
         haskey(pairs, m) || continue
         for (n, N) in unique(pairs[m])
-            for seed in 1:3
+            for seed in SEEDS
                 b = load_boscia_row(dtype, m, n, N, seed)
                 b !== nothing && push!(rows, b)
                 oa = load_scipsdp_row("oa", dtype, m, n, N, seed)
@@ -143,22 +147,18 @@ function rows_to_df(rows)
     isempty(rows) && return DataFrame()
     df = DataFrame(rows)
     df[!, :N_construction] = [long_run_n_construction(r.n, r.N) for r in eachrow(df)]
-    # Drop infeasible SCIPSDP incumbents from the gap plot.
-    df = df[df.feasible .== true, :]
-    # Keep finite, non-negative gaps (clip tiny negatives from numerics).
+    # Keep invalid rows so cumulative percentages use the full instance-set
+    # denominator. Invalid gaps are ignored in the numerator.
     gaps = Float64[]
-    keep = Bool[]
     for g in df.rel_gap
         if g isa Number && isfinite(g)
             push!(gaps, max(Float64(g), 0.0))
-            push!(keep, true)
         else
             push!(gaps, NaN)
-            push!(keep, false)
         end
     end
     df[!, :rel_gap] = gaps
-    return df[keep, :]
+    return df
 end
 
 """Median / min / max of gaps at each dimension (across seeds)."""
@@ -180,7 +180,7 @@ function band_stats(sub::DataFrame)
 end
 
 function make_plot(df::DataFrame, dtype::String, ncons::String; out_bases)
-    sub = df[(df.N_construction .== ncons), :]
+    sub = df[(df.N_construction .== ncons) .& (df.feasible .== true), :]
     nrow(sub) == 0 && return false
 
     plt = plot(
@@ -231,6 +231,92 @@ function make_plot(df::DataFrame, dtype::String, ncons::String; out_bases)
     return true
 end
 
+"""Empirical cumulative gap points, using `total` as the full instance denominator."""
+function cumulative_gap_points(sub::DataFrame, total::Int, max_gap::Float64)
+    deduplicated = unique(sub, [:dimension, :seed])
+    gaps = sort(Float64[g for g in deduplicated.rel_gap if isfinite(g) && g >= 0])
+    isempty(gaps) && return Float64[], Float64[]
+
+    thresholds = unique(gaps)
+    xs = Float64[]
+    ys = Float64[]
+    if first(thresholds) > 0
+        push!(xs, 0.0)
+        push!(ys, 0.0)
+    end
+    for threshold in thresholds
+        push!(xs, threshold)
+        push!(ys, 100 * searchsortedlast(gaps, threshold) / total)
+    end
+    if last(xs) < max_gap
+        push!(xs, max_gap)
+        push!(ys, last(ys))
+    end
+    return xs, ys
+end
+
+function make_cumulative_plot(df::DataFrame, dtype::String, ncons::String; out_bases)
+    sub = df[df.N_construction .== ncons, :]
+    nrow(sub) == 0 && return false
+
+    valid_gaps = Float64[
+        r.rel_gap for r in eachrow(sub)
+        if r.feasible && isfinite(r.rel_gap) && r.rel_gap >= 0
+    ]
+    isempty(valid_gaps) && return false
+    max_gap = max(maximum(valid_gaps), eps(Float64))
+
+    plt = plot(
+        xlabel="Relative gap",
+        ylabel="% instances",
+        legend=:bottomright,
+        legendfontsize=8,
+        grid=true,
+        framestyle=:box,
+        size=(640, 380),
+        left_margin=3mm,
+        bottom_margin=3mm,
+        xlims=(0, max_gap),
+        ylims=(0, 100),
+        yticks=0:10:100,
+        title="",
+    )
+
+    any_series = false
+    for solver in SOLVER_ORDER
+        solver_rows = sub[(sub.solver .== solver) .& (sub.feasible .== true), :]
+        xs, ys = cumulative_gap_points(
+            solver_rows,
+            EXPECTED_INSTANCES_PER_PANEL,
+            max_gap,
+        )
+        isempty(xs) && continue
+        style = SOLVER_STYLE[solver]
+        plot!(
+            plt,
+            xs,
+            ys;
+            seriestype=:steppost,
+            color=style.color,
+            label=style.label,
+            linewidth=2.2,
+            marker=:circle,
+            markersize=3.5,
+        )
+        any_series = true
+    end
+    any_series || return false
+
+    fname = "E_longrun_relgap_cdf_$(dtype)_$(ncons).pdf"
+    for out_dir in out_bases
+        mkpath(out_dir)
+        out = joinpath(out_dir, fname)
+        savefig(plt, out)
+        println("Wrote $out")
+    end
+    return true
+end
+
 function main()
     mkpath.(OUT_DIRS)
     n_plots = 0
@@ -238,9 +324,10 @@ function main()
         println("--- $dtype ---")
         rows = collect_longrun_rows(dtype)
         df = rows_to_df(rows)
-        println("  loaded $(nrow(df)) finite-gap rows; constructions=$(sort(unique(String.(df.N_construction))))")
+        println("  loaded $(nrow(df)) rows; constructions=$(sort(unique(String.(df.N_construction))))")
         for ncons in ("one", "log")
             n_plots += make_plot(df, dtype, ncons; out_bases=OUT_DIRS) ? 1 : 0
+            n_plots += make_cumulative_plot(df, dtype, ncons; out_bases=OUT_DIRS) ? 1 : 0
         end
     end
     println("Generated $n_plots long-run relative-gap plots.")
