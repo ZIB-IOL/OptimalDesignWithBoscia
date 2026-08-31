@@ -1,0 +1,648 @@
+{
+  "note": "AGC root LB (min-space): SCIP_LB=-node1_dualbound from logs (final dual if Solving Nodes=1); Boscia=first lowerBound. diff>0 => SCIP tighter. Grid m\u2208{80,100,150,200}, IND disconnected / CORR connected, 5 seeds (40 instances).",
+  "n_paper": 40,
+  "bnb_vs_baseline": {
+    "independent": {
+      "n": 20,
+      "miss": 0,
+      "scip_tighter": 20,
+      "bos_tighter": 0,
+      "equal": 0,
+      "mean": 0.4919537679551429,
+      "med": 0.4767666597992435,
+      "min": 0.08082125123392259,
+      "max": 0.8792540631727959,
+      "t0_med": 73.0
+    },
+    "correlated": {
+      "n": 20,
+      "miss": 0,
+      "scip_tighter": 20,
+      "bos_tighter": 0,
+      "equal": 0,
+      "mean": 0.38209043980852037,
+      "med": 0.3618732778461755,
+      "min": 0.03612580866055026,
+      "max": 0.7858372102694933,
+      "t0_med": 83.5
+    }
+  },
+  "bnb_vs_optimized": {
+    "independent": {
+      "n": 20,
+      "miss": 0,
+      "scip_tighter": 20,
+      "bos_tighter": 0,
+      "equal": 0,
+      "mean": 0.24325939767019333,
+      "med": 0.2668110199951419,
+      "min": 0.003746080830549836,
+      "max": 0.458281186544121,
+      "t0_med": 3484.0
+    },
+    "correlated": {
+      "n": 20,
+      "miss": 0,
+      "scip_tighter": 20,
+      "bos_tighter": 0,
+      "equal": 0,
+      "mean": 0.38279412398583457,
+      "med": 0.35839116160718376,
+      "min": 0.03612580866055026,
+      "max": 0.7920590528547429,
+      "t0_med": 1351.0
+    }
+  },
+  "oa_last_vs_optimized": {
+    "independent": {
+      "n": 20,
+      "miss": 0,
+      "scip_tighter": 0,
+      "bos_tighter": 20,
+      "equal": 0,
+      "mean": -1.2508759523298068,
+      "med": -1.2790788781183235,
+      "min": -2.2295056209974122,
+      "max": -0.2850508484265655,
+      "t0_med": 3484.0
+    },
+    "correlated": {
+      "n": 20,
+      "miss": 0,
+      "scip_tighter": 0,
+      "bos_tighter": 20,
+      "equal": 0,
+      "mean": -0.9450942760141656,
+      "med": -0.7737002590577218,
+      "min": -2.3459438709257263,
+      "max": -0.35760819991734394,
+      "t0_med": 1351.0
+    }
+  },
+  "boscia_tighter_bnb": [],
+  "equal_bnb": [],
+  "optimized_diffs": [
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 1,
+      "diff": 0.1806160625040234,
+      "t0": 2878.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 2,
+      "diff": 0.03400282179369185,
+      "t0": 3441.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 3,
+      "diff": 0.38896170093572247,
+      "t0": 3319.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 4,
+      "diff": 0.4411931791716941,
+      "t0": 3375.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 5,
+      "diff": 0.4527225088278759,
+      "t0": 3527.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 1,
+      "diff": 0.003746080830549836,
+      "t0": 3882.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 2,
+      "diff": 0.2719942472155479,
+      "t0": 3353.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 3,
+      "diff": 0.2616277927747359,
+      "t0": 4112.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 4,
+      "diff": 0.4002171059534523,
+      "t0": 2351.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 5,
+      "diff": 0.1041721515734344,
+      "t0": 2783.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 1,
+      "diff": 0.17027105721923208,
+      "t0": 4092.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 2,
+      "diff": 0.458281186544121,
+      "t0": 3026.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 3,
+      "diff": 0.3263725389871186,
+      "t0": 3601.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 4,
+      "diff": 0.42567416011205195,
+      "t0": 3602.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 5,
+      "diff": 0.0455410690598268,
+      "t0": 3549.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 1,
+      "diff": 0.33025188809972006,
+      "t0": 3699.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 2,
+      "diff": 0.07335644771223748,
+      "t0": 2595.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 3,
+      "diff": 0.07907450377914493,
+      "t0": 3311.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 4,
+      "diff": 0.061543379002587884,
+      "t0": 13064.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 5,
+      "diff": 0.3555680713070979,
+      "t0": 4074.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 1,
+      "diff": 0.6720563660317058,
+      "t0": 820.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 2,
+      "diff": 0.5088661290742742,
+      "t0": 3702.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 3,
+      "diff": 0.6828013656995733,
+      "t0": 3856.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 4,
+      "diff": 0.7920590528547429,
+      "t0": 1424.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 5,
+      "diff": 0.6473955858455138,
+      "t0": 1697.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 1,
+      "diff": 0.5112235204930062,
+      "t0": 1124.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 2,
+      "diff": 0.2937643405727002,
+      "t0": 1834.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 3,
+      "diff": 0.14518110716441335,
+      "t0": 1904.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 4,
+      "diff": 0.6468716535826573,
+      "t0": 1330.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 5,
+      "diff": 0.14713669584109113,
+      "t0": 1295.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 1,
+      "diff": 0.12488137847932101,
+      "t0": 295.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 2,
+      "diff": 0.03612580866055026,
+      "t0": 1117.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 3,
+      "diff": 0.16076058320797593,
+      "t0": 1946.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 4,
+      "diff": 0.4532248425860246,
+      "t0": 3143.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 5,
+      "diff": 0.06354280008265434,
+      "t0": 1372.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 1,
+      "diff": 0.3065863384740197,
+      "t0": 3056.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 2,
+      "diff": 0.32077449491246846,
+      "t0": 883.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 3,
+      "diff": 0.39600782830189907,
+      "t0": 1279.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 4,
+      "diff": 0.16777142025584446,
+      "t0": 1168.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 5,
+      "diff": 0.5788511675962553,
+      "t0": 1258.0
+    }
+  ],
+  "baseline_diffs": [
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 1,
+      "diff": 0.3627905723867668,
+      "t0": 1270.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 2,
+      "diff": 0.2168301777668029,
+      "t0": 20.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 3,
+      "diff": 0.45480119556036724,
+      "t0": 19.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 4,
+      "diff": 0.8792540631727959,
+      "t0": 23.0
+    },
+    {
+      "typ": "independent",
+      "m": 80,
+      "seed": 5,
+      "diff": 0.6106405884928692,
+      "t0": 42.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 1,
+      "diff": 0.08082125123392259,
+      "t0": 1241.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 2,
+      "diff": 0.3797966305889755,
+      "t0": 26.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 3,
+      "diff": 0.48770062830434924,
+      "t0": 24.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 4,
+      "diff": 0.7567524730421384,
+      "t0": 41.0
+    },
+    {
+      "typ": "independent",
+      "m": 100,
+      "seed": 5,
+      "diff": 0.2043455147458082,
+      "t0": 29.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 1,
+      "diff": 0.44074559214965037,
+      "t0": 14723.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 2,
+      "diff": 0.7735896332793626,
+      "t0": 263.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 3,
+      "diff": 0.51921457250595,
+      "t0": 316.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 4,
+      "diff": 0.6293522775085014,
+      "t0": 122.0
+    },
+    {
+      "typ": "independent",
+      "m": 150,
+      "seed": 5,
+      "diff": 0.2332544668967267,
+      "t0": 234.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 1,
+      "diff": 0.7889330086985651,
+      "t0": 1463.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 2,
+      "diff": 0.46583269129413774,
+      "t0": 61.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 3,
+      "diff": 0.5082974130456996,
+      "t0": 85.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 4,
+      "diff": 0.29293325391178904,
+      "t0": 84.0
+    },
+    {
+      "typ": "independent",
+      "m": 200,
+      "seed": 5,
+      "diff": 0.7531893545176791,
+      "t0": 62.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 1,
+      "diff": 0.6720563660317058,
+      "t0": 993.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 2,
+      "diff": 0.5040092502930342,
+      "t0": 48.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 3,
+      "diff": 0.6837389812620618,
+      "t0": 58.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 4,
+      "diff": 0.7858372102694933,
+      "t0": 29.0
+    },
+    {
+      "typ": "correlated",
+      "m": 80,
+      "seed": 5,
+      "diff": 0.6448791839200805,
+      "t0": 65.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 1,
+      "diff": 0.5112235204930062,
+      "t0": 754.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 2,
+      "diff": 0.2937643405727002,
+      "t0": 48.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 3,
+      "diff": 0.14518110716441335,
+      "t0": 39.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 4,
+      "diff": 0.6452421133376678,
+      "t0": 47.0
+    },
+    {
+      "typ": "correlated",
+      "m": 100,
+      "seed": 5,
+      "diff": 0.14713669584109113,
+      "t0": 33.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 1,
+      "diff": 0.12488137847932101,
+      "t0": 722.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 2,
+      "diff": 0.03612580866055026,
+      "t0": 195.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 3,
+      "diff": 0.16076058320797593,
+      "t0": 1141.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 4,
+      "diff": 0.4540168715250257,
+      "t0": 224.0
+    },
+    {
+      "typ": "correlated",
+      "m": 150,
+      "seed": 5,
+      "diff": 0.06673713887721178,
+      "t0": 50.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 1,
+      "diff": 0.30428758105874465,
+      "t0": 1126.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 2,
+      "diff": 0.32356146916085926,
+      "t0": 133.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 3,
+      "diff": 0.40018508653149176,
+      "t0": 142.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 4,
+      "diff": 0.16777142025584446,
+      "t0": 90.0
+    },
+    {
+      "typ": "correlated",
+      "m": 200,
+      "seed": 5,
+      "diff": 0.570412689228128,
+      "t0": 77.0
+    }
+  ]
+}
