@@ -16,6 +16,7 @@ const PAJARITO_DIR = joinpath(CSV_BASE, "Pajarito")
 const COLOURS_PATH = joinpath(ODWB_DIR, "colours.jl")
 isfile(COLOURS_PATH) || error("colours.jl not found at $COLOURS_PATH")
 include(COLOURS_PATH)
+include(joinpath(@__DIR__, "..", "plot", "plot_style.jl"))
 
 isfinite_num(x) = x isa Number && isfinite(x)
 
@@ -144,11 +145,11 @@ function plot_block(df::DataFrame; solvers::Vector{String}, out_path::String)
         ylabel="Solved instances",
         xscale=:log10,
         legend=:bottomright,
-        legendfontsize=8,
         grid=true,
         framestyle=:box,
         size=(620, 340),
-        title="",  # no titles
+        title="";
+        cm_plot_kwargs(guidefontsize=11, tickfontsize=10, legendfontsize=9, left_margin=3mm, bottom_margin=3mm, right_margin=3mm, top_margin=3mm)...
     )
     for s in solvers
         sub = df[df.solver .== s, :]

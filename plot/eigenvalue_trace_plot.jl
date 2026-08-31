@@ -4,6 +4,7 @@ using Plots
 using Plots.PlotMeasures: mm
 
 include(joinpath(@__DIR__, "..", "ODWB", "colours.jl"))
+include(joinpath(@__DIR__, "plot_style.jl"))
 
 const EIGENVALUE_DIR = joinpath(@__DIR__, "..", "ODWB", "csv", "Boscia", "eigenvalue_list")
 const OUT_DIR = @__DIR__
@@ -83,15 +84,8 @@ function plot_eigenvalue_traces(independent_path::String, correlated_path::Strin
 
     plt = plot(
         layout=(1, 2),
-        size=(1200, 520),
-        fontfamily="Computer Modern",
-        guidefontsize=10,
-        tickfontsize=8,
-        legendfontsize=8,
-        left_margin=20mm,
-        right_margin=8mm,
-        top_margin=8mm,
-        bottom_margin=16mm,
+        size=(1200, 520);
+        cm_plot_kwargs(guidefontsize=10, tickfontsize=8, legendfontsize=8)...
     )
     add_panel!(plt, correlated, 1)
     add_panel!(plt, independent, 2; point_stride=10)
@@ -99,6 +93,7 @@ function plot_eigenvalue_traces(independent_path::String, correlated_path::Strin
     output = something(out_path, joinpath(OUT_DIR, "E_eigenvalue_trace_30_5_7_1.pdf"))
     savefig(plt, output)
     println("Wrote $output")
+    copy_to_paper(output)
     return output
 end
 
@@ -110,15 +105,8 @@ function plot_smallest_eigenvalue_trace(independent_path::String, correlated_pat
 
     plt = plot(
         layout=(1, 2),
-        size=(1200, 520),
-        fontfamily="Computer Modern",
-        guidefontsize=10,
-        tickfontsize=8,
-        legendfontsize=8,
-        left_margin=20mm,
-        right_margin=8mm,
-        top_margin=8mm,
-        bottom_margin=16mm,
+        size=(1200, 520);
+        cm_plot_kwargs(guidefontsize=10, tickfontsize=8, legendfontsize=8)...
     )
     plot!(
         plt,
@@ -168,6 +156,7 @@ function plot_smallest_eigenvalue_trace(independent_path::String, correlated_pat
     output = something(out_path, joinpath(OUT_DIR, "E_smallest_eigenvalue_trace_30_5_7_1.pdf"))
     savefig(plt, output)
     println("Wrote $output")
+    copy_to_paper(output)
     return output
 end
 

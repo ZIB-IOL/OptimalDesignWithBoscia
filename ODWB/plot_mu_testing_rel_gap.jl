@@ -16,6 +16,7 @@
 using CSV, DataFrames, Printf
 using Colors
 include(joinpath(@__DIR__, "colours.jl"))
+include(joinpath(@__DIR__, "..", "plot", "plot_style.jl"))
 
 # Plotting: try PyPlot, then Plots (with GR or pyplot backend)
 const PLOT_BACKEND = try
@@ -251,6 +252,9 @@ function plot_instance_rel_gap(
     colors = [cb_blue, cb_purple, cb_rose, cb_blue_green]
 
     if PLOT_BACKEND == "PyPlot"
+        PyPlot.rc("font", family="serif")
+        PyPlot.rc("font", serif=["Computer Modern Roman", "CMU Serif", "DejaVu Serif"])
+        PyPlot.rc("mathtext", fontset="cm")
         fig, axes = PyPlot.subplots(1, 2, figsize = (12, 5))
         for (idx, key) in enumerate(setting_order)
             path = get(files_by_setting, key, nothing)
@@ -284,8 +288,8 @@ function plot_instance_rel_gap(
         PyPlot.close(fig)
     else
         # Plots.jl
-        p1 = Plots.plot(; xlabel = "Time (s)", ylabel = "Relative gap", yaxis = :log, legend = false)
-        p2 = Plots.plot(; xlabel = "Iteration", ylabel = "Relative gap", yaxis = :log, legend = :topright)
+        p1 = Plots.plot(; xlabel = "Time (s)", ylabel = "Relative gap", yaxis = :log, legend = false; cm_plot_kwargs(guidefontsize=12, tickfontsize=10, legendfontsize=10)...)
+        p2 = Plots.plot(; xlabel = "Iteration", ylabel = "Relative gap", yaxis = :log, legend = :topright; cm_plot_kwargs(guidefontsize=12, tickfontsize=10, legendfontsize=10)...)
         for (idx, key) in enumerate(setting_order)
             path = get(files_by_setting, key, nothing)
             if path === nothing || !isfile(path)
@@ -301,9 +305,8 @@ function plot_instance_rel_gap(
         end
         plot_combined = Plots.plot(p1, p2;
             layout = (1, 2),
-            size = (1200, 540),
-            left_margin = 22Plots.mm,
-            bottom_margin = 18Plots.mm,
+            size = (1200, 540);
+            cm_plot_kwargs(guidefontsize=12, tickfontsize=10, legendfontsize=10)...
         )
         if save_plots
             mkpath(out_dir)

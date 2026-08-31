@@ -4,6 +4,7 @@ using Plots
 using Plots.PlotMeasures: mm
 
 include(joinpath(@__DIR__, "..", "ODWB", "colours.jl"))
+include(joinpath(@__DIR__, "plot_style.jl"))
 
 const TIME_LIMIT = 3600.0
 const BOSCIA_DIR = joinpath(@__DIR__, "..", "ODWB", "csv", "Boscia")
@@ -515,15 +516,8 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
         ylabel="Solved instances",
         grid=true,
         legend=:topleft,
-        size=(820, 500),
-        fontfamily="Computer Modern",
-        guidefontsize=13,
-        tickfontsize=11,
-        legendfontsize=11,
-        left_margin=20mm,
-        right_margin=8mm,
-        top_margin=8mm,
-        bottom_margin=16mm,
+        size=(820, 500);
+        cm_plot_kwargs(guidefontsize=13, tickfontsize=11, legendfontsize=11)...
     )
 
     colors = if family == "scipsdp"

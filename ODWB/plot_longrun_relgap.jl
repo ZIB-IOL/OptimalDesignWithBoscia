@@ -19,6 +19,7 @@ using Statistics
 using Plots.PlotMeasures: mm
 
 include(joinpath(@__DIR__, "colours.jl"))
+include(joinpath(@__DIR__, "..", "plot", "plot_style.jl"))
 
 const TIME_LIMIT = 3600.0
 const LONG_DIMS = [500, 1000, 2000, 5000, 8000, 10000]
@@ -187,13 +188,11 @@ function make_plot(df::DataFrame, dtype::String, ncons::String; out_bases)
         xlabel="Dimension m",
         ylabel="Relative gap",
         legend=:topleft,
-        legendfontsize=8,
         grid=true,
         framestyle=:box,
         size=(640, 380),
-        left_margin=3mm,
-        bottom_margin=3mm,
-        title="",
+        title="";
+        cm_plot_kwargs(guidefontsize=11, tickfontsize=10, legendfontsize=9, left_margin=3mm, bottom_margin=3mm, right_margin=3mm, top_margin=3mm)...
     )
 
     any_series = false
@@ -270,16 +269,14 @@ function make_cumulative_plot(df::DataFrame, dtype::String, ncons::String; out_b
         xlabel="Relative gap",
         ylabel="% instances",
         legend=:bottomright,
-        legendfontsize=8,
         grid=true,
         framestyle=:box,
         size=(640, 380),
-        left_margin=3mm,
-        bottom_margin=3mm,
         xlims=(0, max_gap),
         ylims=(0, 100),
         yticks=0:10:100,
-        title="",
+        title="";
+        cm_plot_kwargs(guidefontsize=11, tickfontsize=10, legendfontsize=9, left_margin=3mm, bottom_margin=3mm, right_margin=3mm, top_margin=3mm)...
     )
 
     any_series = false

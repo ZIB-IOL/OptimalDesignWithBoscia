@@ -21,6 +21,7 @@ using Plots
 Plots.gr()
 using Colors
 include(joinpath(@__DIR__, "colours.jl"))
+include(joinpath(@__DIR__, "..", "plot", "plot_style.jl"))
 
 const ROOT = @__DIR__
 const OUT_DIR = joinpath(ROOT, "plots")
@@ -130,8 +131,14 @@ function plot_one(n::Int, seed::Int; save::Bool = true)
     # Some ACSTS runs were saved with typo "exlcusion_criterion"
     alt_excl = "exlcusion_criterion"
 
-    p_nodes = plot(; xaxis = :log, yaxis = :log, xlabel = "nodes", ylabel = "relative gap",
-        legend = :topright)
+    p_nodes = plot(;
+        xaxis = :log,
+        yaxis = :log,
+        xlabel = "nodes",
+        ylabel = "relative gap",
+        legend = :topright;
+        cm_plot_kwargs(guidefontsize=12, tickfontsize=10, legendfontsize=9)...
+    )
 
     any_added = false
     for (label, crit, variant, ls, col) in series
