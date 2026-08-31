@@ -7,9 +7,9 @@
 # - ACSTS: default, rank_based_pruning, eigenvalue_based_pruning, exclusion_criterion
 #
 # Output:
-# - For n in {10,12} and seed in {1,2,3}, a figure with two panels:
-#   - rel gap vs time (x log, y log)
-#   - rel gap vs "nodes" (we use Boscia table Iter as processed-node counter)
+# - For n in {10,12} and seed in {1,2,3}:
+#   - rel gap vs iteration (log-log; Boscia table Iter), PDF + PNG
+#   - Computer Modern fonts for axis/tick/legend labels
 #
 # Usage:
 #   julia --project=. plot_acst_acsts_relgap_progress.jl
@@ -130,8 +130,17 @@ function plot_one(n::Int, seed::Int; save::Bool = true)
     # Some ACSTS runs were saved with typo "exlcusion_criterion"
     alt_excl = "exlcusion_criterion"
 
-    p_nodes = plot(; xaxis = :log, yaxis = :log, xlabel = "nodes", ylabel = "relative gap",
-        legend = :topright)
+    p_nodes = plot(;
+        xaxis = :log,
+        yaxis = :log,
+        xlabel = "iteration",
+        ylabel = "relative gap",
+        legend = :topright,
+        fontfamily = "Computer Modern",
+        guidefontsize = 12,
+        tickfontsize = 10,
+        legendfontsize = 9,
+    )
 
     any_added = false
     for (label, crit, variant, ls, col) in series
@@ -161,14 +170,24 @@ function plot_one(n::Int, seed::Int; save::Bool = true)
 
     if save
         mkpath(OUT_DIR)
-        out = joinpath(OUT_DIR, @sprintf("acst_acsts_relgap_nodes_n%d_seed%d.png", n, seed))
-        savefig(fig, out)
-        @info "Saved" out
+        # Paper figure (PDF); keep PNG for quick preview.
+        out_pdf = joinpath(OUT_DIR, @sprintf("acst_acsts_relgap_nodes_n%d_seed%d.pdf", n, seed))
+        out_png = joinpath(OUT_DIR, @sprintf("acst_acsts_relgap_nodes_n%d_seed%d.png", n, seed))
+        savefig(fig, out_pdf)
+        savefig(fig, out_png)
+        # Also stage next to other Computer Modern paper figures.
+        paper_dir = joinpath(ROOT, "..", "plot")
+        if isdir(paper_dir)
+            cp(out_pdf, joinpath(paper_dir, basename(out_pdf)); force = true)
+            cp(out_png, joinpath(paper_dir, basename(out_png)); force = true)
+        end
+        @info "Saved" out_pdf out_png
     end
     return fig
 end
 
 function main()
+    # Default paper figure: n=10, seed=1. Also regenerate the other preview panels.
     for n in (10, 12)
         for seed in (1, 2, 3)
             plot_one(n, seed)
