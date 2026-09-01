@@ -22,6 +22,8 @@ const CB_EIGEN_COLORS = [
 const EIGEN_LINESTYLES = [:solid, :dash, :dot, :dashdot, :solid, :dash]
 const EIGEN_MARKERS = [:circle, :rect, :utriangle, :diamond, :star5, :xcross]
 
+eigen_label(i::Int) = "\$\\lambda_{$(i)}\$"
+
 function parse_eigenvalue_string(s::AbstractString)
     stripped = strip(s)
     startswith(stripped, "[") || error("Unexpected eigenvalue format: $s")
@@ -58,7 +60,7 @@ function add_panel!(plt, eigvals::Matrix{Float64}, panel_idx::Int; point_stride:
             x,
             eigvals[1:point_stride:end, i],
             subplot=panel_idx,
-            label="λ_$i",
+            label=eigen_label(i),
             color=CB_EIGEN_COLORS[i],
             linestyle=EIGEN_LINESTYLES[i],
             marker=EIGEN_MARKERS[i],
@@ -70,7 +72,7 @@ function add_panel!(plt, eigvals::Matrix{Float64}, panel_idx::Int; point_stride:
     plot!(
         plt,
         subplot=panel_idx,
-        xlabel="nodes",
+        xlabel="iteration",
         ylabel=panel_idx == 1 ? "Eigenvalue" : "",
         grid=true,
         legend=:topright,
