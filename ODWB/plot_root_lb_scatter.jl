@@ -6,6 +6,7 @@
 using CSV
 using DataFrames
 using Plots
+using Plots.PlotMeasures: mm
 include(joinpath(@__DIR__, "..", "plot", "plot_style.jl"))
 include(joinpath(@__DIR__, "colours.jl"))
 
@@ -13,6 +14,9 @@ const CSV_PATH = joinpath(@__DIR__, "plots", "root_lb", "root_lb_pairs.csv")
 const OUT_DIR = joinpath(@__DIR__, "plots", "root_lb")
 
 rgb(t) = RGB(t[1], t[2], t[3])
+
+const SCIP_BNB_COLOR = rgb(cb_green_sea)
+const SCIP_OA_COLOR = rgb(cb_salmon_pink)
 
 function ub_value(x)
     x === missing && return NaN
@@ -39,54 +43,75 @@ function panel_data(df::DataFrame, crit::String, typ::String)
     )
 end
 
-function add_panel!(plt, panel_idx::Int, data, title::String)
+function panel_limits(data)
     xs = data.boscia
-    lo = minimum(vcat(xs[data.mask_bnb], xs[data.mask_oa]))
-    hi = maximum(vcat(xs[data.mask_bnb], xs[data.mask_oa]))
-    pad = 0.05 * (hi - lo)
-    lims = (lo - pad, hi + pad)
+    all_x = vcat(xs[data.mask_bnb], xs[data.mask_oa])
+    all_y = vcat(data.bnb[data.mask_bnb], data.oa[data.mask_oa])
+    isempty(all_x) && return (0.0, 1.0)
+    lo = min(minimum(all_x), minimum(all_y))
+    hi = max(maximum(all_x), maximum(all_y))
+    span = hi - lo
+    span <= 0 && return (lo - 1.0, hi + 1.0)
+    pad = 0.02 * span
+    lo -= pad
+    hi += pad
+    if minimum(vcat(all_x, all_y)) > 0
+        lo = max(0, lo)
+    end
+    return (lo, hi)
+end
+
+function add_panel!(plt, panel_idx::Int, data, title::String; show_legend::Bool=false)
+    lims = panel_limits(data)
+    xs = data.boscia
+    hide = (label=false, legend_entry=false)
 
     plot!(
         plt,
         [lims[1], lims[2]],
         [lims[1], lims[2]];
         subplot=panel_idx,
-        label="equal UB",
+        label=show_legend ? "equal UB" : false,
+        legend_entry=show_legend,
         color=:gray,
         linestyle=:dash,
         linewidth=1.5,
-        legend=:topleft,
     )
     scatter!(
         plt,
         xs[data.mask_bnb],
         data.bnb[data.mask_bnb];
         subplot=panel_idx,
-        label="SCIP B&B (n=$(data.n_bnb))",
-        color=rgb(cb_blue),
-        marker=:circle,
-        markersize=4,
+        label=show_legend ? "SCIPSDP BnB" : false,
+        legend_entry=show_legend,
+        color=SCIP_BNB_COLOR,
+        marker=:utriangle,
+        markersize=5,
+        markerstrokewidth=0,
     )
     scatter!(
         plt,
         xs[data.mask_oa],
         data.oa[data.mask_oa];
         subplot=panel_idx,
-        label="SCIP OA (n=$(data.n_oa))",
-        color=rgb(cb_salmon_pink),
-        marker=:square,
-        markersize=4,
+        label=show_legend ? "SCIPSDP OA" : false,
+        legend_entry=show_legend,
+        color=SCIP_OA_COLOR,
+        marker=:rect,
+        markersize=5,
+        markerstrokewidth=0,
     )
     plot!(
         plt,
         subplot=panel_idx,
         title=title,
-        xlabel="Boscia root dual / UB",
-        ylabel="SCIP root dual / UB",
+        xlabel="Boscia root upper bound",
+        ylabel="SCIP root upper bound",
         xlims=lims,
         ylims=lims,
         aspect_ratio=1,
-        grid=true,
+        grid=true;
+        hide...,
     )
 end
 
@@ -103,11 +128,21 @@ function main()
 
     plt = plot(
         layout=(2, 2),
-        size=(900, 820);
-        cm_plot_kwargs(guidefontsize=12, tickfontsize=10, legendfontsize=9)...
+        size=(1100, 1100),
+        legend=:topleft,
+        legend_subplot=1;
+        cm_plot_kwargs(
+            guidefontsize=12,
+            tickfontsize=10,
+            legendfontsize=10,
+            left_margin=8mm,
+            right_margin=4mm,
+            top_margin=4mm,
+            bottom_margin=8mm,
+        )...
     )
     for (idx, (crit, typ, title)) in enumerate(panels)
-        add_panel!(plt, idx, panel_data(df, crit, typ), title)
+        add_panel!(plt, idx, panel_data(df, crit, typ), title; show_legend=(idx == 1))
     end
 
     mkpath(OUT_DIR)
@@ -117,4 +152,6 @@ function main()
     copy_to_paper(out)
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end
