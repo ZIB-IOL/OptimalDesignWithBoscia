@@ -511,9 +511,10 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
     plt = plot(
         xscale=:log10,
         xlim=(1.0, TIME_LIMIT),
-        ylim=(0, max(total_instances, 1)),
+        ylim=(0, 100),
+        yticks=0:10:100,
         xlabel="Time (s)",
-        ylabel="Solved instances",
+        ylabel="% instances solved",
         grid=true,
         legend=:topleft,
         size=(820, 500);
@@ -552,6 +553,7 @@ function generate_plot(family::String, cfg::ExperimentConfig; verbose::Bool=true
         isempty(runs) && continue
         times = solved_times(runs, flagged[series_label])
         x, y = step_xy(times)
+        y = total_instances > 0 ? 100.0 .* y ./ total_instances : zeros(length(y))
         color, marker, linestyle = get(series_styles, series_label, base_styles[base_label])
         if use_formulation_suffix && endswith(series_label, "(ACSTS)")
             linestyle = :dash
