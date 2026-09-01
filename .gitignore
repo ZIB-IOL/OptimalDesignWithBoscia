@@ -33,3 +33,6 @@ cb_*
 
 # ignore full runs -> too large to commit
 ODWB/csv/full_runs_boscia/
+
+# Local Computer Modern Unicode fonts used for paper figure regeneration
+.fonts/
