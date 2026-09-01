@@ -23,6 +23,7 @@ const EIGEN_LINESTYLES = [:solid, :dash, :dot, :dashdot, :solid, :dash]
 const EIGEN_MARKERS = [:circle, :rect, :utriangle, :diamond, :star5, :xcross]
 
 eigen_label(i::Int) = "\$\\lambda_{$(i)}\$"
+const LAMBDA_MIN_LABEL = "\$\\lambda_{\\min}\$"
 
 function parse_eigenvalue_string(s::AbstractString)
     stripped = strip(s)
@@ -115,11 +116,11 @@ function plot_smallest_eigenvalue_trace(independent_path::String, correlated_pat
         1:size(correlated, 1),
         correlated[:, 1],
         subplot=1,
-        label="λ_1",
+        label=LAMBDA_MIN_LABEL,
         color=CB_EIGEN_COLORS[1],
         linewidth=2,
-        xlabel="nodes",
-        ylabel="λ_1",
+        xlabel="iteration",
+        ylabel=LAMBDA_MIN_LABEL,
         grid=true,
         legend=false,
     )
@@ -137,10 +138,10 @@ function plot_smallest_eigenvalue_trace(independent_path::String, correlated_pat
         1:size(independent, 1),
         independent[:, 1],
         subplot=2,
-        label="λ_1",
+        label=LAMBDA_MIN_LABEL,
         color=CB_EIGEN_COLORS[2],
         linewidth=2,
-        xlabel="nodes",
+        xlabel="iteration",
         ylabel="",
         grid=true,
         legend=false,
