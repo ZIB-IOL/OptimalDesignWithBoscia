@@ -281,7 +281,7 @@ function solve_opt(
     elseif branch_all
         branching_strategy = Boscia.BRANCH_ALL()
     else
-        branching_strategy = Bonobo.MOST_INFEASIBLE()
+        branching_strategy = Boscia.MOST_INFEASIBLE()
     end
 
     result = 0.0
