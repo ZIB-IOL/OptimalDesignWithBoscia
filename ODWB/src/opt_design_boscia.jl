@@ -3,7 +3,7 @@
 # "A first-order algorithm for the A-optimal experimental design Problem: a mathematical programming approach"
 
 # min 1/(trace(∑x_i v_iv_i^T))
-# s.t. \sum x_i = s
+# s.t. ∑ x_i = s
 #       lb ≤ x ≤ ub
 #       x ∈ Z^m
 
@@ -18,7 +18,7 @@
 # "Branch-and-Bound for D-Optimality with fast local search and bound tightening"
 
 # min log(1/(det(∑x_i v_iv_i^T)))
-# s.t. \sum x_i = s
+# s.t. ∑ x_i = s
 #       lb ≤ x ≤ ub
 #       x ∈ Z^m
 
@@ -32,8 +32,20 @@
 # "Branch-and-Bound for D-Optimality with fast local search and bound tightening"
 
 # min log(1/(det(∑x_i v_iv_i^T)))
-# s.t. \sum x_i = s
+# s.t. ∑ x_i = s
 #       lb ≤ x ≤ ub
+#       x ∈ Z^m
+
+# v_i ∈ R^n
+# n - number of parameters
+# m - number of possible experiments
+# A = [v_1^T,.., v_m^T], so the rows of A correspond to the different experiments
+
+###################### E-Optimal Design ############################
+
+# max λ_min(∑x_i v_iv_i^T)
+# s.t. ∑ x_i = N
+#       0 ≤ x ≤ 1
 #       x ∈ Z^m
 
 # v_i ∈ R^n
