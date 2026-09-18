@@ -382,14 +382,10 @@ function solve_opt(
                 D = Diagonal(x)
                 X = L === nothing ? A' * D * A : L + A' * D * A
                 X = issparse(X) ? Matrix(X) : X
-                @show x, sum(isnan.(x)) > 0
-                @show X
                 λ = eigvals(X)
                 correction = 2 * op_norm * (n - cut_off) * exp(- (λ[end] - λ[cut_off])/μ) 
                 dual_gap += correction
             end
-
-            @show tree.incumbent
         end
     end
 
@@ -508,8 +504,6 @@ function solve_opt(
         x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
         
         # Actual run
-        @show rounding_prob
-        @show N
         settings.branch_and_bound[:verbose] = verbose
         settings.branch_and_bound[:time_limit] = time_limit
         @suppress_err x, _, result = Boscia.solve(f, sub_grad!, lmo, mode=Boscia.SMOOTHING_MODE, settings=settings)
