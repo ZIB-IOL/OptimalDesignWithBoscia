@@ -472,10 +472,7 @@ function solve_opt(
         settings.smoothing[:smoothing_min] = smoothing_min
         settings.smoothing[:smoothing_min_valid] = smoothing_min_valid
         settings.smoothing[:smoothing_decay] = smoothing_decay
-        settings.smoothing[:use_sub_grad_info] = use_sub_grad_info
         settings.smoothing[:max_restart_fw_iter] = min(m,100)
-        settings.smoothing[:best_sol_by_original] = best_sol_by_original
-        settings.smoothing[:resolve_integer_solution] = resolve_integer_solution
         settings.smoothing[:clip_mu_resolution] = clip_mu_resolution
         settings.smoothing[:node_callback] = build_node_callback(m, n, A, reduced_percentage, reduced_spectrum; L=L)
 
