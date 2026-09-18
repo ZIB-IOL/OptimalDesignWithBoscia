@@ -144,7 +144,7 @@ Heuristic based on the approach in https://arxiv.org/abs/2401.14317
 function build_pipage_rounding_heuristic(A, N; threshold=0.8, epsilon=1, L=nothing)
     m, n = size(A)
     inf_matrix(x) = L === nothing ? A' * Diagonal(x) * A : L + A' * Diagonal(x) * A
-    return function pipage_rounding_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+    return function pipage_rounding_heuristic(tree::Boscia.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
         idx_set = findall(x .> threshold)
         cut_off = Int(floor(min(max(n * log(n)/epsilon^2, length(idx_set)), N)))
@@ -237,7 +237,7 @@ Follow subgradient heuristic for E-optimal design.
 """
 function build_follow_subgradient_heuristic(A, k; L=nothing)
     m, n = size(A)
-    return function follow_gradient_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+    return function follow_gradient_heuristic(tree::Boscia.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
         sols = []
         sol_hashes = Set{UInt}()
@@ -274,7 +274,7 @@ From https://jourdainlamperski.com/wp-content/uploads/2024/01/rand_round_max_min
 """
 function build_simple_randomized_rounding_heuristic(A, N, max_iter; rng=Random.default_rng())
     m, n = size(A)
-    return function simple_randomized_rounding_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+    return function simple_randomized_rounding_heuristic(tree::Boscia.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         x_new = copy(x)
         sols = []
         no_feasible_solution_found = true
@@ -300,7 +300,7 @@ From https://jourdainlamperski.com/wp-content/uploads/2024/01/rand_round_max_min
 function build_greedy_fedorov_heuristic(A, N, max_iter; tolerance = 0.0, L=nothing)
     m, n = size(A)
     inf_matrix(x) = L === nothing ? A' * Diagonal(x) * A : L + A' * Diagonal(x) * A
-    return function greedy_fedorov_heuristic(tree::Bonobo.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
+    return function greedy_fedorov_heuristic(tree::Boscia.BnBTree, tlmo::Boscia.TimeTrackingLMO, x)
         z = copy(tree.incumbent_solution.solution)
         sols = []
         improved = false
