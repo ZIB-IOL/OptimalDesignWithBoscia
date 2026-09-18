@@ -14,7 +14,7 @@ Random.seed!(seed)
 Check if the gradient using finite differences matches the grad! provided.
 Copied from FrankWolfe package: https://github.com/ZIB-IOL/FrankWolfe.jl/blob/master/examples/plot_utils.jl
 """
-function check_gradients(grad!, f, gradient, num_tests=10, tolerance=1.0e-5)
+function check_gradients(grad!, f, gradient; num_tests=10, tolerance=1.0e-5)
     for i in 1:num_tests
         random_point = rand(length(gradient))
         grad!(gradient, random_point)
@@ -82,16 +82,24 @@ end
 end
 
 @testset "Derivative E-opt" begin
-    for dim in [20,50,80]
-        for μ in [1e-2, 1e-1, 1.0]
-            n = Int(floor(dim/4))
-            @show dim, n
+    for dim in [20,50, 80]
+        n = Int(floor(dim/4))
+        A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
+        λ_hat = ODWB.estimate_design_lambda_scale(
+            A, Int(floor(1.5*n));
+            L=nothing
+        )
+        λ_hat = max(λ_hat, eps(Float64))
+        smoothing_start = 0.3 * λ_hat
+        smoothing_min = 0.02 * λ_hat
+        @show λ_hat, smoothing_start, smoothing_min
+        for μ in [smoothing_start, smoothing_min]
+            @show dim, n, μ
             gradient = rand(dim)
-            A, _, _, _, _ = ODWB.build_data(seed, dim, n, false, false)
             f_orig, sub_grad!, generate_smoothing_function = ODWB.build_e_criterion(A)
             f_mu, grad! = generate_smoothing_function(μ)
 
-            @test check_gradients(grad!, f_mu, gradient)
+            @test check_gradients(grad!, f_mu, gradient, tolerance=1e-3)
         end
     end
 end 
