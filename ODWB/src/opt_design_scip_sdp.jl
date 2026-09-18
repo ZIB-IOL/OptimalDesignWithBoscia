@@ -50,18 +50,20 @@ function _export_model_to_cbf(model, filename)
     bridged = MOI.Bridges.full_bridge_optimizer(cbf_model, Float64)
     src = JuMP.backend(model)
     index_map = MOI.copy_to(bridged, src)
-    dest_order = MOI.get(bridged, MOI.ListOfVariableIndices())
-    dest_to_pos = Dict{MOI.VariableIndex,Int}(zip(dest_order, eachindex(dest_order)))
+    MOI.write_to_file(cbf_model, filename)
+    cbf_order = MOI.get(cbf_model, MOI.ListOfVariableIndices())
+    cbf_to_pos = Dict{MOI.VariableIndex,Int}(zip(cbf_order, eachindex(cbf_order)))
     jump_vi_to_pos = Dict{MOI.VariableIndex,Int}()
     for vi in MOI.get(src, MOI.ListOfVariableIndices())
         dest_vi = index_map[vi]
-        if haskey(dest_to_pos, dest_vi)
-            jump_vi_to_pos[vi] = dest_to_pos[dest_vi]
+        if haskey(cbf_to_pos, dest_vi)
+            jump_vi_to_pos[vi] = cbf_to_pos[dest_vi]
         end
     end
-    MOI.write_to_file(cbf_model, filename)
     return jump_vi_to_pos
 end
+
+_cbf_var_value(ord, jump_vi_to_pos, v) = ord[jump_vi_to_pos[JuMP.index(v)]]
 
 const _SCIP_STATUS_TO_MOI = Dict(
     SCIP.SCIP_STATUS_OPTIMAL => MOI.OPTIMAL,
@@ -160,7 +162,11 @@ function solve_opt_scip_sdp(
     rel_gap = result.rel_gap
     @show solution, dual_bound, rel_gap
     ord = result.var_values_ordered
-    y = criterion == "ACST" ? reshape(ord[1:n^2], n, n) : ord[1:m]
+    y = if criterion == "ACST"
+        reshape([_cbf_var_value(ord, jump_vi_to_pos, x_mat[i]) for i in 1:(n^2)], n, n)
+    else
+        [_cbf_var_value(ord, jump_vi_to_pos, x_lin[i]) for i in eachindex(x_lin)]
+    end
 
     isfile(cbf_path) && rm(cbf_path, force=true)
     @show y
