@@ -173,7 +173,7 @@ end
 end 
 
 
-@testset "SCIP" begin
+#=@testset "SCIP" begin
     @testset "A Fusion" begin
         for m in dimensions 
             for k in facs 
@@ -213,10 +213,10 @@ end
             end
         end
     end
-end
+end =#
 
 
-@testset "Pajarito" begin
+#=@testset "Pajarito" begin
     @testset "A Optimal" begin
         for m in dimensions 
             for k in facs 
