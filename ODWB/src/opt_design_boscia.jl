@@ -342,7 +342,7 @@ function solve_opt(
             tighted_to_zero=fixed_to_zero,
             processed_tightening_nodes=processed_tightening_nodes,
         )
-    else
+    elseif criterion in ["E", "EF", "AGC", "ACSTS", "ACST"]
         tightening = use_exclusion_criterion && criterion in ["E", "EF", "AGC", "ACSTS", "ACST"]
         @show tightening
         branch_callback = build_branch_callback_mem(
@@ -363,6 +363,8 @@ function solve_opt(
             record_eigenvalue=record_eigenvalue,
             eigenvalue_list=eigenvalue_list,
         )
+    else
+        branch_callback = nothing
     end
 
     function bnb_callback(tree, node; worse_than_incumbent=false, node_infeasible=false, lb_update=false)
