@@ -967,7 +967,7 @@ end
 """
 Find n linearly independent rows of A to build the starting point.
 """
-function linearly_independent_rows(A, m ,n, ub=nothing)
+function linearly_independent_rows(A, m ,n; ub=nothing)
     S = []
     for i in 1:m
         if ub !== nothing && iszero(ub[i])
