@@ -204,8 +204,6 @@ function build_tightened_branch_callback(A, N, f, sub_grad!; L=nothing)
         prune_left = false
         prune_right = false
 
-        @show tree.incumbent
-        @show UB
         fixed_to_one = []
         fixed_to_zero = []
 
