@@ -420,7 +420,6 @@ function solve_opt(
         println("find first extreme point")
         x0 = compute_extreme_point(lmo, direction)
         line_search = ls_secant ? FrankWolfe.Secant() : FrankWolfe.Adaptive()
-        fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()
         active_set= FrankWolfe.ActiveSet([(1.0, x0)])   
         @show f(x0) 
         z = greedy_incumbent_fusion(A,m,n,N,ub)
@@ -517,7 +516,6 @@ function solve_opt(
     else
         _, active_set, S = build_start_point2(A, m, n, N, ub)
         line_search = ls_secant ? FrankWolfe.Secant(domain_oracle=domain_oracle) : FrankWolfe.MonotonicGenericStepsize(FrankWolfe.Adaptive(), domain_oracle)
-        fw_variant = use_BCG ? Boscia.Blended() : Boscia.BPCG()
         z = greedy_incumbent(A, m, n, N, ub)
 
         # Precompile
