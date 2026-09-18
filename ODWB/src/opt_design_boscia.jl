@@ -460,7 +460,7 @@ function solve_opt(
         settings.branch_and_bound[:time_limit] = 10
         settings.branch_and_bound[:use_shadow_set] = use_shadow_set
         settings.branch_and_bound[:branching_strategy] = branching_strategy
-        settings.branch_and_bound[:traverse_strategy] = depthfirstsearch ? Boscia.BiasedDepthFirstSearch(true) : Bonobo.BestFirstSearch()
+        settings.branch_and_bound[:traverse_strategy] = depthfirstsearch ? Boscia.BiasedDepthFirstSearch(true) : Boscia.BestFirstSearch()
 
         settings.tolerances[:rel_dual_gap] = relative_gap_tolerance
         settings.tolerances[:dual_gap] = N < n ? 1e-4 : 1e-6
