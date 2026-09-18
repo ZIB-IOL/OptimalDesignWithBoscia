@@ -18,6 +18,7 @@ include("fusion_co-bnb.jl")
 
 dimensions = [20,30]
 facs = [10,4]
+constructs = ["one", "log"]
 time_limit = 300
 verbose = false
 
@@ -104,6 +105,24 @@ verbose = false
             end
         end
     end 
+
+    @testset "E-Optimal" begin
+        for m in dimensions 
+            n = Int(floor(sqrt(m)))
+            for con in constructs
+                N = if con == "one"
+                    Int(floor(1.5 * n))
+                else con == "log"
+                    Int(floor(1.5 * n * log(n)))
+                end
+                x_ind, _ = ODWB.solve_opt(seed, m ,n, time_limit, "E", false; N=N, write = false, verbose=verbose, optimized_run=true, scale_smoothing_mu=true)
+                x_corr, _ = ODWB.solve_opt(seed, m, n, time_limit, "E", true; N=N, write = false, verbose=verbose, optimized_run=true, scale_smoothing_mu=true)
+
+                @test isapprox(sum(x_ind), N; atol=1e-4, rtol=1e-2)
+                @test isapprox(sum(x_corr), N; atol=1e-4, rtol=1e-2)
+            end
+        end
+    end
 end
 
 
@@ -277,4 +296,29 @@ end
             end
         end
     end
-end 
+end =#
+
+@testset "SCIPSDP" begin
+    @testset "E-Optimal" begin
+        for m in dimensions 
+            n = Int(floor(sqrt(m)))
+            for con in constructs
+                N = if con == "one"
+                    Int(floor(1.5 * n))
+                else con == "log"
+                    Int(floor(1.5 * n * log(n)))
+                end
+                x_ind_oa = ODWB.solve_opt_scip_sdp(seed, m ,n, time_limit, "E", false; N=N, write = false, verbose=verbose, scip_sdp_mode=:oa)
+                x_corr_oa = ODWB.solve_opt_scip_sdp(seed, m, n, time_limit, "E", true; N=N, write = false, verbose=verbose, scip_sdp_mode=:oa)
+
+                x_ind_bnb = ODWB.solve_opt_scip_sdp(seed, m ,n, time_limit, "E", false; N=N, write = false, verbose=verbose, scip_sdp_mode=:bnb)
+                x_corr_bnb = ODWB.solve_opt_scip_sdp(seed, m, n, time_limit, "E", true; N=N, write = false, verbose=verbose, scip_sdp_mode=:bnb)
+
+                @test isapprox(sum(x_ind_oa), N; atol=1e-4, rtol=1e-2)
+                @test isapprox(sum(x_corr_oa), N; atol=1e-4, rtol=1e-2)
+                @test isapprox(sum(x_ind_bnb), N; atol=1e-4, rtol=1e-2)
+                @test isapprox(sum(x_corr_bnb), N; atol=1e-4, rtol=1e-2)
+            end
+        end
+    end
+end
