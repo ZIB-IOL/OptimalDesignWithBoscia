@@ -340,7 +340,7 @@ function solve_opt_custom(seed, m, n, time_limit, criterion, corr; p=0, write = 
     end
     root = ConstrainedBoxMIProblem(f, grad!, linesearch, domain_oracle, m_hat, collect(1:m), N_hat, time_limit)
     nodeExample = CustomBBNode(
-        Bonobo.BnBNodeInfo(1, 0.0, 0.0),
+        Bonobo.BnBNodeInfo(1, 0.0, 0.0, 0),
         lb_hat,
         ub_hat, 
         fill(-1.0, length(x0)),
@@ -570,5 +570,5 @@ function Bonobo.optimize!(tree::Bonobo.BnBTree{<:CustomBBNode}; callback=(args..
         Bonobo.branch!(tree, node)
         callback(tree, node)
     end
-    Bonobo.sort_solutions!(tree.solutions, tree.sense)
+    Bonobo.sort_solutions!(tree.solutions) # tree.sense
 end
